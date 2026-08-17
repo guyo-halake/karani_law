@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "name": "nyagah-kithinji-bills-of-costs",
+  "cleanUrls": true,
+  "routes": [
+    { "src": "/(.*)", "dest": "/$1" }
+  ]
+}

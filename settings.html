@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portal Settings — Nyagah B. Kithinji &amp; Co. Advocates</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Invisible Hover Trigger Zone & Left Hover Sidebar Dock -->
+<div class="sidebar-trigger-zone"></div>
+<aside class="hover-sidebar-dock">
+  <a href="index.html" class="sidebar-item" title="Home">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    <span>Home</span>
+  </a>
+  <a href="excel-vault.html" class="sidebar-item" title="Excel/PDF Library">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    <span>Excel/PDF</span>
+  </a>
+  <a href="settings.html" class="sidebar-item active" title="Portal Settings">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <span>Settings</span>
+  </a>
+</aside>
+
+<!-- Executive Topbar Navigation -->
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="topbar-left">
+      <img src="kenya_coat_of_arms.png" alt="Kenya Coat of Arms Seal" class="coat-of-arms-logo" onclick="window.location.href='index.html'">
+      <a class="brand" href="index.html">
+        <span class="brand-firm">Nyagah B. Kithinji &amp; Co. Advocates</span>
+        <span>&middot; Bills of Costs Library</span>
+      </a>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="excel-vault.html">Excel/PDF</a>
+        <a href="settings.html" class="active">Settings</a>
+      </nav>
+    </div>
+  </div>
+</div>
+
+<!-- Hero Section -->
+<div class="hub-hero">
+  <p class="kicker">SYSTEM CONFIGURATION</p>
+  <h1>Portal Settings</h1>
+  <p class="lede">Configure default currency formatting, statutory VAT rates, and official Taxing Master designation titles across all court reports.</p>
+</div>
+
+<!-- Settings Form Sheet -->
+<div style="max-width:760px; margin:0 auto; padding:0 40px;">
+  <div style="background:#ffffff; border:1px solid var(--rule); border-radius:8px; padding:32px;">
+    <form id="standaloneSettingsForm">
+      <div class="form-group" style="margin-bottom:20px;">
+        <label style="font-size:13px; margin-bottom:6px;">Default Legal Currency</label>
+        <select id="stCurrency" style="padding:10px; font-size:13px;">
+          <option value="Kshs">Kshs — Kenyan Shilling (KEK)</option>
+          <option value="USD">USD — US Dollar ($)</option>
+        </select>
+        <div style="font-size:11.5px; color:var(--ink-muted); margin-top:4px;">Applies currency formatting across all Party &amp; Party bills.</div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:20px;">
+        <label style="font-size:13px; margin-bottom:6px;">Default Statutory Value Added Tax (VAT)</label>
+        <select id="stVat" style="padding:10px; font-size:13px;">
+          <option value="16">16% (Advocates Remuneration Order Statutory VAT)</option>
+          <option value="0">0% (VAT Exempt / Special Arbitral Exemption)</option>
+        </select>
+        <div style="font-size:11.5px; color:var(--ink-muted); margin-top:4px;">Calculates statutory VAT addition on taxed instruction fees.</div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:20px;">
+        <label style="font-size:13px; margin-bottom:6px;">Taxing Master Official Designation Title</label>
+        <input type="text" id="stOfficerTitle" value="Registrar of the High Court / Sole Arbitrator" style="padding:10px; font-size:13px;">
+        <div style="font-size:11.5px; color:var(--ink-muted); margin-top:4px;">Appears on the Certificate of Taxation signature block.</div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:24px;">
+        <label style="font-size:13px; margin-bottom:6px;">Advocates Firm Designation</label>
+        <input type="text" id="stFirmName" value="Nyagah B. Kithinji &amp; Co. Advocates" style="padding:10px; font-size:13px;">
+      </div>
+
+      <div style="text-align:right; border-top:1px solid var(--rule); padding-top:20px;">
+        <button type="submit" class="action-btn-primary" style="padding:10px 24px; font-size:13px;">Save Preferences</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modern Minimalist Footer (Exclusive to Settings Page) -->
+<footer class="firm-footer">
+  <div class="footer-grid">
+    <div class="footer-col">
+      <h4>Nyagah B. Kithinji &amp; Co. Advocates</h4>
+      <p>Upper Hill Financial District, Mbaruk Road off Ngong Road<br>Nairobi, Kenya<br>Email: info@kithinjilegal.co.ke</p>
+    </div>
+    <div class="footer-col">
+      <h4>Quick Links</h4>
+      <p>
+        <a href="index.html">Home / Matters</a><br>
+        <a href="excel-vault.html">Excel/PDF Library</a><br>
+        <a href="settings.html">Settings</a>
+      </p>
+    </div>
+    <div class="footer-col">
+      <h4>Firm Location &amp; Emailing</h4>
+      <p>Nairobi, Kenya &middot; P.O. Box 45892-00100<br>Direct Email: taxation@kithinjilegal.co.ke</p>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>&copy; 2026 Nyagah B. Kithinji &amp; Co. Advocates. All rights reserved.</span>
+    <span>Developed by P3L Developers, Nairobi</span>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
