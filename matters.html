@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Legal Matters Directory — Billszip</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="app" id="app"></div>
+
+<script src="data.js"></script>
+<script src="remuneration.js"></script>
+<script src="shell.js"></script>
+<script>
+  renderShell({
+    page: "matters",
+    title: "Legal Matters Directory",
+    searchPlaceholder: "Search cause title, reference no, or client...",
+    primaryAction: { href: "bill-of-costs-builder.html", label: "+ New Bill of Costs" }
+  });
+
+  const data = window.APP_DATA;
+  const rem = window.REMUNERATION;
+  const content = document.getElementById("pageContent");
+
+  let activeFilter = "all";
+  let query = "";
+
+  function render() {
+    let mattersList = [...data.matters];
+
+    if (activeFilter === "arbitration") {
+      mattersList = mattersList.filter(m => m.forum.toLowerCase().includes("arbitration"));
+    } else if (activeFilter === "taxation") {
+      mattersList = mattersList.filter(m => m.status.toLowerCase().includes("taxation"));
+    } else if (activeFilter === "closed") {
+      mattersList = mattersList.filter(m => m.status.toLowerCase() === "closed");
+    } else if (activeFilter === "active") {
+      mattersList = mattersList.filter(m => m.status.toLowerCase() !== "closed");
+    }
+
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      mattersList = mattersList.filter(m =>
+        m.title.toLowerCase().includes(q) ||
+        m.causeNo.toLowerCase().includes(q)
+      );
+    }
+
+    const filters = [
+      { id: "all", label: "All Matters" },
+      { id: "active", label: "Active Litigation" },
+      { id: "arbitration", label: "In Arbitration" },
+      { id: "taxation", label: "Pending Taxation" },
+      { id: "closed", label: "Closed" }
+    ];
+
+    content.innerHTML = `
+      <!-- Filters Row -->
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          ${filters.map(f => `
+            <button class="btn-pill ${activeFilter === f.id ? 'primary' : 'secondary'}" onclick="setFilter('${f.id}')">
+              ${f.label}
+            </button>
+          `).join("")}
+        </div>
+      </div>
+
+      <!-- Matters Data Table -->
+      <div class="table-card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Cause Ref & Title</th>
+              <th>Client Name</th>
+              <th>Court Forum & Schedule</th>
+              <th class="num">Claim Subject Value</th>
+              <th>Remuneration Status</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${mattersList.map(m => {
+              const clientObj = data.clients.find(c => c.id === m.clientId) || { id: "c1", name: "Client" };
+              return `
+                <tr>
+                  <td>
+                    <div class="primary-cell" style="color: var(--ink-primary); font-weight:700;">${m.title}</div>
+                    <div class="sub-cell num" style="color: var(--ink-secondary); font-size:11px;">${m.causeNo}</div>
+                  </td>
+                  <td>
+                    <a href="client-detail.html?id=${clientObj.id}" style="color: var(--ink-primary); font-weight: 600; text-decoration: underline; text-underline-offset: 3px;">
+                      ${clientObj.name}
+                    </a>
+                  </td>
+                  <td>
+                    <span style="color: var(--ink-secondary); font-weight: 500; font-size: 11.5px;">${m.forum}</span>
+                  </td>
+                  <td class="num">${money(m.claimValue)}</td>
+                  <td>
+                    <span class="status-pill ${m.status === 'In Taxation' ? 'pending' : m.status === 'Closed' ? 'paid' : 'draft'}">
+                      <span class="dot"></span> ${m.status}
+                    </span>
+                  </td>
+                  <td style="text-align: right;">
+                    <div class="action-icon-group">
+                      <a class="action-icon-btn" href="matter-detail.html?id=${m.id}" title="Case Hub">
+                        ${TOP_ICONS.eye}
+                      </a>
+                      <a class="action-icon-btn" href="bill-of-costs-builder.html?matterId=${m.id}&value=${m.claimValue}&court=${encodeURIComponent(m.forum)}" title="Build Bill of Costs">
+                        ${TOP_ICONS.pen}
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+        <div class="table-footer">
+          <span>Showing ${mattersList.length} legal matters in workspace</span>
+        </div>
+      </div>
+    `;
+  }
+
+  window.setFilter = function(filterId) {
+    activeFilter = filterId;
+    render();
+  };
+
+  render();
+
+  const topSearch = document.getElementById("topSearch");
+  if (topSearch) {
+    topSearch.addEventListener("input", (e) => {
+      query = e.target.value;
+      render();
+    });
+  }
+</script>
+
+</body>
+</html>

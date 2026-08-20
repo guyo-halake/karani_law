@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kenyan Advocates Remuneration Order Guide (LN 64/1962 ed. 2022)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .guide-wrapper {
+    max-width: 1040px;
+    margin: 0 auto 40px;
+  }
+  .guide-card {
+    background: var(--card-bg);
+    border: var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 24px 28px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-sm);
+  }
+  .statute-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    background: rgba(245, 158, 11, 0.12);
+    color: var(--accent-gold);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+  }
+  .scale-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 12.5px;
+  }
+  .scale-table th {
+    background: rgba(0,0,0,0.03);
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    border-bottom: 2px solid var(--ink-primary);
+  }
+  .scale-table td {
+    padding: 10px 14px;
+    border-bottom: var(--glass-border);
+    color: var(--ink-secondary);
+  }
+  .scale-table td.num {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--ink-primary);
+  }
+</style>
+</head>
+<body>
+
+<div class="app" id="app"></div>
+
+<script src="data.js"></script>
+<script src="remuneration.js"></script>
+<script src="shell.js"></script>
+<script>
+  renderShell({
+    page: "guide",
+    title: "Advocates Remuneration Order Statutory Guide",
+    searchPlaceholder: "Search statutory rules, schedules, or tariffs...",
+    primaryAction: { href: "bill-of-costs-builder.html", label: "+ Open Scale Builder" }
+  });
+
+  const rem = window.REMUNERATION;
+  const content = document.getElementById("pageContent");
+
+  content.innerHTML = `
+    <div class="guide-wrapper">
+      <!-- Statutory Citation Header Card -->
+      <div class="guide-card" style="border-left: 4px solid var(--accent-gold);">
+        <span class="statute-badge">STATUTORY CITATION & LEGAL BASIS</span>
+        <h1 style="font-family:var(--font-brand); font-size:22px; font-weight:800; color:var(--ink-primary); margin-bottom:8px;">
+          Advocates (Remuneration) (Amendment) Order, 2022
+        </h1>
+        <p style="font-size:13px; color:var(--ink-secondary); line-height:1.65; max-width:860px;">
+          Derived directly from <strong>Legal Notice No. 64 of 1962 (as revised 2022)</strong> under Section 48 of the Advocates Act (Cap 16, Laws of Kenya). Promulgated by the Chief Justice on recommendation of the Council of the Law Society of Kenya (LSK) to govern party-and-party costs, advocate-client fee notes, and taxation procedures across all judicial forums in Kenya.
+        </p>
+      </div>
+
+      <!-- Quick Schedule Overview Cards Grid -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-bottom:24px;">
+        <div class="guide-card" style="margin-bottom:0;">
+          <h3 style="font-family:var(--font-brand); font-size:15px; font-weight:700; color:var(--ink-primary); margin-bottom:6px;">
+            Schedule 1 — Conveyancing & Mortgages
+          </h3>
+          <p style="font-size:12px; color:var(--ink-secondary); line-height:1.55;">
+            Governs non-contentious legal practice including land transfers, mortgages, charges, debentures, leases, and property transactions based on consideration value.
+          </p>
+        </div>
+
+        <div class="guide-card" style="margin-bottom:0;">
+          <h3 style="font-family:var(--font-brand); font-size:15px; font-weight:700; color:var(--ink-primary); margin-bottom:6px;">
+            Schedule 5 — Subordinate Courts
+          </h3>
+          <p style="font-size:12px; color:var(--ink-secondary); line-height:1.55;">
+            Applies to contentious proceedings before Magistrate's Courts, Small Claims Courts, and local tribunals subject to pecuniary jurisdiction caps.
+          </p>
+        </div>
+
+        <div class="guide-card" style="margin-bottom:0;">
+          <h3 style="font-family:var(--font-brand); font-size:15px; font-weight:700; color:var(--ink-primary); margin-bottom:6px;">
+            Schedule 6 — High Court & Arbitration
+          </h3>
+          <p style="font-size:12px; color:var(--ink-secondary); line-height:1.55;">
+            Applies to proceedings in the High Court, Employment & Land Relations Court (ELRC), Environment & Land Court (ELC), Court of Appeal, and Arbitration Tribunals.
+          </p>
+        </div>
+      </div>
+
+      <!-- Schedule 6 Instruction Fee Scale Table -->
+      <div class="guide-card">
+        <h2 style="font-family:var(--font-brand); font-size:17px; font-weight:700; color:var(--ink-primary); margin-bottom:6px;">
+          Schedule 6 Rule 1 — Instruction Fee Scale (High Court & Arbitration)
+        </h2>
+        <p style="font-size:12px; color:var(--ink-secondary); margin-bottom:14px;">
+          Instruction fees are calculated on the subject matter / claim value according to the following statutory scale:
+        </p>
+
+        <table class="scale-table">
+          <thead>
+            <tr>
+              <th>Subject Matter Value (Kshs)</th>
+              <th>Statutory Instruction Fee Formula</th>
+              <th class="num" style="text-align:right;">Minimum Scale Fee (Kshs)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Up to Kshs 500,000.00</td>
+              <td>Fixed scale fee (Subject to statutory minimum floor cap)</td>
+              <td class="num" style="text-align:right;">75,000.00</td>
+            </tr>
+            <tr>
+              <td>Kshs 500,001.00 – 1,000,000.00</td>
+              <td>Fixed scale fee</td>
+              <td class="num" style="text-align:right;">75,000.00</td>
+            </tr>
+            <tr>
+              <td>Kshs 1,000,001.00 – 5,000,000.00</td>
+              <td>Kshs 75,000 + 1.75% of excess over Kshs 1,000,000</td>
+              <td class="num" style="text-align:right;">75,000.00+</td>
+            </tr>
+            <tr>
+              <td>Kshs 5,000,001.00 – 10,000,000.00</td>
+              <td>Kshs 145,000 + 1.50% of excess over Kshs 5,000,000</td>
+              <td class="num" style="text-align:right;">145,000.00+</td>
+            </tr>
+            <tr>
+              <td>Kshs 10,000,001.00 – 20,000,000.00</td>
+              <td>Kshs 220,000 + 1.00% of excess over Kshs 10,000,000</td>
+              <td class="num" style="text-align:right;">220,000.00+</td>
+            </tr>
+            <tr>
+              <td>Over Kshs 20,000,000.00</td>
+              <td>Kshs 320,000 + 0.75% of excess over Kshs 20,000,000</td>
+              <td class="num" style="text-align:right;">320,000.00+</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Core Statutory Rules & Tariffs -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+        <div class="guide-card">
+          <h3 style="font-family:var(--font-brand); font-size:15px; font-weight:700; color:var(--ink-primary); margin-bottom:10px;">
+            Key Statutory Rules Explained
+          </h3>
+          <ul style="font-size:12.5px; color:var(--ink-secondary); line-height:1.7; padding-left:18px;">
+            <li><strong>1/3 Getting-Up Fee (Rule 2)</strong>: Allowed where a defense or replying affidavit has been filed and the advocate prepares the case for full hearing. Calculated as <code>Instruction Fee / 3.0</code>.</li>
+            <li><strong>Defendant / Respondent Multiplier</strong>: Defendant scale is calculated at <strong>85%</strong> of the Plaintiff scale.</li>
+            <li><strong>Minimum Statutory Floor (Kshs 75,000)</strong>: Statutory floor rule enforcing that no High Court instruction fee falls below Kshs 75,000.00 regardless of small claim value.</li>
+          </ul>
+        </div>
+
+        <div class="guide-card">
+          <h3 style="font-family:var(--font-brand); font-size:15px; font-weight:700; color:var(--ink-primary); margin-bottom:10px;">
+            Itemized Folio & Attendance Tariffs
+          </h3>
+          <ul style="font-size:12.5px; color:var(--ink-secondary); line-height:1.7; padding-left:18px;">
+            <li><strong>Drawing Pleadings & Documents</strong>: <span class="num" style="font-weight:600; color:var(--ink-primary);">Kshs 500.00 per folio</span> (1 folio = 100 words).</li>
+            <li><strong>Perusing Documents</strong>: <span class="num" style="font-weight:600; color:var(--ink-primary);">Kshs 50.00 per folio</span>.</li>
+            <li><strong>Court Attendances</strong>: <span class="num" style="font-weight:600; color:var(--ink-primary);">Kshs 2,500.00 per hour</span>.</li>
+            <li><strong>Formal Demand Letters</strong>: <span class="num" style="font-weight:600; color:var(--ink-primary);">Kshs 500.00 per letter</span>.</li>
+            <li><strong>Ordinary Correspondence</strong>: <span class="num" style="font-weight:600; color:var(--ink-primary);">Kshs 300.00 per letter</span>.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  `;
+</script>
+
+</body>
+</html>

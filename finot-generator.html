@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Redirecting to Official Fee Note...</title>
+<script>
+  // Instant redirect to fee-note-detail.html
+  const urlParams = new URLSearchParams(window.location.search);
+  const docId = urlParams.get("id") || "";
+  window.location.replace("fee-note-detail.html" + (docId ? "?id=" + docId : ""));
+</script>
+</head>
+<body>
+<p>Redirecting to Fee Note Viewer...</p>
+</body>
+</html>

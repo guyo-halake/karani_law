@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Advocate Profile — Billszip</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .profile-container {
+    max-width: 680px;
+    margin: 20px auto 40px;
+  }
+  .profile-card {
+    background: var(--card-bg);
+    border: var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 28px;
+    box-shadow: var(--shadow-sm);
+  }
+  .avatar-preview-box {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: var(--glass-border);
+  }
+  .avatar-preview-box img {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--accent-gold);
+  }
+</style>
+</head>
+<body>
+
+<div class="app" id="app"></div>
+
+<script src="data.js"></script>
+<script src="remuneration.js"></script>
+<script src="shell.js"></script>
+<script>
+  renderShell({
+    page: "profile",
+    title: "My Advocate Profile",
+    searchPlaceholder: "Search settings...",
+    primaryAction: null
+  });
+
+  const data = window.APP_DATA;
+  const content = document.getElementById("pageContent");
+  const user = data.firm.user;
+
+  content.innerHTML = `
+    <div class="profile-container">
+      <div class="profile-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <h1 style="font-family:var(--font-brand); font-size:18px; font-weight:800; color:var(--ink-primary);">
+            Advocate Personal Profile
+          </h1>
+          <a href="login.html" class="btn-pill secondary" style="color:var(--accent-rose); border-color:rgba(244,63,94,0.3);">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+            Sign Out of Session
+          </a>
+        </div>
+
+        <!-- Avatar Box -->
+        <div class="avatar-preview-box">
+          <img src="advocate_avatar.jpg" alt="Advocate Avatar">
+          <div>
+            <h2 style="font-family:var(--font-brand); font-size:16px; font-weight:700; color:var(--ink-primary);">V. Karani, Advocate</h2>
+            <div style="font-size:12px; color:var(--ink-muted);">Senior Partner & Advocate</div>
+            <div style="font-size:11px; color:var(--ink-secondary); margin-top:2px;">LSK Reg No: <strong class="num">P.105/9920</strong></div>
+          </div>
+        </div>
+
+        <!-- Advocate Personal Form Fields -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          <div class="form-group">
+            <label>Full Advocate Name</label>
+            <input type="text" class="form-control" id="advName" value="${user.name}">
+          </div>
+
+          <div class="form-group">
+            <label>LSK Admission / Roll No</label>
+            <input type="text" class="form-control num" id="advLsk" value="${user.lskNo}">
+          </div>
+
+          <div class="form-group">
+            <label>Advocate Role / Title</label>
+            <input type="text" class="form-control" id="advRole" value="${user.role}">
+          </div>
+
+          <div class="form-group">
+            <label>Personal Mobile Phone</label>
+            <input type="text" class="form-control num" id="advPhone" value="+254 722 000 111">
+          </div>
+
+          <div class="form-group" style="grid-column: span 2;">
+            <label>Personal Advocate Email Address</label>
+            <input type="email" class="form-control" id="advEmail" value="${user.email}">
+          </div>
+        </div>
+
+        <div style="margin-top:20px; border-top:var(--glass-border); padding-top:16px; display:flex; justify-content:space-between; align-items:center;">
+          <a href="login.html" style="font-size:12px; color:var(--accent-rose); font-weight:600; text-decoration:none;">
+            ← Sign Out of Session
+          </a>
+          <button class="btn-pill primary" onclick="saveProfile()">
+            Save Profile Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  window.saveProfile = function() {
+    user.name = document.getElementById("advName").value;
+    user.lskNo = document.getElementById("advLsk").value;
+    user.role = document.getElementById("advRole").value;
+    user.email = document.getElementById("advEmail").value;
+    alert("Advocate profile updated successfully!");
+  };
+</script>
+
+</body>
+</html>

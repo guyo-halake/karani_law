@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Fee Notes & Bills of Costs — Billszip</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="app" id="app"></div>
+
+<script src="data.js"></script>
+<script src="remuneration.js"></script>
+<script src="shell.js"></script>
+<script>
+  renderShell({
+    page: "feenotes",
+    title: "My Fee Notes & Bills of Costs Registry",
+    searchPlaceholder: "Search by client, ref number, or cause title...",
+    primaryAction: { href: "bill-of-costs-builder.html", label: "+ Build Fee Note" }
+  });
+
+  const data = window.APP_DATA;
+  const rem = window.REMUNERATION;
+  const content = document.getElementById("pageContent");
+
+  let activeFilter = "all";
+  let query = "";
+
+  function render() {
+    const drafts = rem.getDrafts();
+    let allNotes = [
+      ...drafts.map(d => ({
+        id: d.id,
+        client: d.client || "Client",
+        matter: d.matter || "Matter",
+        date: d.updatedAt ? d.updatedAt.split("T")[0] : new Date().toISOString().split("T")[0],
+        amount: d.computed ? d.computed.grandTotal : 0,
+        status: "draft"
+      })),
+      ...data.feeNotes
+    ];
+
+    if (activeFilter !== "all") {
+      allNotes = allNotes.filter(f => f.status === activeFilter);
+    }
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      allNotes = allNotes.filter(f =>
+        f.client.toLowerCase().includes(q) ||
+        f.id.toLowerCase().includes(q)
+      );
+    }
+
+    const filters = [
+      { id: "all", label: "All Fee Notes" },
+      { id: "draft", label: "Drafts" },
+      { id: "pending", label: "Pending" },
+      { id: "paid", label: "Paid" },
+      { id: "overdue", label: "Overdue" }
+    ];
+
+    content.innerHTML = `
+      <!-- Filter Tabs Row -->
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          ${filters.map(f => `
+            <button class="btn-pill ${activeFilter === f.id ? 'primary' : 'secondary'}" onclick="setFilter('${f.id}')">
+              ${f.label}
+            </button>
+          `).join("")}
+        </div>
+        <a class="btn-pill primary" href="bill-of-costs-builder.html" style="display:inline-flex; align-items:center; gap:6px;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          Build Fee Note / Bill
+        </a>
+      </div>
+
+      <!-- Main Data Table -->
+      <div class="table-card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Ref No</th>
+              <th>Client Name</th>
+              <th>Date</th>
+              <th>Status (Editable)</th>
+              <th class="num">Amount (Kshs)</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${allNotes.length === 0 ? `
+              <tr><td colspan="6" style="text-align:center; padding:30px; color:var(--ink-muted);">No fee notes found matching filter.</td></tr>
+            ` : allNotes.map((f, idx) => {
+              const fullRef = f.id.toUpperCase();
+              const shortRef = fullRef.length > 7 ? fullRef.substring(0, 6) + "…" : fullRef;
+              return `
+                <tr>
+                  <td>
+                    <span class="ref-pill" data-fullref="${fullRef}" title="${fullRef}">${shortRef}</span>
+                  </td>
+                  <td class="primary-cell">${f.client}</td>
+                  <td class="data num">${f.date}</td>
+                  <td>
+                    <select class="status-select-inline" onchange="changeNoteStatus('${f.id}', this.value)">
+                      <option value="draft" ${f.status === 'draft' ? 'selected' : ''}>Draft</option>
+                      <option value="pending" ${f.status === 'pending' ? 'selected' : ''}>Pending</option>
+                      <option value="paid" ${f.status === 'paid' ? 'selected' : ''}>Paid</option>
+                      <option value="overdue" ${f.status === 'overdue' ? 'selected' : ''}>Overdue</option>
+                    </select>
+                  </td>
+                  <td class="num">${money(f.amount)}</td>
+                  <td style="text-align: right;">
+                    <div class="action-icon-group">
+                      <a class="action-icon-btn" href="fee-note-detail.html?id=${f.id}" title="View Fee Note Document">
+                        ${TOP_ICONS.eye}
+                      </a>
+                      <a class="action-icon-btn" href="bill-of-costs-builder.html?id=${f.id}&value=${f.amount}" title="Edit Fee Note in Builder">
+                        ${TOP_ICONS.pen}
+                      </a>
+                      <button class="action-icon-btn delete" onclick="deleteBillDoc('${f.id}')" title="Delete Fee Note">
+                        ${TOP_ICONS.trash}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+        <div class="table-footer">
+          <span>Showing ${allNotes.length} fee notes in workspace</span>
+        </div>
+      </div>
+    `;
+  }
+
+  window.setFilter = function(filterId) {
+    activeFilter = filterId;
+    render();
+  };
+
+  window.changeNoteStatus = function(noteId, newStatus) {
+    // Update memory or LocalStorage draft status
+    const fn = data.feeNotes.find(f => f.id === noteId);
+    if (fn) {
+      fn.status = newStatus;
+    } else {
+      const drafts = rem.getDrafts();
+      const d = drafts.find(x => x.id === noteId);
+      if (d) {
+        d.status = newStatus;
+        localStorage.setItem("rem_drafts", JSON.stringify(drafts));
+      }
+    }
+    render();
+  };
+
+  render();
+
+  const topSearch = document.getElementById("topSearch");
+  if (topSearch) {
+    topSearch.addEventListener("input", (e) => {
+      query = e.target.value;
+      render();
+    });
+  }
+</script>
+
+</body>
+</html>

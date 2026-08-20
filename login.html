@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Advocate Portal Sign In — Billszip</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* STRICT LIGHT THEME SIGN IN */
+  html, body {
+    background: #F8FAFC !important;
+    color: #0F172A !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+    font-family: var(--font-body);
+  }
+  
+  .login-wrapper {
+    width: 100%;
+    max-width: 380px;
+  }
+  
+  .login-brand {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .login-brand img {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #D97706;
+    margin-bottom: 12px;
+  }
+  
+  .form-control-light {
+    width: 100%;
+    height: 38px;
+    background: #FFFFFF !important;
+    border: 1px solid #CBD5E1 !important;
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: #0F172A !important;
+    font-size: 13px;
+    outline: none;
+    transition: var(--transition);
+  }
+  .form-control-light:focus {
+    border-color: #D97706 !important;
+  }
+</style>
+</head>
+<body class="light-theme">
+
+<div class="login-wrapper">
+  <!-- Brand Header -->
+  <div class="login-brand">
+    <img src="kenya_law_seal.jpg" alt="Firm Seal Logo">
+    <h1 style="font-family:var(--font-brand); font-size:20px; font-weight:800; color:#0F172A;">NYAGAH B. KITHINJI & CO.</h1>
+    <div style="font-size:11px; font-weight:700; color:#D97706; text-transform:uppercase; letter-spacing:0.5px; margin-top:2px;">
+      ADVOCATES REMUNERATION SYSTEM
+    </div>
+  </div>
+
+  <!-- Clean Form (No Background Card) -->
+  <form onsubmit="handleLogin(event)">
+    <div class="form-group" style="margin-bottom:14px;">
+      <label style="color:#475569; font-weight:600; font-size:11.5px; text-transform:uppercase;">Advocate Email Address</label>
+      <input type="email" class="form-control-light" id="loginEmail" value="bkithinji@nbkco-advocates.com" required>
+    </div>
+
+    <div class="form-group" style="margin-bottom:20px;">
+      <label style="color:#475569; font-weight:600; font-size:11.5px; text-transform:uppercase;">Password</label>
+      <input type="password" class="form-control-light" id="loginPassword" value="••••••••••••" required>
+    </div>
+
+    <button type="submit" class="btn-pill primary" style="width:100%; justify-content:center; padding:10px; font-size:13px; margin-bottom:16px;">
+      Sign In →
+    </button>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
+      <a href="#" onclick="alert('Password reset link sent to your advocate email address.')" style="color:#64748B; text-decoration:none;">
+        Forgot your password?
+      </a>
+      <a href="signup.html" style="color:#D97706; font-weight:700; text-decoration:none;">
+        Create an Account
+      </a>
+    </div>
+  </form>
+</div>
+
+<script>
+  function handleLogin(e) {
+    e.preventDefault();
+    window.location.href = "home.html";
+  }
+</script>
+
+</body>
+</html>

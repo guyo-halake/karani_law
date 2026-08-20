@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Official Bill of Costs & Fee Note Viewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* EXECUTIVE LIGHT THEME PAPER DOCUMENT */
+  html, body {
+    background: #F8FAFC !important;
+    color: #0F172A !important;
+    font-family: var(--font-body);
+  }
+  
+  .doc-wrapper {
+    max-width: 960px;
+    margin: 20px auto 40px;
+    padding: 0 16px;
+  }
+
+  .paper-canvas {
+    background: #FFFFFF !important;
+    border: 1px solid #CBD5E1 !important;
+    border-radius: 8px;
+    padding: 52px 60px;
+    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+    color: #0F172A !important;
+  }
+
+  /* Header Table */
+  .header-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-bottom: 2px solid #0F172A;
+    padding-bottom: 18px;
+    margin-bottom: 24px;
+  }
+  .header-table td {
+    vertical-align: top;
+    border: none;
+    padding: 0;
+  }
+
+  .firm-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .firm-brand img.seal {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    border: 2px solid #D97706;
+    object-fit: cover;
+  }
+  .firm-title {
+    font-family: var(--font-brand);
+    font-size: 20px;
+    font-weight: 800;
+    color: #0F172A;
+    letter-spacing: 0.2px;
+    line-height: 1.15;
+  }
+  .firm-tagline {
+    font-size: 11px;
+    font-weight: 700;
+    color: #D97706;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    margin-top: 3px;
+  }
+
+  .firm-contacts {
+    text-align: right;
+    font-size: 11px;
+    line-height: 1.55;
+    color: #334155;
+  }
+
+  /* Clean Paper Meta Grid */
+  .meta-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 20px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    border-bottom: 1px solid #E2E8F0;
+    padding-bottom: 16px;
+  }
+  .meta-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #64748B;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .meta-value {
+    font-weight: 700;
+    color: #0F172A;
+  }
+
+  /* Subject Bar */
+  .subject-bar {
+    text-align: center;
+    margin: 20px 0 24px;
+  }
+  .subject-bar h2 {
+    font-family: var(--font-brand);
+    font-size: 15px;
+    font-weight: 800;
+    color: #0F172A;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .subject-bar p {
+    font-size: 11px;
+    color: #64748B;
+    margin-top: 2px;
+  }
+
+  /* Sleek Borderless Table */
+  .sleek-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+  }
+  .sleek-table th {
+    background: #F8FAFC !important;
+    color: #0F172A !important;
+    padding: 10px 14px;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-top: 1px solid #CBD5E1 !important;
+    border-bottom: 2px solid #0F172A !important;
+    border-left: none !important;
+    border-right: none !important;
+    text-align: left;
+  }
+  .sleek-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #E2E8F0 !important;
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    font-size: 12.5px;
+    color: #334155 !important;
+    vertical-align: middle;
+  }
+  .sleek-table tr.section-row td {
+    background: #F1F5F9 !important;
+    font-family: var(--font-brand);
+    font-size: 11px;
+    font-weight: 700;
+    color: #D97706 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .sleek-table td.num {
+    font-family: var(--font-mono) !important;
+    font-weight: 600;
+    color: #0F172A;
+  }
+
+  /* Total Summary Row */
+  .total-summary-row td {
+    border-top: 2px solid #0F172A !important;
+    border-bottom: 2.5px double #0F172A !important;
+    color: #0F172A !important;
+    font-weight: 800;
+    font-size: 14.5px;
+    padding: 12px 14px !important;
+  }
+
+  /* Minimalist Bank Settlement Details */
+  .paper-bank-section {
+    margin-top: 24px;
+    padding-top: 14px;
+    border-top: 1px solid #E2E8F0;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: #334155;
+  }
+  .bank-title {
+    font-family: var(--font-brand);
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #0F172A;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 4px;
+  }
+
+  /* Endorsements Footer */
+  .paper-footer-grid {
+    margin-top: 28px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    font-size: 11px;
+    line-height: 1.6;
+    color: #475569;
+    border-top: 1px solid #E2E8F0;
+    padding-top: 16px;
+  }
+
+  /* Top Toolbar */
+  .doc-top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .action-btn-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+  }
+  .download-menu {
+    position: absolute;
+    top: 38px;
+    right: 0;
+    background: #FFFFFF;
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+    padding: 6px 0;
+    display: none;
+    z-index: 500;
+    width: 230px;
+  }
+  .download-menu.show {
+    display: block;
+  }
+  .download-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    color: #0F172A;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .download-menu-item:hover {
+    background: #F1F5F9;
+    color: #D97706;
+  }
+</style>
+</head>
+<body>
+
+<div class="app" id="app"></div>
+
+<script src="data.js"></script>
+<script src="remuneration.js"></script>
+<script src="shell.js"></script>
+<script>
+  renderShell({
+    page: "feenotes",
+    title: "Official Bill of Costs & Fee Note",
+    searchPlaceholder: "Search document...",
+    primaryAction: null
+  });
+
+  const rem = window.REMUNERATION;
+  const data = window.APP_DATA;
+  const content = document.getElementById("pageContent");
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const docId = urlParams.get("id") || "fn1001";
+
+  // Pre-configured full legal document datasets for each Fee Note ID:
+  const DOC_REGISTRY = {
+    "fn1001": {
+      id: "BOC-2026-SEYANI",
+      client: "Seyani Brothers & Company (K) Limited",
+      matter: "Seyani Brothers & Co. (K) Ltd v Green Hills Investment Ltd",
+      forum: "Arbitration Tribunal (Hon. Tom Onyango Oketch, FCIArb)",
+      date: "2026-02-26",
+      claimValue: 221268881.47,
+      amount: 30820193.28,
+      disbursements: 1567838.42,
+      fees: 29252354.86,
+      items: [
+        { section: "A. INSTRUCTION FEES (SCHEDULE 6 RULE 1)", itemNo: 1, date: "10.01.2026", particulars: "Instruction Fee on Claim Value of Kshs 221,268,881.47 under Schedule 6", fee: 18500000.00, disb: 0 },
+        { section: "B. GETTING-UP FEES (1/3 RULE)", itemNo: 2, date: "15.01.2026", particulars: "Getting-Up Fee (1/3 of Instruction Fee calculated on defense & hearing prep)", fee: 6166666.67, disb: 0 },
+        { section: "C. DRAWING PLEADINGS & DOCUMENTS", itemNo: 3, date: "20.01.2026", particulars: "Claimant's Statement of Claim (15.42 folios)", fee: 7710.00, disb: 0 },
+        { itemNo: 4, date: "25.01.2026", particulars: "Claimant's Bundle marked as C1 (280.98 folios)", fee: 21073.50, disb: 0 },
+        { itemNo: 5, date: "02.02.2026", particulars: "Claimant's Bundle marked as C2 (166.26 folios)", fee: 12469.50, disb: 0 },
+        { itemNo: 6, date: "05.02.2026", particulars: "Claimant's Replying Submissions (135.25 folios)", fee: 10143.75, disb: 0 },
+        { section: "D. PERUSING PLEADINGS & DOCUMENTS", itemNo: 7, date: "10.02.2026", particulars: "Claimant's Written Submissions (327.90 folios)", fee: 24592.50, disb: 0 },
+        { itemNo: 8, date: "12.02.2026", particulars: "Claimants Bundle of Authorities (493.04 folios)", fee: 36978.00, disb: 0 },
+        { section: "E, F & G. SERVICE OF DOCUMENTS & ATTENDANCES", itemNo: 9, date: "15.02.2026", particulars: "Attending Preliminary Meetings No. 1, 2, 3 & 4 (10 hrs total)", fee: 25000.00, disb: 0 },
+        { itemNo: 10, date: "20.02.2026", particulars: "Attending Full Day Arbitration Hearings & Site Visit (9 Full Days)", fee: 90000.00, disb: 0 },
+        { itemNo: 11, date: "22.02.2026", particulars: "Delivered Pleadings & Documents Service round-trips to Arbitrator & Respondent", fee: 22613.50, disb: 0 },
+        { itemNo: 12, date: "24.02.2026", particulars: "General Care and Conduct of Arbitration proceedings", fee: 4335107.44, disb: 0 },
+        { itemNo: 13, date: "26.02.2026", particulars: "Arbitrator's Costs & Disbursements paid directly by Claimant", fee: 0, disb: 1567838.42 }
+      ]
+    },
+    "fn1002": {
+      id: "BOC-2026-DHANYA",
+      client: "Dhanya Construction Kenya Limited",
+      matter: "Dhanya Construction Kenya Ltd v Sunil Shah (Arb. Cause No. 12 of 2025)",
+      forum: "Arbitration Tribunal",
+      date: "2026-01-14",
+      claimValue: 3986663.93,
+      amount: 3986663.93,
+      disbursements: 2607697.26,
+      fees: 1378966.67,
+      items: [
+        { section: "A. INSTRUCTION FEES (SCHEDULE 6 RULE 1)", itemNo: 1, date: "05.01.2026", particulars: "Instruction Fee on Claim Value of Kshs 3,986,663.93 under Schedule 6", fee: 320000.00, disb: 0 },
+        { section: "B. GETTING-UP FEES (1/3 RULE)", itemNo: 2, date: "08.01.2026", particulars: "Getting-Up Fee (1/3 of Instruction Fee calculated on defense & hearing prep)", fee: 106666.67, disb: 0 },
+        { section: "C. DRAWING PLEADINGS & DOCUMENTS", itemNo: 3, date: "10.01.2026", particulars: "Claimant's Statement of Claim & Summary of Evidence", fee: 6500.00, disb: 0 },
+        { itemNo: 4, date: "11.01.2026", particulars: "Claimant's Bundle of Documents & Witness Statements", fee: 14500.00, disb: 0 },
+        { section: "D. PERUSING PLEADINGS & ATTENDANCES", itemNo: 5, date: "12.01.2026", particulars: "Perusing Respondent's Statement of Defense", fee: 2800.00, disb: 0 },
+        { itemNo: 6, date: "13.01.2026", particulars: "Attending Preliminary Directions Meetings (3 Meetings)", fee: 15000.00, disb: 0 },
+        { itemNo: 7, date: "13.01.2026", particulars: "Attending Full Day Arbitration Hearing before Arbitrator", fee: 45000.00, disb: 0 },
+        { itemNo: 8, date: "14.01.2026", particulars: "Drawing & Filing Written Submissions", fee: 18500.00, disb: 0 },
+        { itemNo: 9, date: "14.01.2026", particulars: "General Care and Conduct of Arbitration proceedings", fee: 850000.00, disb: 0 },
+        { itemNo: 10, date: "14.01.2026", particulars: "Arbitrator's Fees & Tribunal Disbursements paid directly by Claimant", fee: 0, disb: 2607697.26 }
+      ]
+    },
+    "fn1003": {
+      id: "FN-2026-FARAJA",
+      client: "Faraja Restaurant Limited",
+      matter: "Faraja Restaurant — Commercial Lease Renewal Advisory",
+      forum: "Non-contentious / Conveyancing Schedule 1",
+      date: "2026-03-02",
+      claimValue: 14500000.00,
+      amount: 145000.00,
+      disbursements: 12500.00,
+      fees: 132500.00,
+      items: [
+        { section: "A. CONVEYANCING & LEASE ADVISORY (SCHEDULE 1)", itemNo: 1, date: "01.03.2026", particulars: "Scale Fee for Commercial Lease Drafting on Consideration of Kshs 14.5M", fee: 120000.00, disb: 0 },
+        { section: "B. DISBURSEMENTS & REGISTRATION", itemNo: 2, date: "02.03.2026", particulars: "Perusing Land Registry Search & Title Verification", fee: 12500.00, disb: 0 },
+        { itemNo: 3, date: "02.03.2026", particulars: "Stamp Duty Assessment & Filing Fee Disbursement", fee: 0, disb: 12500.00 }
+      ]
+    },
+    "fn1004": {
+      id: "BOC-2025-KAMAU",
+      client: "Kamau & Waweru Family Trust",
+      matter: "Kamau & Waweru — Succession & Probate Estate Administration",
+      forum: "High Court Family Division (Succ. Cause No. 889 of 2024)",
+      date: "2025-11-18",
+      claimValue: 8950000.00,
+      amount: 89500.00,
+      disbursements: 14500.00,
+      fees: 75000.00,
+      items: [
+        { section: "A. PROBATE & SUCCESSION INSTRUCTION FEE", itemNo: 1, date: "10.11.2025", particulars: "Instruction Fee on Probate Petition Valuation of Kshs 8,950,000", fee: 75000.00, disb: 0 },
+        { section: "B. GAZETTE FILING & COURT DISBURSEMENTS", itemNo: 2, date: "15.11.2025", particulars: "Kenya Gazette Notice Filing Disbursement", fee: 0, disb: 14500.00 }
+      ]
+    }
+  };
+
+  let doc = null;
+  const draft = rem.getDraftById(docId);
+  if (draft) {
+    doc = {
+      id: draft.id.toUpperCase(),
+      client: draft.client || "Client",
+      matter: draft.matter || "Legal Matter",
+      forum: draft.courtLevel || "High Court",
+      date: draft.updatedAt ? draft.updatedAt.split("T")[0] : new Date().toISOString().split("T")[0],
+      amount: draft.computed ? draft.computed.grandTotal : 0,
+      disbursements: draft.computed ? draft.computed.totalDisbursements : 0,
+      fees: draft.computed ? draft.computed.totalTaxableFees : 0,
+      items: draft.items || []
+    };
+  } else if (DOC_REGISTRY[docId]) {
+    doc = DOC_REGISTRY[docId];
+  } else {
+    doc = DOC_REGISTRY["fn1001"];
+  }
+
+  const todayStr = `${new Date().getDate()}th day of ${new Date().toLocaleString('en-US', { month: 'long' })}, ${new Date().getFullYear()}`;
+
+  content.innerHTML = `
+    <div class="doc-wrapper">
+      <!-- Top Toolbar -->
+      <div class="doc-top-bar no-print">
+        <a href="fee-notes.html" class="btn-pill secondary" style="display:inline-flex; align-items:center; gap:6px;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+          Back to Fee Notes
+        </a>
+
+        <div class="action-btn-group">
+          <button class="btn-pill primary" onclick="toggleDownloadMenu(event)" style="display:inline-flex; align-items:center; gap:6px;">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download Document
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+
+          <div class="download-menu" id="downloadDropdown">
+            <div class="download-menu-item" onclick="triggerPrintPDF()">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              Print / Save as PDF
+            </div>
+            <div class="download-menu-item" onclick="triggerExportExcel()">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#10B981" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
+              Download Excel File (.xls / .xlsx)
+            </div>
+          </div>
+
+          <button class="action-icon-btn" onclick="openShareModal('${doc.client.replace(/'/g, "\\'")}', '${doc.id}')" title="Share Document" style="width:34px; height:34px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Pristine Paper Document Canvas -->
+      <div class="paper-canvas" id="printablePaper">
+        <!-- Header Table -->
+        <table class="header-table">
+          <tr>
+            <td style="width: 55%;">
+              <div class="firm-brand">
+                <img src="kenya_law_seal.jpg" alt="Seal Logo" class="seal">
+                <div>
+                  <div class="firm-title">NYAGAH B. KITHINJI & CO.</div>
+                  <div class="firm-tagline">ADVOCATES OF THE HIGH COURT OF KENYA</div>
+                </div>
+              </div>
+            </td>
+            <td style="width: 45%;">
+              <div class="firm-contacts">
+                P.O. Box 1992-00100, NAIROBI<br>
+                Tel: +254 (0)20 271 8890<br>
+                Email: info@nbkco-advocates.com<br>
+                KRA PIN: P051123456Z<br>
+                #205 Mbaruk Road, Off Mucai Drive, Golf Course Estate
+              </div>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Clean Paper Meta Grid -->
+        <div class="meta-grid">
+          <div>
+            <div class="meta-label">Billed To (Client):</div>
+            <div class="meta-value">${doc.client}</div>
+            <div style="font-size: 11.5px; color: #475569; margin-top: 2px;">Attn: Finance & Executive Directorate</div>
+          </div>
+          <div style="text-align: right;">
+            <div><span class="meta-label">Document Ref:</span> <span class="num meta-value">${doc.id}</span></div>
+            <div><span class="meta-label">Date Billed:</span> <span class="num" style="font-weight:600;">${doc.date}</span></div>
+            <div><span class="meta-label">Taxation Forum:</span> <span style="font-weight:600; color:#D97706;">${doc.forum}</span></div>
+            ${doc.claimValue ? `<div><span class="meta-label">Subject Claim Value:</span> <span class="num" style="font-weight:700;">Kshs ${rem.formatMoney(doc.claimValue)}</span></div>` : ''}
+          </div>
+        </div>
+
+        <!-- Subject Bar -->
+        <div class="subject-bar">
+          <h2>RE: ${doc.matter.toUpperCase()}</h2>
+          <p>Drawn under Advocates (Remuneration) (Amendment) Order (LN 64/1962 ed. 2022)</p>
+        </div>
+
+        <!-- Sleek Borderless Table -->
+        <table class="sleek-table">
+          <thead>
+            <tr>
+              <th style="width: 40px; text-align: center;">Item</th>
+              <th style="width: 90px;">Date</th>
+              <th>Particulars of Professional Services Rendered & Statutory Basis</th>
+              <th style="width: 135px; text-align: right;">Disb. (Kshs)</th>
+              <th style="width: 145px; text-align: right;">Legal Fee (Kshs)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${doc.items.length > 0 ? doc.items.map(it => `
+              ${it.section ? `<tr class="section-row"><td colspan="5">${it.section}</td></tr>` : ''}
+              <tr>
+                <td style="text-align:center;">${it.itemNo || '—'}</td>
+                <td class="num">${it.date}</td>
+                <td>${it.particulars}</td>
+                <td class="num" style="text-align:right;">${it.disb > 0 ? 'Kshs ' + rem.formatMoney(it.disb) : '—'}</td>
+                <td class="num" style="text-align:right;">${it.fee > 0 ? 'Kshs ' + rem.formatMoney(it.fee) : '—'}</td>
+              </tr>
+            `).join("") : `
+              <tr>
+                <td style="text-align:center;">1</td>
+                <td class="num">${doc.date}</td>
+                <td>Professional Legal Services rendered in respect of ${doc.matter}</td>
+                <td class="num" style="text-align:right;">${doc.disbursements > 0 ? 'Kshs ' + rem.formatMoney(doc.disbursements) : '—'}</td>
+                <td class="num" style="text-align:right;">Kshs ${rem.formatMoney(doc.fees)}</td>
+              </tr>
+            `}
+
+            <!-- Subtotal Rows -->
+            <tr style="font-weight: 700;">
+              <td colspan="3" style="text-align: right; text-transform: uppercase; font-size: 11px;">Subtotal Professional Legal Fees:</td>
+              <td class="num" style="text-align: right;">${doc.disbursements > 0 ? 'Kshs ' + rem.formatMoney(doc.disbursements) : '—'}</td>
+              <td class="num" style="text-align: right;">Kshs ${rem.formatMoney(doc.fees)}</td>
+            </tr>
+            <tr class="total-summary-row">
+              <td colspan="4" style="text-align: right; text-transform: uppercase;">GRAND TOTAL AMOUNT DUE (KSHS):</td>
+              <td class="num" style="text-align: right; font-size: 15px;">Kshs ${rem.formatMoney(doc.amount)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Minimalist Bank Settlement Details -->
+        <div class="paper-bank-section">
+          <div class="bank-title">BANK SETTLEMENT DETAILS</div>
+          <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+            <div><strong>Bank Name:</strong> KCB Bank Kenya Ltd</div>
+            <div><strong>Account Number:</strong> <span class="num" style="font-weight:700;">1104889922</span></div>
+            <div><strong>Branch:</strong> Kilimani Branch</div>
+            <div><strong>SWIFT Code:</strong> KCBLKENX</div>
+            <div><strong>Payment Terms:</strong> Payable within 30 days</div>
+          </div>
+        </div>
+
+        <!-- Pre-filled Real Life Dating & Signature Block -->
+        <div style="margin-top: 36px; display: flex; justify-content: space-between; align-items: flex-end;">
+          <div>
+            <div style="font-size: 11.5px; color: #334155;">
+              DATED at <strong>NAIROBI</strong> this <strong>${todayStr}</strong>.
+            </div>
+            <div style="font-weight: 800; color: #0F172A; font-size: 13px; margin-top: 8px;">
+              NYAGAH B. KITHINJI & CO. ADVOCATES
+            </div>
+            <div style="font-size: 11px; color: #64748B;">Advocates for ${doc.client}</div>
+          </div>
+
+          <div style="text-align: right;">
+            <div style="border-bottom: 1.5px solid #0F172A; width: 220px; height: 38px; margin-left: auto;"></div>
+            <div style="font-size: 11px; font-weight: 700; color: #0F172A; margin-top: 6px; text-transform: uppercase;">
+              SIGNATURE & OFFICIAL STAMP
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  window.toggleDownloadMenu = function(e) {
+    e.stopPropagation();
+    const dropdown = document.getElementById("downloadDropdown");
+    dropdown.classList.toggle("show");
+  };
+
+  document.addEventListener("click", () => {
+    const dropdown = document.getElementById("downloadDropdown");
+    if (dropdown) dropdown.classList.remove("show");
+  });
+
+  window.triggerPrintPDF = function() {
+    window.print();
+  };
+
+  window.triggerExportExcel = function() {
+    const paperHtml = document.getElementById("printablePaper").innerHTML;
+    const excelHeader = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8">
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Fee Note</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <style>
+          table { border-collapse: collapse; width: 100%; }
+          th, td { border: 1px solid #000000; padding: 6px; text-align: left; font-family: Arial; font-size: 10pt; }
+          th { background-color: #F2F2F2; font-weight: bold; }
+          .num { text-align: right; }
+        </style>
+      </head>
+      <body>`;
+    const excelFooter = `</body></html>`;
+    const fullSource = excelHeader + paperHtml + excelFooter;
+
+    const blob = new Blob(['\ufeff', fullSource], { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Fee_Note_${doc.id}_${doc.client.replace(/[^a-zA-Z0-9]/g, '_')}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+</script>
+
+</body>
+</html>

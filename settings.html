@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Law Firm Settings & Branding — Billszip</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .settings-container {
+    max-width: 860px;
+    margin: 20px auto 40px;
+  }
+  .settings-section-card {
+    background: var(--card-bg);
+    border: var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 24px 28px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-sm);
+  }
+  .seal-preview-box {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding-bottom: 18px;
+    border-bottom: var(--glass-border);
+    margin-bottom: 18px;
+  }
+  .seal-preview-box img {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--accent-gold);
+  }
+</style>
+</head>
+<body>
+
+<div class="app" id="app"></div>
+
+<script src="data.js"></script>
+<script src="remuneration.js"></script>
+<script src="shell.js"></script>
+<script>
+  renderShell({
+    page: "settings",
+    title: "Law Firm Practice Settings & Branding",
+    searchPlaceholder: "Search firm settings...",
+    primaryAction: null
+  });
+
+  const data = window.APP_DATA;
+  const content = document.getElementById("pageContent");
+  const firm = data.firm;
+
+  content.innerHTML = `
+    <div class="settings-container">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h1 style="font-family:var(--font-brand); font-size:20px; font-weight:800; color:var(--ink-primary);">
+          Law Firm Practice Settings
+        </h1>
+        <button class="btn-pill primary" onclick="saveFirmSettings()">
+          Save All Settings
+        </button>
+      </div>
+
+      <!-- Card 1: Law Firm Identity & Branding -->
+      <div class="settings-section-card">
+        <h2 style="font-family:var(--font-brand); font-size:15px; font-weight:700; color:var(--ink-primary); margin-bottom:14px; border-bottom:var(--glass-border); padding-bottom:8px;">
+          1. Law Firm Identity & Letterhead Branding
+        </h2>
+
+        <div class="seal-preview-box">
+          <img src="kenya_law_seal.jpg" alt="Firm Seal Logo">
+          <div>
+            <h3 style="font-family:var(--font-brand); font-size:15px; font-weight:700; color:var(--ink-primary);">${firm.name}</h3>
+            <div style="font-size:11px; font-weight:700; color:var(--accent-gold); text-transform:uppercase;">${firm.firmRegNo}</div>
+            <div style="font-size:11.5px; color:var(--ink-muted); margin-top:2px;">Official Law Firm Seal Logo (Renders on Fee Notes & Bills)</div>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+          <div class="form-group" style="grid-column: span 2;">
+            <label>Official Law Firm Name</label>
+            <input type="text" class="form-control" id="firmName" value="${firm.name}">
+          </div>
+
+          <div class="form-group">
+            <label>Firm Registration Number</label>
+            <input type="text" class="form-control num" id="firmReg" value="${firm.firmRegNo}">
+          </div>
+
+          <div class="form-group">
+            <label>Firm Tagline / Letterhead Subtitle</label>
+            <input type="text" class="form-control" id="firmTagline" value="ADVOCATES OF THE HIGH COURT OF KENYA">
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: Official Contact Details & Location -->
+      <div class="settings-section-card">
+        <h2 style="font-family:var(--font-brand); font-size:15px; font-weight:700; color:var(--ink-primary); margin-bottom:14px; border-bottom:var(--glass-border); padding-bottom:8px;">
+          2. Official Contact Details & Physical Location
+        </h2>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+          <div class="form-group">
+            <label>Firm KRA PIN</label>
+            <input type="text" class="form-control num" id="firmKra" value="${firm.kraPin}">
+          </div>
+
+          <div class="form-group">
+            <label>Telephone / Office Line</label>
+            <input type="text" class="form-control num" id="firmPhone" value="${firm.phone}">
+          </div>
+
+          <div class="form-group" style="grid-column: span 2;">
+            <label>Firm General Email Address</label>
+            <input type="email" class="form-control" id="firmEmail" value="${firm.email}">
+          </div>
+
+          <div class="form-group" style="grid-column: span 2;">
+            <label>P.O. Box & Postal Code</label>
+            <input type="text" class="form-control" id="firmPoBox" value="${firm.poBox}">
+          </div>
+
+          <div class="form-group" style="grid-column: span 2;">
+            <label>Physical Office Building & Location</label>
+            <input type="text" class="form-control" id="firmAddress" value="${firm.address}">
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: Bank Settlement Details -->
+      <div class="settings-section-card">
+        <h2 style="font-family:var(--font-brand); font-size:15px; font-weight:700; color:var(--ink-primary); margin-bottom:14px; border-bottom:var(--glass-border); padding-bottom:8px;">
+          3. Bank Settlement Details (Appears on Invoices)
+        </h2>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+          <div class="form-group" style="grid-column: span 2;">
+            <label>Complete Bank Account String</label>
+            <input type="text" class="form-control num" id="firmBank" value="${firm.bankDetails}">
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end;">
+        <button class="btn-pill primary" onclick="saveFirmSettings()">
+          Save All Settings
+        </button>
+      </div>
+    </div>
+  `;
+
+  window.saveFirmSettings = function() {
+    firm.name = document.getElementById("firmName").value;
+    firm.firmRegNo = document.getElementById("firmReg").value;
+    firm.kraPin = document.getElementById("firmKra").value;
+    firm.phone = document.getElementById("firmPhone").value;
+    firm.email = document.getElementById("firmEmail").value;
+    firm.poBox = document.getElementById("firmPoBox").value;
+    firm.address = document.getElementById("firmAddress").value;
+    firm.bankDetails = document.getElementById("firmBank").value;
+    alert("Law Firm settings saved successfully!");
+  };
+</script>
+
+</body>
+</html>

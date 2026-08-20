@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New Fee Note</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="app" id="app"></div>
+
+<script src="data.js"></script>
+<script src="shell.js"></script>
+<script>
+  renderShell({ page: "feenotes", title: "New Fee Note", search: false });
+
+  const content = document.getElementById("pageContent");
+  content.innerHTML = `
+    <div class="empty-state" style="padding-top: 90px;">
+      <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 3h8l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M15 3v4h4"/><path d="M9 12h6M9 15.5h6"/></svg></div>
+      <h3>The builder comes next</h3>
+      <p>This is where I will pick a matter, let the site work out the standard fees, and add anything extra by hand. Not wired up yet.</p>
+      <a class="btn primary" href="fee-notes.html">Back to my fee notes</a>
+    </div>
+  `;
+</script>
+
+</body>
+</html>
