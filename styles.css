@@ -1,6 +1,6 @@
 /* ============================================================
    BILLSZIP — ADVOCATES REMUNERATION SYSTEM
-   Dual Theme System (Fully Dark Obsidian Mode & Clean Light Mode)
+   Dual Theme System (Pristine Light Executive Theme by Default)
    Typography Specification:
    - Titles & Headings: Sora
    - Body & Words: Inter
@@ -8,27 +8,27 @@
    ============================================================ */
 
 :root {
-  /* Default Fully Dark Mode (Pure Obsidian / Deep Charcoal) */
-  --bg-gradient: #07090E;
-  --sidebar-bg: #0A0C12;
-  --topbar-bg: rgba(10, 12, 18, 0.96);
-  --card-bg: rgba(255, 255, 255, 0.03);
-  --card-hover-bg: rgba(255, 255, 255, 0.055);
-  --dropdown-bg: #11141D;
-  --glass-border: 1px solid rgba(255, 255, 255, 0.08);
-  --glass-border-accent: 1px solid rgba(245, 158, 11, 0.3);
+  /* Default Pristine Executive Light Theme */
+  --bg-gradient: #F8FAFC;
+  --sidebar-bg: #FFFFFF;
+  --topbar-bg: rgba(255, 255, 255, 0.96);
+  --card-bg: #FFFFFF;
+  --card-hover-bg: #F1F5F9;
+  --dropdown-bg: #FFFFFF;
+  --glass-border: 1px solid #E2E8F0;
+  --glass-border-accent: 1px solid #CBD5E1;
   
-  --primary: #F59E0B;
-  --primary-hover: #D97706;
+  --primary: #D97706;
+  --primary-hover: #B45309;
   --primary-glow: none;
-  --accent-gold: #F59E0B;
-  --accent-emerald: #10B981;
-  --accent-rose: #F43F5E;
-  --accent-cyan: #06B6D4;
-  --accent-violet: #A78BFA;
-  
-  --ink-primary: #F8FAFC;
-  --ink-secondary: #94A3B8;
+  --accent-gold: #D97706;
+  --accent-emerald: #059669;
+  --accent-rose: #E11D48;
+  --accent-cyan: #0284C7;
+  --accent-violet: #6D28D9;
+
+  --ink-primary: #0F172A;
+  --ink-secondary: #475569;
   --ink-muted: #64748B;
 
   --font-brand: 'Sora', sans-serif;
@@ -43,28 +43,28 @@
   --shadow-sm: none;
 }
 
-/* Minimalist Clean Light Mode */
-body.light-theme {
-  --bg-gradient: #F8FAFC;
-  --sidebar-bg: #FFFFFF;
-  --topbar-bg: rgba(255, 255, 255, 0.96);
-  --card-bg: #FFFFFF;
-  --card-hover-bg: #F1F5F9;
-  --dropdown-bg: #FFFFFF;
-  --glass-border: 1px solid #E2E8F0;
-  --glass-border-accent: 1px solid #CBD5E1;
+/* Optional Dark Theme */
+body.dark-theme {
+  --bg-gradient: #07090E;
+  --sidebar-bg: #0A0C12;
+  --topbar-bg: rgba(10, 12, 18, 0.96);
+  --card-bg: rgba(255, 255, 255, 0.03);
+  --card-hover-bg: rgba(255, 255, 255, 0.055);
+  --dropdown-bg: #11141D;
+  --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+  --glass-border-accent: 1px solid rgba(245, 158, 11, 0.3);
 
-  --primary: #D97706;
-  --primary-hover: #B45309;
+  --primary: #F59E0B;
+  --primary-hover: #D97706;
   --primary-glow: none;
-  --accent-gold: #D97706;
-  --accent-emerald: #059669;
-  --accent-rose: #E11D48;
-  --accent-cyan: #0284C7;
-  --accent-violet: #6D28D9;
+  --accent-gold: #F59E0B;
+  --accent-emerald: #10B981;
+  --accent-rose: #F43F5E;
+  --accent-cyan: #06B6D4;
+  --accent-violet: #A78BFA;
 
-  --ink-primary: #0F172A;
-  --ink-secondary: #475569;
+  --ink-primary: #F8FAFC;
+  --ink-secondary: #94A3B8;
   --ink-muted: #64748B;
   --shadow-sm: none;
 }
@@ -213,7 +213,7 @@ p, span, label, input, select, button, a, td, th {
 }
 
 .top-nav-link.active {
-  background: rgba(245, 158, 11, 0.12);
+  background: rgba(217, 119, 6, 0.12);
   color: var(--accent-gold);
 }
 
@@ -244,7 +244,7 @@ p, span, label, input, select, button, a, td, th {
 
 .btn-pill.primary {
   background: var(--accent-gold);
-  color: #000;
+  color: #FFFFFF;
   font-weight: 700;
 }
 
@@ -351,6 +351,7 @@ p, span, label, input, select, button, a, td, th {
   padding: 6px 0;
   display: none;
   z-index: 2000;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
 }
 
 .dropdown-menu.show {
@@ -380,6 +381,37 @@ p, span, label, input, select, button, a, td, th {
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
+}
+
+/* Form Controls Standard 32px Height */
+.form-control {
+  width: 100%;
+  height: 34px;
+  background: #FFFFFF !important;
+  border: 1px solid #CBD5E1 !important;
+  border-radius: 6px;
+  padding: 6px 12px;
+  color: #0F172A !important;
+  font-size: 12.5px;
+  outline: none;
+  transition: var(--transition);
+}
+
+.form-control:focus {
+  border-color: #D97706 !important;
+}
+
+.form-group {
+  margin-bottom: 14px;
+}
+.form-group label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 4px;
 }
 
 /* Stat Grid */
@@ -499,8 +531,8 @@ p, span, label, input, select, button, a, td, th {
   font-weight: 600;
 }
 .status-pill.draft { background: rgba(148, 163, 184, 0.15); color: var(--ink-secondary); }
-.status-pill.pending { background: rgba(245, 158, 11, 0.15); color: var(--accent-gold); }
-.status-pill.paid { background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); }
+.status-pill.pending { background: rgba(217, 119, 6, 0.15); color: var(--accent-gold); }
+.status-pill.paid { background: rgba(5, 150, 105, 0.15); color: var(--accent-emerald); }
 .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
 /* Tooltip for Ref Doc Number */

@@ -41,11 +41,11 @@ const TOP_NAV_ITEMS = [
 ];
 
 function initTheme() {
-  const savedTheme = localStorage.getItem("BILLSZIP_THEME") || "dark";
-  if (savedTheme === "light") {
-    document.body.classList.add("light-theme");
-  } else {
+  const savedTheme = localStorage.getItem("BILLSZIP_THEME") || "light";
+  if (savedTheme === "dark") {
     document.body.classList.remove("light-theme");
+  } else {
+    document.body.classList.add("light-theme");
   }
 }
 
