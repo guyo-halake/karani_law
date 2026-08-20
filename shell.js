@@ -139,6 +139,10 @@ function renderShell(opts) {
               <a class="dropdown-item" href="settings.html">
                 ${TOP_ICONS.settings} Law Firm Settings
               </a>
+              <div class="dropdown-item" onclick="if(window.BILLSZIP_TOUR) window.BILLSZIP_TOUR.start()" style="cursor:pointer; color:var(--accent-gold);">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                System Tour & Guide
+              </div>
               <a class="dropdown-item" href="login.html" style="color: var(--accent-rose); border-top: var(--glass-border); margin-top: 4px; padding-top: 8px;">
                 ${TOP_ICONS.logout} Sign Out
               </a>
