@@ -134,12 +134,11 @@ export const ClientsView: React.FC = () => {
       {/* Title Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-2 border-b border-[var(--border-color)]/50 pb-6">
         <div>
-          <span className="section-eyebrow">Client Management</span>
-          <h1 className="executive-title">
-            Firm Clients Directory
+          <h1 className="font-brand font-extrabold text-2xl sm:text-3xl text-slate-900 dark:text-white tracking-tight">
+            My Clients & Contact Directory
           </h1>
-          <p className="executive-subtitle">
-            Institutional, Corporate & Private Client Records, Contact Information & Billing Profiles
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-1 font-sans">
+            Corporate, Institutional & Private Client Database — Nyagah B. Kithinji & Co. Advocates
           </p>
         </div>
 
