@@ -17,7 +17,9 @@ import {
   CheckCircle2,
   Info,
   Layers,
-  ChevronDown
+  ChevronDown,
+  ArrowRight,
+  ArrowLeft
 } from 'lucide-react';
 
 import {
@@ -29,7 +31,7 @@ import {
 
 export const RemunerationGuideView: React.FC = () => {
   // Navigation & View State
-  const [activeTab, setActiveTab] = useState<'gazette' | 'simulator' | 'toc' | 'schedules'>('gazette');
+  const [activeTab, setActiveTab] = useState<'gazette' | 'toc' | 'simulator' | 'schedules'>('gazette');
   const [selectedSection, setSelectedSection] = useState<string>('part_I');
   const [searchQuery, setSearchQuery] = useState('');
   const [zoomLevel, setZoomLevel] = useState(100);
@@ -43,8 +45,6 @@ export const RemunerationGuideView: React.FC = () => {
   const [simComplexityMultiplier, setSimComplexityMultiplier] = useState<number>(1.0);
   const [simMonthsOverdue, setSimMonthsOverdue] = useState<number>(3); // Sec. 7 Interest (14% p.a.)
   const [simDisbursements, setSimDisbursements] = useState<number>(15000);
-
-  // Sec. 77 Taxed-Off Audit State
   const [simTaxedOffAmount, setSimTaxedOffAmount] = useState<number>(85000);
 
   // Dynamic Line-Item Folios Manager State
@@ -98,11 +98,11 @@ export const RemunerationGuideView: React.FC = () => {
   const totalPages = 6;
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* Sleek Minimalist PDF Toolbar */}
+    <div className="space-y-6 pb-16">
+      {/* Top Minimalist Navigation & Toolbar */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-2.5 sm:p-3 shadow-sm flex flex-col md:flex-row items-center justify-between gap-3">
         
-        {/* Left: Clean Navigation Tabs */}
+        {/* Navigation Tabs */}
         <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800 p-1 rounded-lg text-xs w-full md:w-auto justify-center overflow-x-auto">
           <button
             onClick={() => setActiveTab('gazette')}
@@ -112,7 +112,7 @@ export const RemunerationGuideView: React.FC = () => {
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            PDF Gazette Reader
+            PDF Gazette Document
           </button>
           <button
             onClick={() => setActiveTab('toc')}
@@ -122,7 +122,17 @@ export const RemunerationGuideView: React.FC = () => {
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            Table of Contents (79 Secs)
+            Statutory Index (79 Secs)
+          </button>
+          <button
+            onClick={() => setActiveTab('schedules')}
+            className={`px-3.5 py-1.5 rounded-md font-semibold transition-all cursor-pointer ${
+              activeTab === 'schedules'
+                ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-sm font-bold'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Schedules 1 – 11 Full Scales
           </button>
           <button
             onClick={() => setActiveTab('simulator')}
@@ -134,33 +144,23 @@ export const RemunerationGuideView: React.FC = () => {
           >
             Math Simulator Engine
           </button>
-          <button
-            onClick={() => setActiveTab('schedules')}
-            className={`px-3.5 py-1.5 rounded-md font-semibold transition-all cursor-pointer ${
-              activeTab === 'schedules'
-                ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-sm font-bold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Schedules 1 – 11
-          </button>
         </div>
 
-        {/* Center: Search Bar */}
+        {/* Search Bar */}
         <div className="relative w-full md:w-64">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search Gazette / Rules..."
+            placeholder="Search Gazette / Statutory Rules..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400 dark:text-white placeholder-slate-400 font-medium"
           />
         </div>
 
-        {/* Right: Controls & Visit Kenya Law Button */}
+        {/* Controls */}
         <div className="flex items-center gap-2 shrink-0 w-full md:w-auto justify-end">
-          {/* Zoom Controls */}
+          {/* Zoom */}
           <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800 px-2 py-1 rounded-lg border border-slate-200 dark:border-zinc-700 text-xs text-slate-700 dark:text-slate-300">
             <button
               onClick={() => setZoomLevel(Math.max(75, zoomLevel - 10))}
@@ -179,30 +179,7 @@ export const RemunerationGuideView: React.FC = () => {
             </button>
           </div>
 
-          {/* Page Pagination */}
-          {activeTab === 'gazette' && (
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800 px-2 py-1 rounded-lg border border-slate-200 dark:border-zinc-700 text-xs font-mono text-slate-700 dark:text-slate-300">
-              <button
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="p-0.5 disabled:opacity-30 hover:text-slate-900 dark:hover:text-white cursor-pointer"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </button>
-              <span className="text-[11px] font-semibold px-1">
-                {currentPage} / {totalPages}
-              </span>
-              <button
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                className="p-0.5 disabled:opacity-30 hover:text-slate-900 dark:hover:text-white cursor-pointer"
-              >
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
-
-          {/* Print Button */}
+          {/* Print */}
           <button
             onClick={() => window.print()}
             className="p-1.5 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-lg border border-slate-200 dark:border-zinc-700 cursor-pointer"
@@ -211,7 +188,7 @@ export const RemunerationGuideView: React.FC = () => {
             <Printer className="w-4 h-4" />
           </button>
 
-          {/* Official Gazette Web Link Button */}
+          {/* Visit Official Kenya Law Web Button */}
           <a
             href="https://new.kenyalaw.org/akn/ke/act/ln/1962/64/eng@2022-12-31"
             target="_blank"
@@ -224,18 +201,18 @@ export const RemunerationGuideView: React.FC = () => {
         </div>
       </div>
 
-      {/* TAB 1: GAZETTE PDF DOCUMENT READER */}
+      {/* TAB 1: FULL SCROLLABLE PDF GAZETTE DOCUMENT READER */}
       {activeTab === 'gazette' && (
-        <div className="flex justify-center overflow-x-auto py-2">
+        <div className="flex flex-col items-center space-y-6">
           <div
-            className="bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 shadow-xl rounded-sm p-8 sm:p-12 text-slate-900 dark:text-slate-100 font-serif leading-relaxed transition-all duration-200"
+            className="bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 shadow-xl rounded-sm p-6 sm:p-12 text-slate-900 dark:text-slate-100 font-serif leading-relaxed transition-all duration-200"
             style={{
-              width: `${(zoomLevel / 100) * 800}px`,
-              minHeight: '1050px',
+              width: `${(zoomLevel / 100) * 850}px`,
+              minHeight: '1100px',
               maxWidth: '100%'
             }}
           >
-            {/* Header Stamp */}
+            {/* Gazette Official Header Stamp */}
             <div className="text-center border-b-2 border-slate-900 dark:border-slate-100 pb-6 mb-8">
               <div className="text-xs uppercase tracking-widest font-sans font-bold text-slate-500 mb-1">
                 REPUBLIC OF KENYA
@@ -244,9 +221,9 @@ export const RemunerationGuideView: React.FC = () => {
                 THE KENYA GAZETTE SUPPLEMENT
               </h1>
               <div className="text-xs font-mono text-slate-600 dark:text-slate-400 mt-1">
-                LEGAL NOTICE NO. 64 / 1962 (ed. 2022) & L.N. 35 / 2014
+                LEGAL NOTICE NO. 64 OF 1962 (ed. 2022) & L.N. 35 OF 2014
               </div>
-              <div className="text-xs italic font-sans text-slate-500 mt-2 flex items-center justify-center gap-2">
+              <div className="text-xs italic font-sans text-slate-500 mt-2 flex flex-wrap items-center justify-center gap-2">
                 <span>Published by Authority of the High Court of Kenya & National Council for Law Reporting</span>
                 <a
                   href="https://new.kenyalaw.org/akn/ke/act/ln/1962/64/eng@2022-12-31"
@@ -259,7 +236,7 @@ export const RemunerationGuideView: React.FC = () => {
               </div>
             </div>
 
-            {/* Page Content */}
+            {/* PAGE 1 CONTENT */}
             {currentPage === 1 && (
               <div className="space-y-6 text-sm">
                 <div className="text-center font-bold font-sans uppercase tracking-wider text-base mb-4">
@@ -270,42 +247,56 @@ export const RemunerationGuideView: React.FC = () => {
                   <strong>IN EXERCISE</strong> of the powers conferred by section 48 of the Advocates Act, the Chief Justice, on the recommendation of the Council of the Law Society of Kenya, makes the following Order:—
                 </p>
 
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-bold font-sans text-xs uppercase tracking-wider border-b border-slate-200 dark:border-zinc-800 pb-1 mb-2">
-                      Sec. 1. Citation & Commencement
+                <div className="space-y-6 font-sans text-xs">
+                  <div className="border-l-2 border-slate-900 dark:border-slate-100 pl-4 py-1">
+                    <h3 className="font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                      1. Citation & Commencement
                     </h3>
-                    <p className="text-justify indent-6">
+                    <p className="text-justify text-slate-700 dark:text-slate-300 mt-1 leading-relaxed font-serif text-sm">
                       This Order may be cited as the Advocates (Remuneration) Order, and shall apply to all bills of costs taxed or rendered after the commencement hereof in respect of contentious and non-contentious legal business.
                     </p>
                   </div>
 
-                  <div>
-                    <h3 className="font-bold font-sans text-xs uppercase tracking-wider border-b border-slate-200 dark:border-zinc-800 pb-1 mb-2">
-                      Sec. 5. Special Fee for Exceptional Importance & Complexity
+                  <div className="border-l-2 border-slate-900 dark:border-slate-100 pl-4 py-1">
+                    <h3 className="font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                      2 & 3. Application of Order & Scales of Fees
                     </h3>
-                    <p className="text-justify indent-6">
-                      Where a suit or application involves extraordinary complexity, novel questions of constitutional or commercial law, or exceptional financial stakes, the Taxing Officer or Judge may certify an additional instruction fee multiplier of up to 1.5x.
+                    <p className="text-justify text-slate-700 dark:text-slate-300 mt-1 leading-relaxed font-serif text-sm">
+                      The remuneration of an advocate in respect of business transacted by him shall be regulated strictly according to Schedules 1 to 6. No advocate shall charge, and no Taxing Officer shall allow, an instruction fee lower than the prescribed statutory minimum.
                     </p>
                   </div>
 
-                  <div>
-                    <h3 className="font-bold font-sans text-xs uppercase tracking-wider border-b border-slate-200 dark:border-zinc-800 pb-1 mb-2">
-                      Sec. 7. Statutory Interest Charged on Overdue Bills (14% p.a.)
+                  <div className="border-l-2 border-slate-900 dark:border-slate-100 pl-4 py-1">
+                    <h3 className="font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                      5. Special Fee for Exceptional Importance & Complexity
                     </h3>
-                    <p className="text-justify indent-6">
-                      An advocate may charge interest at the statutory rate of <strong>14% per annum</strong> on his disbursements and remuneration from the expiration of one month from the date of delivery of his bill to the client.
+                    <p className="text-justify text-slate-700 dark:text-slate-300 mt-1 leading-relaxed font-serif text-sm">
+                      Where a suit or application involves extraordinary complexity, novel questions of constitutional or commercial law, or exceptional financial stakes, the Taxing Officer or Judge may certify an additional instruction fee multiplier of up to 1.5x (50% increase).
                     </p>
                   </div>
-                </div>
 
-                <div className="mt-12 pt-4 border-t border-slate-200 dark:border-zinc-800 flex justify-between text-[11px] font-mono text-slate-500 font-sans">
-                  <span>KENYA GAZETTE SUPPLEMENT NO. 64</span>
-                  <span>PAGE 1 OF 6</span>
+                  <div className="border-l-2 border-slate-900 dark:border-slate-100 pl-4 py-1">
+                    <h3 className="font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                      7. Statutory Interest Charged on Overdue Bills (14% p.a.)
+                    </h3>
+                    <p className="text-justify text-slate-700 dark:text-slate-300 mt-1 leading-relaxed font-serif text-sm">
+                      An advocate may charge interest at the statutory rate of <strong>14% per annum</strong> on his disbursements and remuneration from the expiration of one month from the date of delivery of his bill of costs to the client.
+                    </p>
+                  </div>
+
+                  <div className="border-l-2 border-slate-900 dark:border-slate-100 pl-4 py-1">
+                    <h3 className="font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                      17. Statutory Length of Folio Definition
+                    </h3>
+                    <p className="text-justify text-slate-700 dark:text-slate-300 mt-1 leading-relaxed font-serif text-sm">
+                      A folio is defined under statutory law as consisting of <strong>100 words</strong> (or 72 figures). Every fraction of a folio beyond a full folio shall be charged as a full folio.
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
 
+            {/* PAGE 2 CONTENT */}
             {currentPage === 2 && (
               <div className="space-y-6 text-sm">
                 <div className="text-center font-bold font-sans uppercase tracking-wider text-sm mb-4">
@@ -313,7 +304,7 @@ export const RemunerationGuideView: React.FC = () => {
                 </div>
 
                 <p className="text-justify indent-6">
-                  Instruction fees to sue or defend in civil proceedings in the High Court, Environment & Land Court, or Employment & Labour Relations Court:
+                  Instruction fees to sue or defend in civil proceedings in the High Court, Environment & Land Court (ELC), Employment & Labour Relations Court (ELRC), Court of Appeal, or Supreme Court:
                 </p>
 
                 <div className="overflow-x-auto">
@@ -321,8 +312,8 @@ export const RemunerationGuideView: React.FC = () => {
                     <thead>
                       <tr className="bg-slate-100 dark:bg-zinc-800">
                         <th className="border border-slate-300 dark:border-zinc-700 p-2 text-left">Value of Subject Matter (Kshs)</th>
-                        <th className="border border-slate-300 dark:border-zinc-700 p-2 text-left">Plaintiff Instruction Fee Scale</th>
-                        <th className="border border-slate-300 dark:border-zinc-700 p-2 text-left">Minimum Fee</th>
+                        <th className="border border-slate-300 dark:border-zinc-700 p-2 text-left">Plaintiff Instruction Fee Scale Formula</th>
+                        <th className="border border-slate-300 dark:border-zinc-700 p-2 text-left">Minimum Prescribed Fee</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -360,62 +351,143 @@ export const RemunerationGuideView: React.FC = () => {
                   </table>
                 </div>
 
-                <div className="space-y-3 font-sans text-xs">
-                  <h4 className="font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                    Getting-Up Fee (Schedule 6 Item 2):
-                  </h4>
-                  <p className="text-justify indent-4">
-                    Equal to <strong>33.33% (1/3)</strong> of the allowed instruction fee, chargeable once hearing notice is served.
-                  </p>
-                </div>
+                <div className="space-y-4 font-sans text-xs pt-2">
+                  <div className="p-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg">
+                    <div className="font-bold text-slate-900 dark:text-white uppercase">Defendant's Instruction Fee Rule:</div>
+                    <div className="text-slate-600 dark:text-slate-300 mt-1 font-serif text-sm">
+                      Calculated at <strong>85%</strong> of the Plaintiff's instruction fee scale, subject to a statutory minimum defendant fee of <strong>Kshs 50,000</strong>.
+                    </div>
+                  </div>
 
-                <div className="mt-12 pt-4 border-t border-slate-200 dark:border-zinc-800 flex justify-between text-[11px] font-mono text-slate-500 font-sans">
-                  <span>KENYA GAZETTE SUPPLEMENT NO. 64</span>
-                  <span>PAGE 2 OF 6</span>
+                  <div className="p-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg">
+                    <div className="font-bold text-slate-900 dark:text-white uppercase">Getting-Up Fee (Schedule 6 Item 2):</div>
+                    <div className="text-slate-600 dark:text-slate-300 mt-1 font-serif text-sm">
+                      An additional <strong>Getting-Up Fee</strong> equal to <strong>33.33% (1/3)</strong> of the allowed instruction fee shall be allowed once notice of trial or hearing date has been served.
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
 
-            {currentPage >= 3 && (
+            {/* PAGE 3 CONTENT */}
+            {currentPage === 3 && (
               <div className="space-y-6 text-sm">
                 <div className="text-center font-bold font-sans uppercase tracking-wider text-sm mb-4">
-                  PART III — TAXATION RULES & SECTION 77 ONE-SIXTH PENALTY
+                  PART II — NON-CONTENTIOUS BUSINESS & SCHEDULE 1 CONVEYANCING
+                </div>
+
+                <p className="text-justify indent-6">
+                  Remuneration of advocates in sales, transfers, mortgages, charges, and leases of immovable property:
+                </p>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs font-sans border-collapse border border-slate-300 dark:border-zinc-700">
+                    <thead>
+                      <tr className="bg-slate-100 dark:bg-zinc-800">
+                        <th className="border border-slate-300 dark:border-zinc-700 p-2 text-left">Property Value / Consideration (Kshs)</th>
+                        <th className="border border-slate-300 dark:border-zinc-700 p-2 text-left">Purchaser Advocate Fee Formula</th>
+                        <th className="border border-slate-300 dark:border-zinc-700 p-2 text-left">Vendor Advocate Fee</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="border border-slate-300 dark:border-zinc-700 p-2">Up to 1,000,000</td>
+                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 35,000 fixed minimum</td>
+                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">75% of Purchaser fee</td>
+                      </tr>
+                      <tr>
+                        <td className="border border-slate-300 dark:border-zinc-700 p-2">1,000,001 to 5,000,000</td>
+                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 35,000 + 2.0% of excess over 1M</td>
+                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">75% of Purchaser fee</td>
+                      </tr>
+                      <tr>
+                        <td className="border border-slate-300 dark:border-zinc-700 p-2">5,000,001 to 10,000,000</td>
+                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 115,000 + 1.5% of excess over 5M</td>
+                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">75% of Purchaser fee</td>
+                      </tr>
+                      <tr>
+                        <td className="border border-slate-300 dark:border-zinc-700 p-2">10,000,001 to 20,000,000</td>
+                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 190,000 + 1.0% of excess over 10M</td>
+                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">75% of Purchaser fee</td>
+                      </tr>
+                      <tr>
+                        <td className="border border-slate-300 dark:border-zinc-700 p-2">Over 20,000,000</td>
+                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 290,000 + 0.75% of excess over 20M</td>
+                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">75% of Purchaser fee</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="space-y-3 font-sans text-xs">
+                  <h4 className="font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                    Negotiation Commission (Section 27):
+                  </h4>
+                  <p className="text-justify indent-4">
+                    For negotiating a sale or purchase of property, an advocate is entitled to an additional commission of <strong>1.5%</strong> of the purchase price up to Kshs 5,000,000, and <strong>1.0%</strong> on the excess over Kshs 5,000,000.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* PAGE 4 CONTENT */}
+            {currentPage >= 4 && (
+              <div className="space-y-6 text-sm">
+                <div className="text-center font-bold font-sans uppercase tracking-wider text-sm mb-4">
+                  PART III — TAXATION PROCEDURES & SECTION 77 PENALTY
                 </div>
 
                 <div className="space-y-4 font-sans text-xs">
-                  <div>
-                    <h3 className="font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-1">
-                      Sec. 77. The One-Sixth (1/6th) Taxed-Off Penalty Rule
+                  <div className="p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl">
+                    <h3 className="font-bold text-red-700 dark:text-red-300 uppercase tracking-wider mb-1">
+                      Sec. 77. The One-Sixth (1/6th) Taxed-Off Statutory Penalty Rule
                     </h3>
-                    <p className="text-justify indent-4 leading-relaxed">
-                      If on taxation more than <strong>one-sixth (16.67%)</strong> of the total amount of the bill of costs is taxed off by the Taxing Officer, the advocate shall be disallowable from receiving the costs of taxation and shall pay the costs of taxation incurred by the client.
+                    <p className="text-justify text-slate-700 dark:text-slate-300 leading-relaxed font-serif text-sm">
+                      If on taxation more than <strong>one-sixth (16.67%)</strong> of the total amount of the advocate's bill of costs is taxed off by the Taxing Officer, the advocate shall be disallowable from receiving the costs of taxation and shall pay the costs of taxation incurred by the client or adverse party.
                     </p>
                   </div>
 
                   <div>
                     <h3 className="font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-1">
-                      Sec. 69. Preparation & Lodging of Bills of Costs
+                      Sec. 69. 5-Column Preparation of Bills of Costs
                     </h3>
-                    <p className="text-justify indent-4 leading-relaxed">
-                      Bills for taxation shall be prepared with 5 columns: dates, items, folios, disbursements, and professional charges.
+                    <p className="text-justify indent-4 leading-relaxed font-serif text-sm">
+                      Bills for taxation lodged under Part III must be prepared with 5 distinct columns: dates, itemized legal work descriptions, folios, disbursements, and professional charges.
                     </p>
                   </div>
-                </div>
-
-                <div className="mt-12 pt-4 border-t border-slate-200 dark:border-zinc-800 flex justify-between text-[11px] font-mono text-slate-500 font-sans">
-                  <span>KENYA GAZETTE SUPPLEMENT NO. 64</span>
-                  <span>PAGE {currentPage} OF 6</span>
                 </div>
               </div>
             )}
+
+            {/* PAGE NAVIGATION DOCK AT BOTTOM OF GAZETTE SHEET */}
+            <div className="mt-12 pt-6 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between font-sans">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="px-4 py-2 bg-slate-100 dark:bg-zinc-800 disabled:opacity-30 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-800 dark:text-white rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" /> Previous Page
+              </button>
+
+              <div className="text-xs font-mono font-bold text-slate-600 dark:text-slate-400">
+                PAGE {currentPage} OF {totalPages}
+              </div>
+
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="px-4 py-2 bg-slate-900 dark:bg-zinc-100 disabled:opacity-30 hover:bg-slate-800 dark:hover:bg-zinc-200 text-white dark:text-slate-900 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+              >
+                Next Page <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* TAB 2: TABLE OF CONTENTS (79 SECTIONS) */}
+      {/* TAB 2: STATUTORY INDEX (79 SECTIONS) */}
       {activeTab === 'toc' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Left: Section Tree Menu */}
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-2">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono mb-3">
               Kenya Law Statutory Index (79 Sections)
@@ -455,17 +527,16 @@ export const RemunerationGuideView: React.FC = () => {
             </div>
           </div>
 
-          {/* Right: Section Detailed View */}
           <div className="md:col-span-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
             {selectedSection === 'part_I' && (
               <div className="space-y-4">
                 <h3 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-zinc-800 pb-2">
                   Part I — General Matters (Sections 1 to 17)
                 </h3>
-                <div className="space-y-3 text-xs text-slate-700 dark:text-slate-300">
+                <div className="space-y-3 text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-serif text-sm">
                   <p><strong>Sec. 1: Citation</strong> — The Advocates (Remuneration) Order.</p>
                   <p><strong>Sec. 3: Scale of fees</strong> — Remuneration governed strictly by Schedules 1 to 6.</p>
-                  <p><strong>Sec. 5: Special fee for complexity</strong> — Allows increased instruction fees for complex matters.</p>
+                  <p><strong>Sec. 5: Special fee for complexity</strong> — Allows up to 1.5x increased instruction fees for complex matters.</p>
                   <p><strong>Sec. 7: Interest on unpaid fees (14% p.a.)</strong> — Interest accrues after 30 days from delivery of bill.</p>
                   <p><strong>Sec. 10: Taxing Officer</strong> — Registrar or Deputy Registrar of the High Court.</p>
                   <p><strong>Sec. 11: Appeals & Objections</strong> — Procedure for chamber summons objections to taxation.</p>
@@ -479,7 +550,7 @@ export const RemunerationGuideView: React.FC = () => {
                 <h3 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-zinc-800 pb-2">
                   Part II — Non-Contentious Business (Sections 18 to 48)
                 </h3>
-                <div className="space-y-3 text-xs text-slate-700 dark:text-slate-300">
+                <div className="space-y-3 text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-serif text-sm">
                   <p><strong>Sec. 18: Remuneration scope</strong> — Applies to conveyancing, leases, mortgages, and debentures.</p>
                   <p><strong>Sec. 26: Application of Schedule 1</strong> — Tiered percentage fees on land sales and purchases.</p>
                   <p><strong>Sec. 27: Negotiation commissions</strong> — Commission charged for negotiating land sales or purchases.</p>
@@ -494,7 +565,7 @@ export const RemunerationGuideView: React.FC = () => {
                 <h3 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-zinc-800 pb-2">
                   Part III — Taxation of Costs in Contentious Matters (Sections 49 to 79)
                 </h3>
-                <div className="space-y-3 text-xs text-slate-700 dark:text-slate-300">
+                <div className="space-y-3 text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-serif text-sm">
                   <p><strong>Sec. 50: High Court costs</strong> — Taxed under Schedule 6.</p>
                   <p><strong>Sec. 51: Subordinate Court costs</strong> — Taxed under Schedule 5 / 7.</p>
                   <p><strong>Sec. 51C: Probate costs</strong> — Grants of probate taxed under Schedule 3.</p>
@@ -507,17 +578,115 @@ export const RemunerationGuideView: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: UNIVERSAL MATH SIMULATOR & DYNAMIC FOLIO BUILDER */}
+      {/* TAB 3: SCHEDULES 1 TO 11 FULL STATUTORY SCALES */}
+      {activeTab === 'schedules' && (
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-zinc-800 pb-3">
+              Full Statutory Scale Tables for All 11 Schedules
+            </h3>
+
+            {/* SCHEDULE 1 */}
+            <div className="space-y-3 border-b border-slate-200 dark:border-zinc-800 pb-6">
+              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
+                SCHEDULE 1 — Conveyancing, Sales, Purchases, Mortgages & Leases
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Governs legal fees for transfers of immovable property. Purchaser's Advocate scale: Minimum fee Kshs 35,000 for value up to Kshs 1,000,000.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs font-sans border-collapse border border-slate-300 dark:border-zinc-700">
+                  <thead>
+                    <tr className="bg-slate-100 dark:bg-zinc-800">
+                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Property Value</th>
+                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Purchaser Advocate Scale</th>
+                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Vendor Advocate Scale</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Up to Kshs 1,000,000</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 35,000 fixed</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">75% of Purchaser Fee</td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700">1,000,001 – 5,000,000</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 35,000 + 2.0% of excess over 1M</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">75% of Purchaser Fee</td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700">5,000,001 – 10,000,000</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 115,000 + 1.5% of excess over 5M</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">75% of Purchaser Fee</td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Over 20,000,000</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 290,000 + 0.75% of excess over 20M</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">75% of Purchaser Fee</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* SCHEDULE 3 */}
+            <div className="space-y-3 border-b border-slate-200 dark:border-zinc-800 pb-6">
+              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
+                SCHEDULE 3 — Grants of Probate & Estate Administration
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Governs petition for grant of probate, letters of administration, and distribution of deceased estates.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs font-sans border-collapse border border-slate-300 dark:border-zinc-700">
+                  <thead>
+                    <tr className="bg-slate-100 dark:bg-zinc-800">
+                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Gross Estate Value</th>
+                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Probate Scale Fee</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Up to Kshs 500,000</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 40,000 fixed minimum</td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700">500,001 – 5,000,000</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 40,000 + 2.5% of excess over 500k</td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Over 5,000,000</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 152,500 + 1.5% of excess over 5M</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* SCHEDULE 6 */}
+            <div className="space-y-3">
+              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
+                SCHEDULE 6 — Superior Courts Litigation (High Court, ELC, ELRC, Court of Appeal, Supreme Court)
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Minimum Plaintiff Fee: Kshs 75,000 | Minimum Defendant Fee: Kshs 50,000 | Getting-Up Fee: 33.33% (1/3).
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: UNIVERSAL MATH SIMULATOR */}
       {activeTab === 'simulator' && (
         <div className="space-y-6">
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-zinc-800 pb-4">
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Universal Legal Remuneration Math Engine
+                  Universal Remuneration Math Simulator Engine
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Full statutory engine supporting High Court, Magistrate Court, Conveyancing, Probate, 14% Interest, and 1/6th Taxed-Off Audits.
+                  Full statutory calculation for High Court, Magistrate Court, Conveyancing, Probate, 14% Interest, & 1/6th Penalty Rule.
                 </p>
               </div>
 
@@ -533,7 +702,6 @@ export const RemunerationGuideView: React.FC = () => {
 
             {/* Inputs Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Claim Value */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                   Subject Value / Claim Amount (Kshs)
@@ -546,7 +714,6 @@ export const RemunerationGuideView: React.FC = () => {
                 />
               </div>
 
-              {/* Legal Domain / Schedule Selection */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                   Jurisdiction & Schedule Domain
@@ -563,7 +730,6 @@ export const RemunerationGuideView: React.FC = () => {
                 </select>
               </div>
 
-              {/* Complexity Multiplier */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                   Sec. 5 Complexity Multiplier
@@ -604,7 +770,6 @@ export const RemunerationGuideView: React.FC = () => {
                 </label>
               </div>
 
-              {/* Sec. 7 Months Overdue */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                   Sec. 7 Months Overdue (14% Interest)
@@ -618,7 +783,6 @@ export const RemunerationGuideView: React.FC = () => {
                 />
               </div>
 
-              {/* Sec. 77 Taxed-Off Audit Input */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                   Sec. 77 Taxed Off Amount (Kshs)
@@ -640,7 +804,6 @@ export const RemunerationGuideView: React.FC = () => {
                 </h4>
               </div>
 
-              {/* Add New Item Form */}
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-slate-50 dark:bg-zinc-800/60 p-3 rounded-xl border border-slate-200 dark:border-zinc-700">
                 <input
                   type="text"
@@ -678,7 +841,6 @@ export const RemunerationGuideView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Folio Items Table */}
               <div className="overflow-x-auto">
                 <table className="w-full text-xs font-sans border-collapse">
                   <thead>
@@ -765,53 +927,6 @@ export const RemunerationGuideView: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 4: SCHEDULES 1 - 11 QUICK LOOKUP INDEX */}
-      {activeTab === 'schedules' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-2">
-            <h3 className="font-bold text-sm text-slate-900 dark:text-white">Schedule 1 — Conveyancing & Land Sales</h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400">
-              Covers sales, transfers, mortgages, charges, and leases of land. Minimum fee: Kshs 35,000 for sales up to Kshs 1,000,000.
-            </p>
-          </div>
-
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-2">
-            <h3 className="font-bold text-sm text-slate-900 dark:text-white">Schedule 2 — Debentures & Loan Securities</h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400">
-              Covers corporate debentures and company loan security registrations. Minimum fee: Kshs 50,000.
-            </p>
-          </div>
-
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-2">
-            <h3 className="font-bold text-sm text-slate-900 dark:text-white">Schedule 3 — Probate & Estate Administration</h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400">
-              Covers petition for grant of probate, letters of administration, and estate distribution. Minimum fee: Kshs 40,000.
-            </p>
-          </div>
-
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-2">
-            <h3 className="font-bold text-sm text-slate-900 dark:text-white">Schedule 4 — Trademarks, Patents & IP</h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400">
-              Covers trademark registrations, oppositions, assignments, and patent filings.
-            </p>
-          </div>
-
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-2">
-            <h3 className="font-bold text-sm text-slate-900 dark:text-white">Schedule 5 — Subordinate (Magistrate) Courts</h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400">
-              Civil litigation in Magistrate's Courts. Minimum fee: Kshs 30,000.
-            </p>
-          </div>
-
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-2">
-            <h3 className="font-bold text-sm text-slate-900 dark:text-white">Schedule 6 — Superior Courts Litigation</h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400">
-              High Court, ELC, ELRC, Court of Appeal, and Supreme Court civil suits. Minimum fee: Kshs 75,000 (Plaintiff) / Kshs 50,000 (Defendant).
-            </p>
           </div>
         </div>
       )}
