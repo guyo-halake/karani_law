@@ -4,12 +4,12 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Regal Legal Executive Theme (Deep Royal Navy, Warm Gold, Emerald & Pearl Slate) */
+/* Modulix-Inspired Executive Theme for Kithinji & Co Advocates */
 :root {
-  --bg-main: #f8fafc;
+  --bg-main: #f4f5f7;
   --bg-card: #ffffff;
-  --bg-subtle: #f1f5f9;
-  --border-color: #e2e8f0;
+  --bg-subtle: #f9fafb;
+  --border-color: #e5e7eb;
   --border-gold: rgba(217, 119, 6, 0.25);
   --text-main: #0f172a;
   --text-muted: #64748b;
@@ -27,7 +27,7 @@ body.dark-mode {
   --bg-main: #0b0f19;
   --bg-card: #111827;
   --bg-subtle: #1f2937;
-  --border-color: #374151;
+  --border-color: #27272a;
   --border-gold: rgba(245, 158, 11, 0.3);
   --text-main: #f9fafb;
   --text-muted: #9ca3af;
@@ -54,123 +54,85 @@ body {
   font-family: var(--font-mono);
 }
 
-/* Executive Whitespace Page Container */
-.page-container {
-  padding: 2rem 1.5rem;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-@media (min-width: 768px) {
-  .page-container {
-    padding: 2.5rem 2.5rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .page-container {
-    padding: 3rem 3rem;
-  }
-}
-
-/* Executive Title & Section Typography Hierarchy */
-.executive-title {
-  font-family: var(--font-brand);
-  font-weight: 800;
-  letter-spacing: -0.025em;
-  color: var(--text-main);
-  font-size: 1.875rem;
-  line-height: 2.25rem;
-}
-
-@media (min-width: 768px) {
-  .executive-title {
-    font-size: 2.25rem;
-    line-height: 2.5rem;
-  }
-}
-
-.executive-subtitle {
-  color: var(--text-muted);
-  font-weight: 400;
-  font-size: 0.95rem;
-  line-height: 1.5rem;
-  margin-top: 0.375rem;
-}
-
-.section-eyebrow {
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: #b45309;
-  margin-bottom: 0.375rem;
-  display: inline-block;
-}
-
-body.dark-mode .section-eyebrow {
-  color: #f59e0b;
-}
-
-/* Gradient Title Utility */
-.text-gradient-gold {
-  background: linear-gradient(135deg, #0f172a 0%, #b45309 50%, #d97706 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-body.dark-mode .text-gradient-gold {
-  background: linear-gradient(135deg, #ffffff 0%, #f59e0b 50%, #fbbf24 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-/* Minimalist Vercel-style Executive Cards */
-.vercel-card {
+/* Modulix Card System */
+.modulix-card {
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 10px 20px -10px rgba(0, 0, 0, 0.02);
+  border-radius: 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 8px 16px -8px rgba(0, 0, 0, 0.03);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   padding: 1.5rem;
 }
 
-.card-gold-accent {
-  border-top: 3px solid #d97706;
-}
-
-body.dark-mode .card-gold-accent {
-  border-top: 3px solid #f59e0b;
-}
-
-@media (min-width: 768px) {
-  .vercel-card-lg {
-    padding: 2rem;
-  }
-}
-
-.vercel-card-interactive {
+.modulix-card-interactive {
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 16px;
+  border-radius: 18px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: pointer;
   padding: 1.5rem;
 }
 
-.vercel-card-interactive:hover {
-  border-color: #d97706;
+.modulix-card-interactive:hover {
+  border-color: #94a3b8;
   transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(217, 119, 6, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
-body.dark-mode .vercel-card-interactive:hover {
-  border-color: #f59e0b;
-  box-shadow: 0 12px 28px rgba(245, 158, 11, 0.15);
+/* Active White Pill Navigation */
+.modulix-active-nav {
+  background-color: #ffffff;
+  color: #0f172a !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.04);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  font-weight: 700 !important;
 }
 
-/* Regal Action Buttons */
+body.dark-mode .modulix-active-nav {
+  background-color: #1f2937;
+  color: #ffffff !important;
+  border-color: #374151;
+}
+
+/* Sub-Tree Guide Lines */
+.subtree-connector {
+  position: relative;
+}
+
+.subtree-connector::before {
+  content: '';
+  position: absolute;
+  left: 1rem;
+  top: 0;
+  bottom: 0;
+  width: 1.5px;
+  background-color: #e2e8f0;
+}
+
+body.dark-mode .subtree-connector::before {
+  background-color: #374151;
+}
+
+/* Modulix Light Gray Table Header */
+.modulix-table-header {
+  background-color: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+body.dark-mode .modulix-table-header {
+  background-color: #1f2937;
+  border-bottom-color: #374151;
+  color: #9ca3af;
+}
+
+/* Action Buttons */
 .btn-gold {
   background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
   color: #ffffff;
@@ -184,13 +146,11 @@ body.dark-mode .vercel-card-interactive:hover {
 .btn-gold:hover {
   background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
   transform: scale(1.03);
-  box-shadow: 0 6px 20px rgba(217, 119, 6, 0.45);
 }
 
 .btn-navy {
   background: #0f172a;
-  color: #f59e0b;
-  border: 1px solid rgba(217, 119, 6, 0.4);
+  color: #ffffff;
   font-weight: 700;
   border-radius: 9999px;
   padding: 0.625rem 1.35rem;
@@ -198,24 +158,17 @@ body.dark-mode .vercel-card-interactive:hover {
 }
 
 .btn-navy:hover {
-  border-color: #f59e0b;
   background: #1e293b;
   transform: scale(1.03);
-  color: #ffffff;
 }
 
 .btn-black {
-  background-color: var(--btn-bg);
-  color: var(--btn-text);
+  background-color: #0f172a;
+  color: #ffffff;
   font-weight: 600;
   border-radius: 9999px;
   padding: 0.625rem 1.25rem;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.btn-black:hover {
-  opacity: 0.88;
-  transform: scale(1.02);
 }
 
 .btn-outline {
@@ -229,47 +182,6 @@ body.dark-mode .vercel-card-interactive:hover {
 }
 
 .btn-outline:hover {
-  border-color: var(--accent-gold);
+  border-color: #94a3b8;
   background-color: var(--bg-subtle);
-  transform: scale(1.02);
-}
-
-/* Rich Status Pills */
-.badge-emerald {
-  background-color: rgba(5, 150, 105, 0.1);
-  color: #059669;
-  border: 1px solid rgba(5, 150, 105, 0.25);
-  font-weight: 700;
-}
-
-body.dark-mode .badge-emerald {
-  background-color: rgba(16, 185, 129, 0.15);
-  color: #34d399;
-  border-color: rgba(16, 185, 129, 0.3);
-}
-
-.badge-amber {
-  background-color: rgba(217, 119, 6, 0.1);
-  color: #d97706;
-  border: 1px solid rgba(217, 119, 6, 0.25);
-  font-weight: 700;
-}
-
-body.dark-mode .badge-amber {
-  background-color: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
-  border-color: rgba(245, 158, 11, 0.3);
-}
-
-.badge-indigo {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #2563eb;
-  border: 1px solid rgba(59, 130, 246, 0.25);
-  font-weight: 700;
-}
-
-body.dark-mode .badge-indigo {
-  background-color: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
-  border-color: rgba(59, 130, 246, 0.3);
 }

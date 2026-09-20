@@ -85,15 +85,18 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
       </div>
+      {/* Global Search Bar */}
+      <div className="hidden md:flex items-center gap-2 bg-slate-100 dark:bg-zinc-800/80 border border-slate-200/80 dark:border-zinc-700/80 rounded-2xl px-3.5 py-1.5 w-72 lg:w-96 transition-all focus-within:border-slate-400 focus-within:bg-white dark:focus-within:bg-zinc-900">
+        <Menu className="w-4 h-4 text-slate-400 shrink-0 hidden" />
+        <input
+          type="text"
+          placeholder="Search anything... matters, clients, fee notes"
+          className="bg-transparent text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none w-full font-sans"
+        />
+      </div>
 
       {/* Right Controls: Theme Switcher, Notifications Bell, Profile Avatar */}
       <div className="flex items-center gap-3 relative">
-        {/* Live Supabase Connected Badge */}
-        <span className="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] border border-emerald-500/20 font-mono">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          Supabase Connected
-        </span>
-
         {/* Theme Switcher Button */}
         <button
           onClick={toggleTheme}
