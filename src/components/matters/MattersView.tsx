@@ -137,13 +137,14 @@ export const MattersView: React.FC<MattersViewProps> = ({ onNavigateTab }) => {
   return (
     <div className="space-y-6 pb-12">
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-2 px-1 border-b border-[var(--border-color)]/50 pb-5">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-2 border-b border-[var(--border-color)]/50 pb-6">
         <div>
-          <h1 className="font-brand font-extrabold text-2xl text-[var(--text-main)] tracking-tight">
-            Matters & Litigation Proceedings
+          <span className="section-eyebrow">Litigation & Portfolio</span>
+          <h1 className="executive-title">
+            Matters & Court Proceedings
           </h1>
-          <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1">
-            Active Law Firm Causes, Court Taxations & Associated Client Records
+          <p className="executive-subtitle">
+            Active Law Firm Causes, High Court Taxations & Associated Client Records
           </p>
         </div>
 

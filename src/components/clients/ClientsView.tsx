@@ -132,13 +132,14 @@ export const ClientsView: React.FC = () => {
   return (
     <div className="space-y-6 pb-12">
       {/* Title Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-2 px-1 border-b border-[var(--border-color)]/50 pb-5">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-2 border-b border-[var(--border-color)]/50 pb-6">
         <div>
-          <h1 className="font-brand font-extrabold text-2xl text-[var(--text-main)] tracking-tight">
+          <span className="section-eyebrow">Client Management</span>
+          <h1 className="executive-title">
             Firm Clients Directory
           </h1>
-          <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1">
-            Corporate & Institutional Entities, Family Trusts, and Individual Clients
+          <p className="executive-subtitle">
+            Institutional, Corporate & Private Client Records, Contact Information & Billing Profiles
           </p>
         </div>
 

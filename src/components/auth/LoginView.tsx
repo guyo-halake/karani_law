@@ -44,7 +44,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           return;
         }
 
-        if (cleanedEmail === 'karani' || cleanedEmail === 'karani.victor@kithinjilegal.co.ke') {
+        if (cleanedEmail === 'karani' || cleanedEmail === 'vickarani@gmail.com' || cleanedEmail === 'karani.victor@kithinjilegal.co.ke') {
           const karani = SEEDED_USERS[1];
           localStorage.setItem('BILLSZIP_SESSION', JSON.stringify(karani));
           onLoginSuccess(karani);
