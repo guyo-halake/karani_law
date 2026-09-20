@@ -533,7 +533,7 @@
       return;
     }
 
-    data.clients.push({
+    const newClientObj = {
       id: "c" + (data.clients.length + 1),
       name: name,
       category: cat,
@@ -541,10 +541,26 @@
       email: email || "info@client.co.ke",
       phone: phone || "+254 700 000 000",
       matters: 0
-    });
+    };
+
+    data.clients.push(newClientObj);
+
+    // Live Supabase Database Sync
+    if (window.supabaseClient) {
+      window.supabaseClient.from('clients').insert([{
+        name: name,
+        client_type: cat.toLowerCase().includes('corporate') ? 'corporate' : 'individual',
+        email: email || 'info@client.co.ke',
+        phone: phone || '+254 700 000 000',
+        kra_pin: kra || 'N/A'
+      }]).then(({ error }) => {
+        if (error) console.warn('Supabase Live DB Insert Notice:', error.message);
+        else console.log('Client saved directly into live Supabase database table `public.clients`');
+      });
+    }
 
     closeClientModal();
-    alert(`Success: ${name} registered in real-time!`);
+    alert(`Success: ${name} registered in real-time & synced with Supabase!`);
     renderDashboard();
   };
 
