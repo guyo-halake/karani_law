@@ -4,18 +4,16 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Modulix-Inspired Executive Theme for Kithinji & Co Advocates */
+/* Modulix-Inspired Executive Theme for Kithinji & Co Advocates (Strict Black, Blue & Green Palette) */
 :root {
   --bg-main: #f4f5f7;
   --bg-card: #ffffff;
   --bg-subtle: #f9fafb;
   --border-color: #e5e7eb;
-  --border-gold: rgba(217, 119, 6, 0.25);
   --text-main: #0f172a;
   --text-muted: #64748b;
-  --accent-gold: #d97706;
-  --accent-navy: #1e3a8a;
-  --accent-emerald: #059669;
+  --accent-blue: #2563eb;
+  --accent-green: #059669;
   --btn-bg: #0f172a;
   --btn-text: #ffffff;
   --font-brand: 'Sora', sans-serif;
@@ -28,12 +26,10 @@ body.dark-mode {
   --bg-card: #111827;
   --bg-subtle: #1f2937;
   --border-color: #27272a;
-  --border-gold: rgba(245, 158, 11, 0.3);
   --text-main: #f9fafb;
   --text-muted: #9ca3af;
-  --accent-gold: #f59e0b;
-  --accent-navy: #3b82f6;
-  --accent-emerald: #10b981;
+  --accent-blue: #3b82f6;
+  --accent-green: #10b981;
   --btn-bg: #ffffff;
   --btn-text: #0f172a;
 }
@@ -75,9 +71,14 @@ body {
 }
 
 .modulix-card-interactive:hover {
-  border-color: #94a3b8;
+  border-color: #2563eb;
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.08);
+}
+
+body.dark-mode .modulix-card-interactive:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.12);
 }
 
 /* Active White Pill Navigation */
@@ -132,24 +133,25 @@ body.dark-mode .modulix-table-header {
   color: #9ca3af;
 }
 
-/* Action Buttons */
-.btn-gold {
-  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+/* Buttons (Strict Black, Blue & Green Palette - NO ORANGE) */
+.btn-blue {
+  background-color: #2563eb;
   color: #ffffff;
   font-weight: 700;
   border-radius: 9999px;
   padding: 0.625rem 1.35rem;
-  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.35);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.btn-gold:hover {
-  background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
+.btn-blue:hover {
+  background-color: #1d4ed8;
   transform: scale(1.03);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.4);
 }
 
 .btn-navy {
-  background: #0f172a;
+  background-color: #0f172a;
   color: #ffffff;
   font-weight: 700;
   border-radius: 9999px;
@@ -158,17 +160,8 @@ body.dark-mode .modulix-table-header {
 }
 
 .btn-navy:hover {
-  background: #1e293b;
+  background-color: #1e293b;
   transform: scale(1.03);
-}
-
-.btn-black {
-  background-color: #0f172a;
-  color: #ffffff;
-  font-weight: 600;
-  border-radius: 9999px;
-  padding: 0.625rem 1.25rem;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .btn-outline {
@@ -182,6 +175,33 @@ body.dark-mode .modulix-table-header {
 }
 
 .btn-outline:hover {
-  border-color: #94a3b8;
+  border-color: #2563eb;
   background-color: var(--bg-subtle);
+}
+
+/* Status Badges */
+.badge-green {
+  background-color: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+  font-weight: 700;
+}
+
+body.dark-mode .badge-green {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.badge-blue {
+  background-color: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  font-weight: 700;
+}
+
+body.dark-mode .badge-blue {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.3);
 }
