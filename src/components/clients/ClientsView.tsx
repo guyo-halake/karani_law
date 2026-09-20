@@ -145,7 +145,7 @@ export const ClientsView: React.FC = () => {
 
         <button
           onClick={() => setShowNewClientModal(true)}
-          className="btn-black px-4 py-2 text-xs font-semibold flex items-center gap-1.5 shrink-0 shadow-sm cursor-pointer"
+          className="btn-gold px-4 py-2 text-xs font-bold flex items-center gap-1.5 shrink-0 cursor-pointer"
         >
           <UserPlus className="w-4 h-4" /> Register New Client
         </button>

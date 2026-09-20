@@ -65,19 +65,24 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="flex items-center gap-3">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-subtle)] text-[var(--text-main)] hover:border-[var(--text-main)] transition-colors focus:outline-none cursor-pointer"
+          className="p-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-subtle)] text-[var(--text-main)] hover:border-amber-500 transition-colors focus:outline-none cursor-pointer"
           title="Toggle Navigation Menu"
         >
-          {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5 text-amber-600 dark:text-amber-400" />}
         </button>
 
-        <div>
-          <span className="font-brand font-extrabold text-sm text-[var(--text-main)] block tracking-tight">
-            {EXACT_FIRM_INFO.name}
-          </span>
-          <span className="text-[10.5px] text-[var(--text-muted)] font-sans block hidden sm:block">
-            Advocates & Legal Consultants
-          </span>
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-white font-extrabold text-sm shadow-md shadow-amber-500/20 font-brand shrink-0">
+            K
+          </div>
+          <div>
+            <span className="font-brand font-extrabold text-sm text-[var(--text-main)] block tracking-tight">
+              {EXACT_FIRM_INFO.name}
+            </span>
+            <span className="text-[10.5px] text-amber-600 dark:text-amber-400 font-semibold font-sans block hidden sm:block">
+              Advocates & Legal Consultants
+            </span>
+          </div>
         </div>
       </div>
 

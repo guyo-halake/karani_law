@@ -53,77 +53,77 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Clean Welcome Header without background card container */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pt-1 pb-6 border-b border-[var(--border-color)]/50">
         <div className="space-y-1">
-          <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider block font-mono">
+          <span className="section-eyebrow">
             {EXACT_FIRM_INFO.name}
           </span>
-          <h1 className="font-brand font-extrabold text-2xl sm:text-3xl lg:text-4xl text-[var(--text-main)] tracking-tight">
+          <h1 className="executive-title text-gradient-gold">
             {getGreeting()}, {userName}
           </h1>
-          <p className="text-xs sm:text-sm text-[var(--text-muted)] max-w-xl leading-relaxed">
+          <p className="executive-subtitle max-w-xl">
             Advocates Remuneration Order Platform — High Court Taxations, Arbitration Portfolio, and Real-Time Storage Vault.
           </p>
         </div>
 
-        {/* Action Buttons in Welcome Section: Icon on Top, Text Bottom, Borderless/No BG by default - Shifted up */}
+        {/* Action Buttons in Welcome Section: Icon on Top, Text Bottom */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 -mt-1 lg:-mt-2 shrink-0">
           <button
             onClick={() => setShowClientModal(true)}
-            className="bg-transparent border border-transparent hover:border-[var(--border-color)] hover:bg-[var(--bg-subtle)] p-3 rounded-2xl transition-all flex flex-col items-center justify-center text-center cursor-pointer group focus:outline-none active:scale-95 min-w-[100px]"
+            className="bg-amber-500/10 border border-amber-500/20 hover:border-amber-500 hover:bg-amber-500/20 p-3 rounded-2xl transition-all flex flex-col items-center justify-center text-center cursor-pointer group focus:outline-none active:scale-95 min-w-[100px]"
             title="Register New Client"
           >
-            <UserPlus className="w-5.5 h-5.5 text-[var(--text-muted)] group-hover:text-[var(--text-main)] transition-colors mb-1.5" />
-            <span className="text-[11.5px] font-semibold text-[var(--text-muted)] group-hover:text-[var(--text-main)] transition-colors leading-tight">
+            <UserPlus className="w-5.5 h-5.5 text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform mb-1.5" />
+            <span className="text-[11.5px] font-bold text-[var(--text-main)] leading-tight">
               Register Client
             </span>
           </button>
 
           <button
             onClick={() => onNavigateTab('boc')}
-            className="bg-transparent border border-transparent hover:border-[var(--border-color)] hover:bg-[var(--bg-subtle)] p-3 rounded-2xl transition-all flex flex-col items-center justify-center text-center cursor-pointer group focus:outline-none active:scale-95 min-w-[100px]"
+            className="bg-amber-500/10 border border-amber-500/20 hover:border-amber-500 hover:bg-amber-500/20 p-3 rounded-2xl transition-all flex flex-col items-center justify-center text-center cursor-pointer group focus:outline-none active:scale-95 min-w-[100px]"
             title="New Fee Note"
           >
-            <Plus className="w-5.5 h-5.5 text-[var(--text-muted)] group-hover:text-[var(--text-main)] transition-colors mb-1.5" />
-            <span className="text-[11.5px] font-semibold text-[var(--text-muted)] group-hover:text-[var(--text-main)] transition-colors leading-tight">
+            <Plus className="w-5.5 h-5.5 text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform mb-1.5" />
+            <span className="text-[11.5px] font-bold text-[var(--text-main)] leading-tight">
               New Fee Note
             </span>
           </button>
 
           <button
             onClick={() => onNavigateTab('boc')}
-            className="bg-transparent border border-transparent hover:border-[var(--border-color)] hover:bg-[var(--bg-subtle)] p-3 rounded-2xl transition-all flex flex-col items-center justify-center text-center cursor-pointer group focus:outline-none active:scale-95 min-w-[100px]"
+            className="bg-amber-500/10 border border-amber-500/20 hover:border-amber-500 hover:bg-amber-500/20 p-3 rounded-2xl transition-all flex flex-col items-center justify-center text-center cursor-pointer group focus:outline-none active:scale-95 min-w-[100px]"
             title="Fee Calculator"
           >
-            <Calculator className="w-5.5 h-5.5 text-[var(--text-muted)] group-hover:text-[var(--text-main)] transition-colors mb-1.5" />
-            <span className="text-[11.5px] font-semibold text-[var(--text-muted)] group-hover:text-[var(--text-main)] transition-colors leading-tight">
+            <Calculator className="w-5.5 h-5.5 text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform mb-1.5" />
+            <span className="text-[11.5px] font-bold text-[var(--text-main)] leading-tight">
               Fee Calculator
             </span>
           </button>
 
           <button
             onClick={() => onOpenRecents ? onOpenRecents() : onNavigateTab('vault')}
-            className="bg-transparent border border-transparent hover:border-[var(--border-color)] hover:bg-[var(--bg-subtle)] p-3 rounded-2xl transition-all flex flex-col items-center justify-center text-center cursor-pointer group focus:outline-none active:scale-95 min-w-[100px]"
+            className="bg-amber-500/10 border border-amber-500/20 hover:border-amber-500 hover:bg-amber-500/20 p-3 rounded-2xl transition-all flex flex-col items-center justify-center text-center cursor-pointer group focus:outline-none active:scale-95 min-w-[100px]"
             title="Recents / Drafts"
           >
-            <Clock className="w-5.5 h-5.5 text-[var(--text-muted)] group-hover:text-[var(--text-main)] transition-colors mb-1.5" />
-            <span className="text-[11.5px] font-semibold text-[var(--text-muted)] group-hover:text-[var(--text-main)] transition-colors leading-tight">
+            <Clock className="w-5.5 h-5.5 text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform mb-1.5" />
+            <span className="text-[11.5px] font-bold text-[var(--text-main)] leading-tight">
               Recents / Drafts
             </span>
           </button>
         </div>
       </div>
 
-      {/* Spaced Interactive Overview Cards (Clickable & Responsive Flex/Grid to prevent overflow when screen is minimized) */}
+      {/* Spaced Interactive Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Card 1: Total Claim Portfolio */}
         <div
           onClick={() => onNavigateTab('matters')}
-          className="vercel-card-interactive p-6 space-y-3 group flex flex-col justify-between min-w-0"
+          className="vercel-card-interactive card-gold-accent p-6 space-y-3 group flex flex-col justify-between min-w-0"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider font-mono truncate">
+            <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider font-mono truncate">
               Total Claim Portfolio Value
             </span>
-            <ChevronRight className="w-4 h-4 text-[var(--text-muted)] group-hover:translate-x-1 transition-transform shrink-0" />
+            <ChevronRight className="w-4 h-4 text-amber-500 group-hover:translate-x-1 transition-transform shrink-0" />
           </div>
 
           <div className="min-w-0">
@@ -137,7 +137,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <div className="pt-2 border-t border-[var(--border-color)] flex items-center justify-between text-[11px] text-[var(--text-muted)]">
             <span>View Full Portfolio</span>
-            <span className="font-semibold text-[var(--text-main)]">My Matters →</span>
+            <span className="font-bold text-amber-600 dark:text-amber-400">My Matters →</span>
           </div>
         </div>
 

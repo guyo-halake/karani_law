@@ -152,15 +152,15 @@ export const MattersView: React.FC<MattersViewProps> = ({ onNavigateTab }) => {
         <div className="flex items-center gap-2.5 shrink-0">
           <button
             onClick={() => setShowNewMatterModal(true)}
-            className="btn-black px-4 py-2 text-xs font-semibold flex items-center gap-1.5 shadow-sm cursor-pointer"
+            className="btn-gold px-4 py-2 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
           >
             <Plus className="w-4 h-4" /> New Matter / Case
           </button>
           <button
             onClick={() => onNavigateTab ? onNavigateTab('clients') : null}
-            className="btn-outline px-4 py-2 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+            className="btn-navy px-4 py-2 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
           >
-            <Users className="w-4 h-4" /> Clients Directory
+            <Users className="w-4 h-4 text-amber-400" /> Clients Directory
           </button>
         </div>
       </div>
