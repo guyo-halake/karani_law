@@ -40,8 +40,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     (m) => m.status.toLowerCase().includes('taxation') || m.status.toLowerCase().includes('ready')
   ).length;
 
-  const processedFeeNotesCount = EXACT_FEE_NOTES.filter(
-    (fn) => fn.status === 'processed'
+  const todayStr = new Date().toISOString().split('T')[0];
+  const processedTodayCount = EXACT_FEE_NOTES.filter(
+    (fn) => (fn.createdAt && fn.createdAt.startsWith(todayStr)) && fn.status === 'processed'
+  ).length;
+
+  const untaxedDraftsCount = EXACT_FEE_NOTES.filter(
+    (fn) => fn.status === 'draft'
   ).length;
 
   const totalMattersCount = EXACT_MATTERS.length;
@@ -177,11 +182,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div className="flex items-baseline justify-between pt-1">
                 <div>
                   <p className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono tracking-tight">
-                    {processedFeeNotesCount}
+                    {processedTodayCount}
                   </p>
-                  <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span>Verified & Taxed</span>
+                  <div className="flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 mt-1">
+                    <span>{untaxedDraftsCount} Untaxed / Drafts Pending</span>
                   </div>
                 </div>
 

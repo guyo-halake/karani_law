@@ -15,7 +15,7 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
   onNavigateToTab,
 }) => {
   const [claimValue, setClaimValue] = useState<number>(initialValue);
-  const [courtSchedule, setCourtSchedule] = useState<string>(initialCourt);
+  const [courtSchedule, setCourtSchedule] = useState<string>(initialCourt || "");
   const [isDefendant, setIsDefendant] = useState(false);
   const [includeGettingUp, setIncludeGettingUp] = useState(true);
   const [disbursements, setDisbursements] = useState(0);
@@ -124,8 +124,8 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
         {/* View Fee Notes Navigation Button */}
         <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={() => onNavigateToTab ? onNavigateToTab('vault') : null}
-            className="btn-outline px-4 py-2 text-xs font-semibold flex items-center gap-2 shadow-xs"
+            onClick={() => onNavigateToTab ? onNavigateToTab('feenotes') : null}
+            className="btn-outline px-4 py-2 text-xs font-semibold flex items-center gap-2 shadow-xs cursor-pointer"
           >
             <FileText className="w-4 h-4 text-slate-600 dark:text-slate-300" /> View Fee Notes
           </button>

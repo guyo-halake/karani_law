@@ -210,8 +210,15 @@ export const ClientsView: React.FC = () => {
                 {filtered.map((c: ExactClientRecord) => (
                   <tr key={c.id} className="hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer" onClick={() => setSelectedClientDetail(c)}>
                     <td className="px-5 py-3.5">
-                      <strong className="font-bold text-[var(--text-main)] block">{c.name}</strong>
-                      <span className="text-[10.5px] text-[var(--text-muted)] font-mono">{c.company}</span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-slate-900 text-white font-mono font-bold text-xs flex items-center justify-center shrink-0 shadow-xs uppercase">
+                          {c.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                        </div>
+                        <div className="min-w-0">
+                          <strong className="font-bold text-[var(--text-main)] block truncate">{c.name}</strong>
+                          <span className="text-[10.5px] text-[var(--text-muted)] font-mono block truncate">{c.company}</span>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-5 py-3.5 text-[var(--text-muted)]">
                       <span className="px-2.5 py-0.5 rounded-full bg-[var(--bg-subtle)] border border-[var(--border-color)] text-[10.5px] font-semibold">

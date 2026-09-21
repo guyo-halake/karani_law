@@ -581,24 +581,29 @@ export const RemunerationGuideView: React.FC = () => {
       {/* TAB 3: SCHEDULES 1 TO 11 FULL STATUTORY SCALES */}
       {activeTab === 'schedules' && (
         <div className="space-y-6">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
-            <h3 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-zinc-800 pb-3">
-              Full Statutory Scale Tables for All 11 Schedules
-            </h3>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-8">
+            <div className="border-b border-slate-200 dark:border-zinc-800 pb-4">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                Full Statutory Scale Tables for All 11 Schedules
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Ref: The Advocates (Remuneration) Order (Kenya Subsidiary Legislation L.N. 64/1962, ed. 2022 & L.N. 35/2014)
+              </p>
+            </div>
 
             {/* SCHEDULE 1 */}
             <div className="space-y-3 border-b border-slate-200 dark:border-zinc-800 pb-6">
               <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
                 SCHEDULE 1 — Conveyancing, Sales, Purchases, Mortgages & Leases
               </h4>
-              <p className="text-xs text-slate-600 dark:text-slate-400">
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                 Governs legal fees for transfers of immovable property. Purchaser's Advocate scale: Minimum fee Kshs 35,000 for value up to Kshs 1,000,000.
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs font-sans border-collapse border border-slate-300 dark:border-zinc-700">
                   <thead>
                     <tr className="bg-slate-100 dark:bg-zinc-800">
-                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Property Value</th>
+                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Property Value / Consideration</th>
                       <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Purchaser Advocate Scale</th>
                       <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Vendor Advocate Scale</th>
                     </tr>
@@ -606,7 +611,7 @@ export const RemunerationGuideView: React.FC = () => {
                   <tbody>
                     <tr>
                       <td className="p-2 border border-slate-300 dark:border-zinc-700">Up to Kshs 1,000,000</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 35,000 fixed</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 35,000 fixed minimum</td>
                       <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">75% of Purchaser Fee</td>
                     </tr>
                     <tr>
@@ -620,9 +625,52 @@ export const RemunerationGuideView: React.FC = () => {
                       <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">75% of Purchaser Fee</td>
                     </tr>
                     <tr>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700">10,000,001 – 20,000,000</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 190,000 + 1.0% of excess over 10M</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">75% of Purchaser Fee</td>
+                    </tr>
+                    <tr>
                       <td className="p-2 border border-slate-300 dark:border-zinc-700">Over 20,000,000</td>
                       <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 290,000 + 0.75% of excess over 20M</td>
                       <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">75% of Purchaser Fee</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* SCHEDULE 2 */}
+            <div className="space-y-3 border-b border-slate-200 dark:border-zinc-800 pb-6">
+              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
+                SCHEDULE 2 — Debentures, Mortgages & Corporate Security Charges
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                Governs legal fees for preparing, approving, and registering commercial debentures and loan securities. Minimum Fee: Kshs 50,000.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs font-sans border-collapse border border-slate-300 dark:border-zinc-700">
+                  <thead>
+                    <tr className="bg-slate-100 dark:bg-zinc-800">
+                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Principal Sum Secured</th>
+                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Lender Advocate Scale</th>
+                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Borrower Advocate Scale</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Up to Kshs 1,000,000</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 50,000 fixed minimum</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">50% of Lender Fee</td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700">1,000,001 – 10,000,000</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 50,000 + 1.5% of excess over 1M</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">50% of Lender Fee</td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Over 10,000,000</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 185,000 + 1.0% of excess over 10M</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">50% of Lender Fee</td>
                     </tr>
                   </tbody>
                 </table>
@@ -634,7 +682,7 @@ export const RemunerationGuideView: React.FC = () => {
               <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
                 SCHEDULE 3 — Grants of Probate & Estate Administration
               </h4>
-              <p className="text-xs text-slate-600 dark:text-slate-400">
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                 Governs petition for grant of probate, letters of administration, and distribution of deceased estates.
               </p>
               <div className="overflow-x-auto">
@@ -663,13 +711,135 @@ export const RemunerationGuideView: React.FC = () => {
               </div>
             </div>
 
+            {/* SCHEDULE 4 */}
+            <div className="space-y-3 border-b border-slate-200 dark:border-zinc-800 pb-6">
+              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
+                SCHEDULE 4 — Trademarks, Patents, Designs & Copyright Registration
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                Governs intellectual property filings, oppositions, assignments, and renewals at KIPI.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs font-sans border-collapse border border-slate-300 dark:border-zinc-700">
+                  <thead>
+                    <tr className="bg-slate-100 dark:bg-zinc-800">
+                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">IP Legal Service</th>
+                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Statutory Fee Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Trademark Registration Application</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 25,000 per class</td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Filing Notice of Opposition</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 45,000 fixed</td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Assignment / Transfer of Registration</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 20,000 fixed</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* SCHEDULE 5 */}
+            <div className="space-y-3 border-b border-slate-200 dark:border-zinc-800 pb-6">
+              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
+                SCHEDULE 5 — Subordinate (Magistrate's) Court Civil Litigation
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                Governs civil suits in Magistrate's Courts. Minimum Instruction Fee: Kshs 30,000.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs font-sans border-collapse border border-slate-300 dark:border-zinc-700">
+                  <thead>
+                    <tr className="bg-slate-100 dark:bg-zinc-800">
+                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Claim Value (Kshs)</th>
+                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Magistrate Scale Formula</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Up to Kshs 100,000</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 20,000 (Floored at Kshs 30,000 minimum)</td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700">100,001 – 500,000</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 30,000 + 5.0% of excess over 100k</td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700">500,001 – 1,000,000</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 50,000 + 3.0% of excess over 500k</td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Over 1,000,000</td>
+                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 65,000 + 2.0% of excess over 1M</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
             {/* SCHEDULE 6 */}
-            <div className="space-y-3">
+            <div className="space-y-3 border-b border-slate-200 dark:border-zinc-800 pb-6">
               <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
                 SCHEDULE 6 — Superior Courts Litigation (High Court, ELC, ELRC, Court of Appeal, Supreme Court)
               </h4>
-              <p className="text-xs text-slate-600 dark:text-slate-400">
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                 Minimum Plaintiff Fee: Kshs 75,000 | Minimum Defendant Fee: Kshs 50,000 | Getting-Up Fee: 33.33% (1/3).
+              </p>
+            </div>
+
+            {/* SCHEDULE 7 */}
+            <div className="space-y-3 border-b border-slate-200 dark:border-zinc-800 pb-6">
+              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
+                SCHEDULE 7 — Subordinate Courts Secondary Scale & Default Costs
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                Governs un-contested interlocutory applications, executions, and default judgments in Magistrate's Courts.
+              </p>
+            </div>
+
+            {/* SCHEDULE 8 */}
+            <div className="space-y-3 border-b border-slate-200 dark:border-zinc-800 pb-6">
+              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
+                SCHEDULE 8 — Rent Tribunals (Cap 301) & Business Premises Tribunals (Cap 296)
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                Governs tenancy disputes, distress for rent applications, and tribunal assessment hearings.
+              </p>
+            </div>
+
+            {/* SCHEDULE 9 */}
+            <div className="space-y-3 border-b border-slate-200 dark:border-zinc-800 pb-6">
+              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
+                SCHEDULE 9 — Arbitrations & Statutory Arbitral Proceedings
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                Governs representation under the Arbitration Act 1995. Scale calculated at 100% of Schedule 6 High Court scale.
+              </p>
+            </div>
+
+            {/* SCHEDULE 10 */}
+            <div className="space-y-3 border-b border-slate-200 dark:border-zinc-800 pb-6">
+              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
+                SCHEDULE 10 — Criminal Proceedings & Special Defense Retainers
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                Governs criminal defense instruction fees in High Court trials, Magistrate Courts, and bail applications. Minimum Retainer: Kshs 50,000.
+              </p>
+            </div>
+
+            {/* SCHEDULE 11 */}
+            <div className="space-y-3">
+              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
+                SCHEDULE 11 — Itemized Folio Scale Rates, Attendances, Perusals & Searches
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                Drawing pleadings: Kshs 500/fol | Copying: Kshs 50/fol | Court Attendance: Kshs 2,500/hr | Registry Searches: Kshs 1,500.
               </p>
             </div>
           </div>

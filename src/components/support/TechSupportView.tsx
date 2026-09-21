@@ -103,9 +103,9 @@ export const SIMPLE_TECH_PROBLEMS: TechProblem[] = [
     category: 'Website Basics',
     problem: 'How to view your Advocate Profile and LSK details',
     solution: [
-      '1. Click your profile avatar on the top right bar.',
-      '2. Click "View Profile".',
-      '3. Your full name, LSK admission number, and emails will be displayed.'
+      '1. Click your profile avatar at the top right navbar.',
+      '2. Select "View Profile".',
+      '3. View your LSK practice certificate, contact details, and firm roles.'
     ]
   },
   {
@@ -113,9 +113,8 @@ export const SIMPLE_TECH_PROBLEMS: TechProblem[] = [
     category: 'Website Basics',
     problem: 'How to log out of the Karani Law Platform',
     solution: [
-      '1. Click your avatar on the top right bar.',
-      '2. Click "Log Out".',
-      '3. Confirm logout to secure your session.'
+      '1. Click your profile avatar at the top right navbar or bottom sidebar.',
+      '2. Click "Log Out" to return to the secure login screen.'
     ]
   },
   {
@@ -123,8 +122,9 @@ export const SIMPLE_TECH_PROBLEMS: TechProblem[] = [
     category: 'Troubleshooting',
     problem: 'Getting-Up fee 1/3 surcharge not adding to total',
     solution: [
-      '1. Check the "Include Getting-Up Fee (1/3)" checkbox in the builder.',
-      '2. Make sure your Instruction Fee is greater than Kshs 0.'
+      '1. Make sure "Include Getting-Up Fee (33.33%)" checkbox is checked.',
+      '2. Select a contentious schedule (e.g. Schedule 6 for High Court).',
+      '3. The 33.33% getting-up surcharge is calculated on the instruction fee.'
     ]
   },
   {
@@ -132,17 +132,8 @@ export const SIMPLE_TECH_PROBLEMS: TechProblem[] = [
     category: 'Troubleshooting',
     problem: 'Statutory 16% VAT not showing on bill',
     solution: [
-      '1. Check the "Apply 16% VAT" option under Fee Note Builder parameters.',
-      '2. VAT will be added automatically to taxable instruction fees.'
-    ]
-  },
-  {
-    id: 13,
-    category: 'Technical',
-    problem: 'How to contact P3L Support directly',
-    solution: [
-      '1. Use the Tech Support form on this page.',
-      '2. Or email razak.admin@p3ldev.com.'
+      '1. Statutory 16% VAT is automatically added to all taxable items.',
+      '2. Disbursements (court filing fees) are non-taxable and added after VAT.'
     ]
   }
 ];
@@ -161,29 +152,29 @@ export const TechSupportView: React.FC = () => {
     setTimeout(() => {
       setIsSending(false);
       setSupportMessage('');
-      alert('✓ Message sent to P3L Admin support team! We will respond to your registered email as soon as possible.');
-    }, 1000);
+      alert('✓ Your support request has been submitted to Karani Law Helpdesk. An advocate administrator will contact you shortly.');
+    }, 600);
   };
 
-  const filteredProblems = SIMPLE_TECH_PROBLEMS.filter(p =>
-    p.problem.toLowerCase().includes(searchFilter.toLowerCase()) ||
-    p.category.toLowerCase().includes(searchFilter.toLowerCase()) ||
-    p.solution.some(s => s.toLowerCase().includes(searchFilter.toLowerCase()))
+  const filteredProblems = SIMPLE_TECH_PROBLEMS.filter(
+    (p) =>
+      p.problem.toLowerCase().includes(searchFilter.toLowerCase()) ||
+      p.category.toLowerCase().includes(searchFilter.toLowerCase())
   );
 
   return (
-    <div className="w-full space-y-8 pb-16 relative">
-      {/* Top Banner Header */}
-      <div className="vercel-card p-6 sm:p-8 space-y-2 text-center sm:text-left border-l-4 border-l-black dark:border-l-white">
+    <div className="w-full space-y-8 pb-12 font-sans">
+      {/* Title Header */}
+      <div className="border-b border-[var(--border-color)] pb-4 space-y-1">
         <h1 className="font-brand font-extrabold text-2xl sm:text-3xl text-[var(--text-main)] tracking-tight">
-          Welcome to P3L Help Desk
+          Welcome to Firm Technical Support & Helpdesk
         </h1>
         <p className="text-xs sm:text-sm text-[var(--text-muted)] font-mono font-semibold">
-          Developed by P3L Developers, Nairobi • Executive Legal Software Technical Support
+          Nyagah B. Kithinji & Co. Advocates • Legal Software Technical Support
         </p>
       </div>
 
-      {/* TOP SECTION: Two Columns (Message Form Left + P3L Business Card Right) */}
+      {/* TOP SECTION: Two Columns (Message Form Left + Firm Business Card Right) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-xs">
         
         {/* LEFT COLUMN: Quick Message Form */}
@@ -218,17 +209,17 @@ export const TechSupportView: React.FC = () => {
           </p>
         </div>
 
-        {/* RIGHT COLUMN: P3L Admin Business Card */}
+        {/* RIGHT COLUMN: Firm Support Card */}
         <div className="vercel-card p-6 space-y-5 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-black text-white dark:bg-white dark:text-black font-bold text-sm flex items-center justify-center font-mono shadow-md">
-                  P3L
+                <div className="w-10 h-10 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-black font-bold text-sm flex items-center justify-center font-mono shadow-md">
+                  N
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-[var(--text-main)]">P3L Admin</h3>
-                  <span className="text-[10.5px] text-[var(--text-muted)] font-mono">P3L Developers • Software Support</span>
+                  <h3 className="font-bold text-sm text-[var(--text-main)]">Advocates Support Desk</h3>
+                  <span className="text-[10.5px] text-[var(--text-muted)] font-mono">Nyagah B. Kithinji & Co. Advocates</span>
                 </div>
               </div>
               <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold text-[10px]">
@@ -238,61 +229,53 @@ export const TechSupportView: React.FC = () => {
 
             <div className="space-y-3 pt-4 text-xs font-mono">
               <div>
-                <span className="text-[var(--text-muted)] text-[10px] uppercase block font-sans font-semibold">Official Admin Email 1:</span>
-                <a href="mailto:razak.admin@p3ldev.com" className="font-bold text-[var(--text-main)] hover:underline">
-                  razak.admin@p3ldev.com
+                <span className="text-[var(--text-muted)] text-[10px] uppercase block font-sans font-semibold">Managing Advocate Email:</span>
+                <a href="mailto:vickarani@gmail.com" className="font-bold text-[var(--text-main)] hover:underline">
+                  vickarani@gmail.com
                 </a>
               </div>
 
               <div>
-                <span className="text-[var(--text-muted)] text-[10px] uppercase block font-sans font-semibold">Official Admin Email 2:</span>
-                <a href="mailto:razakwako45@gmail.com" className="font-bold text-[var(--text-main)] hover:underline">
-                  razakwako45@gmail.com
+                <span className="text-[var(--text-muted)] text-[10px] uppercase block font-sans font-semibold">Support Desk Telephone:</span>
+                <a href="tel:+254712345678" className="font-bold text-[var(--text-main)] hover:underline">
+                  +254 712 345 678
                 </a>
               </div>
 
               <div>
-                <span className="text-[var(--text-muted)] text-[10px] uppercase block font-sans font-semibold">Direct Telephone Line:</span>
-                <a href="tel:+254768141129" className="font-bold text-[var(--text-main)] hover:underline">
-                  +254 768 141 129
-                </a>
-              </div>
-
-              <div>
-                <span className="text-[var(--text-muted)] text-[10px] uppercase block font-sans font-semibold">Developer Website:</span>
-                <a
-                  href="https://p3ldevelopers.vercel.app"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-bold text-blue-500 hover:underline"
-                >
-                  www.p3ldevelopers.vercel.app
-                </a>
+                <span className="text-[var(--text-muted)] text-[10px] uppercase block font-sans font-semibold">Firm Portal:</span>
+                <span className="font-bold text-blue-500">
+                  www.kithinjilegal.co.ke
+                </span>
               </div>
 
               <div>
                 <span className="text-[var(--text-muted)] text-[10px] uppercase block font-sans font-semibold">HQ Location:</span>
-                <p className="font-bold text-[var(--text-main)] font-sans">Nairobi, Kenya</p>
+                <span className="font-bold text-[var(--text-main)]">Nairobi, Kenya</span>
               </div>
             </div>
           </div>
-        </div>
 
+          <div className="p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)] text-[11px] text-[var(--text-muted)] flex items-center justify-between font-mono">
+            <span>Response SLA Target:</span>
+            <span className="font-bold text-emerald-600 dark:text-emerald-400">Within 1 Hour</span>
+          </div>
+        </div>
       </div>
 
-      {/* LOWER SECTION: Knowledgebase & FAQs */}
-      <div className="space-y-6 pt-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--border-color)]/50 pb-4">
+      {/* BOTTOM SECTION: FAQ Accordion */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border-color)] pb-3">
           <div>
-            <h2 className="font-brand font-extrabold text-xl text-[var(--text-main)] tracking-tight flex items-center gap-2">
+            <h2 className="font-brand font-bold text-base sm:text-lg text-[var(--text-main)]">
               Frequently Asked Questions & Solutions
             </h2>
-            <p className="text-xs text-[var(--text-muted)] mt-0.5">
+            <p className="text-xs text-[var(--text-muted)]">
               Simple step-by-step guides for common platform tasks and fixes
             </p>
           </div>
 
-          <div className="relative w-full sm:w-72">
+          <div className="relative w-full sm:w-64">
             <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[var(--text-muted)]" />
             <input
               type="text"
@@ -358,7 +341,7 @@ export const TechSupportView: React.FC = () => {
         </div>
       </div>
 
-      {/* MODERN FOOTER Strictly matching user specification */}
+      {/* FOOTER */}
       <footer className="pt-8 border-t border-[var(--border-color)] text-center space-y-1 text-xs text-[var(--text-muted)]">
         <p className="font-semibold text-[var(--text-main)]">
           BoC Builder Software 2026. All rights reserved.
