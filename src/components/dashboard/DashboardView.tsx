@@ -13,7 +13,9 @@ import {
   DollarSign,
   ChevronRight,
   Sparkles,
-  FileCode
+  FileCode,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 import { EXACT_MATTERS, EXACT_FEE_NOTES, EXACT_CLIENTS, EXACT_FIRM_INFO, SystemUser } from '../../services/supabase';
@@ -32,6 +34,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   currentUser,
 }) => {
   const [selectedBarIndex, setSelectedBarIndex] = useState(0);
+  const [showPortfolioGraph, setShowPortfolioGraph] = useState(true);
+  const [graphMetricTab, setGraphMetricTab] = useState<'claims' | 'feenotes' | 'schedules'>('claims');
 
   const userName = currentUser?.advocateTitle || currentUser?.fullName || EXACT_FIRM_INFO.user.name;
 
@@ -197,77 +201,235 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           </div>
 
-          {/* Real Dynamic Portfolio Overview Chart */}
+          {/* Real Dynamic Portfolio Overview Chart & Multi-Metric Visualizer */}
           <div className="modulix-card space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider font-mono block mb-0.5">
-                  Portfolio Claim Breakdown
-                </span>
-                <h3 className="font-brand font-extrabold text-xl text-slate-900 dark:text-white font-mono">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider font-mono block">
+                    Portfolio Claim & Remuneration Analytics
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 font-mono font-bold text-[10px]">
+                    Live Math Sync
+                  </span>
+                </div>
+                <h3 className="font-brand font-extrabold text-xl text-slate-900 dark:text-white font-mono mt-0.5">
                   Kshs {totalPortfolioValue.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5 font-sans">
-                  Total Legal Claim Sum Across Active Causes
+                  Total Legal Portfolio Sum Across {totalMattersCount} Active Causes & Arbitrations
                 </p>
               </div>
 
-              <button
-                onClick={() => onNavigateTab('matters')}
-                className="flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-zinc-300 hover:border-blue-500 cursor-pointer"
-              >
-                <span>View All ({totalMattersCount})</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Metric Mode Switcher */}
+                <div className="flex items-center bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-semibold">
+                  <button
+                    onClick={() => setGraphMetricTab('claims')}
+                    className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                      graphMetricTab === 'claims'
+                        ? 'bg-white dark:bg-zinc-700 text-slate-900 dark:text-white shadow-xs font-bold'
+                        : 'text-slate-500 hover:text-slate-900'
+                    }`}
+                  >
+                    Claims (Kshs)
+                  </button>
+                  <button
+                    onClick={() => setGraphMetricTab('feenotes')}
+                    className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                      graphMetricTab === 'feenotes'
+                        ? 'bg-white dark:bg-zinc-700 text-slate-900 dark:text-white shadow-xs font-bold'
+                        : 'text-slate-500 hover:text-slate-900'
+                    }`}
+                  >
+                    Fee Notes & Drafts
+                  </button>
+                  <button
+                    onClick={() => setGraphMetricTab('schedules')}
+                    className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                      graphMetricTab === 'schedules'
+                        ? 'bg-white dark:bg-zinc-700 text-slate-900 dark:text-white shadow-xs font-bold'
+                        : 'text-slate-500 hover:text-slate-900'
+                    }`}
+                  >
+                    Statutory Schedules
+                  </button>
+                </div>
 
-            {/* Dynamic Matter Value Bars */}
-            <div className="pt-6 pb-2 px-2">
-              <div className="flex items-end justify-between gap-4 h-44 relative border-b border-slate-200/80 dark:border-zinc-700 pb-2">
-                {EXACT_MATTERS.map((m, idx) => {
-                  const isSelected = selectedBarIndex === idx;
-                  const percentage = Math.round((m.amount / totalPortfolioValue) * 100);
-                  return (
-                    <div
-                      key={m.id}
-                      onClick={() => setSelectedBarIndex(idx)}
-                      className="flex-1 flex flex-col items-center justify-end h-full group cursor-pointer relative"
-                    >
-                      {/* Dark Tooltip Bubble for Selected Bar */}
-                      {isSelected && (
-                        <div className="absolute -top-16 bg-slate-900 text-white px-3.5 py-2 rounded-xl text-center shadow-xl z-20 animate-fade-in border border-slate-700 max-w-[200px]">
-                          <p className="text-[10px] text-slate-400 font-sans truncate">{m.caseNo}</p>
-                          <p className="text-xs font-bold font-mono text-blue-400">
-                            Kshs {m.amount.toLocaleString('en-KE')}
-                          </p>
-                          <div className="w-2 h-2 bg-slate-900 transform rotate-45 absolute -bottom-1 left-1/2 -translate-x-1/2 border-r border-b border-slate-700"></div>
-                        </div>
-                      )}
-
-                      {/* Bar Visual */}
-                      <div
-                        style={{ height: `${Math.max(percentage, 25)}%` }}
-                        className={`w-full max-w-[60px] rounded-t-xl transition-all duration-200 ${
-                          isSelected
-                            ? 'bg-slate-900 dark:bg-blue-600 shadow-md scale-105'
-                            : 'bg-slate-200 dark:bg-zinc-700/60 hover:bg-slate-300 dark:hover:bg-zinc-600'
-                        }`}
-                      >
-                        {!isSelected && (
-                          <div className="w-full h-full opacity-20 bg-[linear-gradient(45deg,transparent_25%,rgba(0,0,0,0.1)_25%,rgba(0,0,0,0.1)_50%,transparent_50%,transparent_75%,rgba(0,0,0,0.1)_75%)] bg-[length:8px_8px] rounded-t-xl"></div>
-                        )}
-                      </div>
-
-                      <span className={`text-[11px] mt-2.5 font-bold font-mono truncate max-w-[90px] ${
-                        isSelected ? 'text-slate-900 dark:text-blue-400' : 'text-slate-500'
-                      }`}>
-                        {m.caseNo.split(' ')[0]}
-                      </span>
-                    </div>
-                  );
-                })}
+                {/* Show / Hide Graph Toggle Button */}
+                <button
+                  onClick={() => setShowPortfolioGraph(!showPortfolioGraph)}
+                  className="flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-zinc-300 hover:border-blue-500 cursor-pointer transition-all"
+                  title={showPortfolioGraph ? "Hide Graph Visualization" : "Show Graph Visualization"}
+                >
+                  {showPortfolioGraph ? (
+                    <><EyeOff className="w-3.5 h-3.5 text-blue-600" /> Hide Graph</>
+                  ) : (
+                    <><Eye className="w-3.5 h-3.5 text-emerald-600" /> Show Graph</>
+                  )}
+                </button>
               </div>
             </div>
+
+            {/* Collapsible Graph Section */}
+            {showPortfolioGraph ? (
+              <div className="space-y-6 animate-fade-in">
+                {/* 1. Claims Metric Mode */}
+                {graphMetricTab === 'claims' && (
+                  <div className="pt-4 pb-2 px-2 space-y-4">
+                    <div className="flex items-end justify-between gap-4 h-52 relative border-b border-slate-200/80 dark:border-zinc-700 pb-2">
+                      {EXACT_MATTERS.map((m, idx) => {
+                        const isSelected = selectedBarIndex === idx;
+                        const percentage = Math.round((m.amount / totalPortfolioValue) * 100);
+                        return (
+                          <div
+                            key={m.id}
+                            onClick={() => setSelectedBarIndex(idx)}
+                            className="flex-1 flex flex-col items-center justify-end h-full group cursor-pointer relative"
+                          >
+                            {/* Selected Bar Tooltip */}
+                            {isSelected && (
+                              <div className="absolute -top-16 bg-slate-900 text-white px-3.5 py-2 rounded-xl text-center shadow-xl z-20 animate-fade-in border border-slate-700 max-w-[220px]">
+                                <p className="text-[10px] text-slate-400 font-sans truncate">{m.title}</p>
+                                <p className="text-xs font-bold font-mono text-emerald-400">
+                                  Kshs {m.amount.toLocaleString('en-KE', { minimumFractionDigits: 2 })} ({percentage}%)
+                                </p>
+                                <div className="w-2 h-2 bg-slate-900 transform rotate-45 absolute -bottom-1 left-1/2 -translate-x-1/2 border-r border-b border-slate-700"></div>
+                              </div>
+                            )}
+
+                            {/* Bar Visual */}
+                            <div
+                              style={{ height: `${Math.max(percentage, 20)}%` }}
+                              className={`w-full max-w-[70px] rounded-t-xl transition-all duration-300 ${
+                                isSelected
+                                  ? 'bg-gradient-to-t from-blue-600 to-indigo-600 shadow-lg scale-105'
+                                  : 'bg-slate-200 dark:bg-zinc-700/60 hover:bg-blue-500/30 dark:hover:bg-zinc-600'
+                              }`}
+                            >
+                              <div className="w-full h-full opacity-30 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.2)_25%,rgba(255,255,255,0.2)_50%,transparent_50%,transparent_75%,rgba(255,255,255,0.2)_75%)] bg-[length:8px_8px] rounded-t-xl"></div>
+                            </div>
+
+                            <span className={`text-[11px] mt-2.5 font-bold font-mono truncate max-w-[120px] ${
+                              isSelected ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500'
+                            }`}>
+                              {m.applicant.split(' ')[0]} ({percentage}%)
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Interactive matter summary card for selected bar */}
+                    {EXACT_MATTERS[selectedBarIndex] && (
+                      <div className="p-4 rounded-2xl bg-blue-500/5 border border-blue-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono">
+                        <div>
+                          <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase block">
+                            Active Bar Selection: {EXACT_MATTERS[selectedBarIndex].forum}
+                          </span>
+                          <p className="font-bold text-slate-900 dark:text-white font-sans text-sm mt-0.5">
+                            {EXACT_MATTERS[selectedBarIndex].title}
+                          </p>
+                          <p className="text-slate-500 text-[11px] font-mono mt-0.5">
+                            Case Ref: {EXACT_MATTERS[selectedBarIndex].caseNo} • Claim: Kshs {EXACT_MATTERS[selectedBarIndex].amount.toLocaleString()}
+                          </p>
+                        </div>
+
+                        {onNavigateToBuilder && (
+                          <button
+                            onClick={() => onNavigateToBuilder('schedule_6_high_court', EXACT_MATTERS[selectedBarIndex].amount)}
+                            className="btn-black px-4 py-2 text-xs font-bold flex items-center gap-1.5 shrink-0 cursor-pointer shadow-sm"
+                          >
+                            <Calculator className="w-3.5 h-3.5 text-amber-400" /> Calculate Fee Note in BOC
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 2. Fee Notes & Drafts Metric Mode */}
+                {graphMetricTab === 'feenotes' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 font-mono">
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-800/80 border border-slate-200/80 dark:border-zinc-700 space-y-3">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase block font-sans">
+                        Fee Notes Status Distribution
+                      </span>
+                      <div className="space-y-2 text-xs">
+                        <div>
+                          <div className="flex justify-between mb-1">
+                            <span className="font-bold text-emerald-600 dark:text-emerald-400">Processed & Taxed Bills</span>
+                            <span>{EXACT_FEE_NOTES.filter(f => f.status === 'processed').length} Bills (75%)</span>
+                          </div>
+                          <div className="w-full h-2.5 bg-slate-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+                            <div className="h-full bg-emerald-500 w-3/4 rounded-full"></div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between mb-1">
+                            <span className="font-bold text-amber-600 dark:text-amber-400">Untaxed Drafts Pending</span>
+                            <span>{EXACT_FEE_NOTES.filter(f => f.status === 'draft').length} Drafts (25%)</span>
+                          </div>
+                          <div className="w-full h-2.5 bg-slate-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+                            <div className="h-full bg-amber-500 w-1/4 rounded-full"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-800/80 border border-slate-200/80 dark:border-zinc-700 space-y-3">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase block font-sans">
+                        Remuneration Revenue Components
+                      </span>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700">
+                          <span className="text-[10px] text-slate-400 block">Total Instruction Fees</span>
+                          <strong className="text-blue-600 dark:text-blue-400 font-bold text-sm">Kshs 18.89M</strong>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700">
+                          <span className="text-[10px] text-slate-400 block">Getting-Up Fee (1/3)</span>
+                          <strong className="text-emerald-500 font-bold text-sm">Kshs 6.29M</strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Statutory Schedules Metric Mode */}
+                {graphMetricTab === 'schedules' && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 font-mono">
+                    <div className="p-4 rounded-2xl bg-blue-500/5 border border-blue-500/20 space-y-2">
+                      <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase block font-sans">
+                        Schedule 6 — Superior Courts
+                      </span>
+                      <p className="text-lg font-extrabold text-slate-900 dark:text-white">Kshs 30.82M</p>
+                      <p className="text-[11px] text-slate-500 font-sans">High Court, ELC & Court of Appeal Litigation.</p>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-purple-500/5 border border-purple-500/20 space-y-2">
+                      <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase block font-sans">
+                        Schedule 7 — Arbitration
+                      </span>
+                      <p className="text-lg font-extrabold text-slate-900 dark:text-white">Kshs 3.98M</p>
+                      <p className="text-[11px] text-slate-500 font-sans">Commercial Arbitral Proceedings & Awards.</p>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-2">
+                      <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase block font-sans">
+                        Schedule 5 — Subordinate
+                      </span>
+                      <p className="text-lg font-extrabold text-slate-900 dark:text-white">Kshs 405.5K</p>
+                      <p className="text-[11px] text-slate-500 font-sans">Magistrate's Court Civil Suits.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-slate-100 dark:bg-zinc-800/50 border border-dashed border-slate-300 dark:border-zinc-700 text-center text-xs text-slate-500">
+                <span>Graph visualization hidden. Click <strong>"Show Graph"</strong> above to display analytics chart.</span>
+              </div>
+            )}
           </div>
 
           {/* Upcoming Court Filings & Taxations Table */}
