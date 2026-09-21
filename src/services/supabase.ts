@@ -55,26 +55,12 @@ export interface SystemUser {
 // SEEDED USERS IN DATABASE
 export const SEEDED_USERS: SystemUser[] = [
   {
-    id: "usr-p3l-admin",
-    fullName: "Razak Wako (P3L Developer)",
-    advocateTitle: "Razak Wako (Lead Developer)",
-    lskNo: "P3L/DEV/2026/001",
-    role: "Developer",
-    position: "P3L Lead Architect & System Developer",
-    workEmail: "razak.admin@p3ldev.com",
-    personalEmail: "razakwako45@gmail.com",
-    phonePrimary: "+254 768 141 129",
-    phoneSecondary: "+254 700 000 000",
-    hasAllPermissions: true,
-    passwordHash: "admin123"
-  },
-  {
-    id: "usr-karani-001",
+    id: "usr-karani-admin",
     fullName: "Karani Victor",
     advocateTitle: "Adv. Karani Victor",
     lskNo: "P.105/9920",
-    role: "Admin",
-    position: "Senior Partner & Firm Managing Director",
+    role: "Developer",
+    position: "Senior Managing Partner & System Administrator",
     workEmail: "vickarani@gmail.com",
     personalEmail: "vickarani@gmail.com",
     phonePrimary: "+254 712 345678",

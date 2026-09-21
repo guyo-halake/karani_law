@@ -292,21 +292,100 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span>Support & Help</span>
             </button>
           </div>
+
+          {/* DEVELOPER & SYSTEM CONTROL PAGES */}
+          <div className="space-y-1 pt-2 border-t border-[var(--border-color)]/60">
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 px-3 block mb-1.5 font-mono">
+              DEVELOPER & ADMIN TOOLS
+            </span>
+
+            <button
+              onClick={() => handleSelect('admin_boc')}
+              className={`w-full flex items-center gap-3 px-3.5 py-1.5 rounded-lg text-[11.5px] font-medium transition-all cursor-pointer ${
+                currentTab === 'admin_boc'
+                  ? 'modulix-active-nav'
+                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
+              }`}
+            >
+              <Sliders className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <span>BOC Scale Master</span>
+            </button>
+
+            <button
+              onClick={() => handleSelect('admin_firms')}
+              className={`w-full flex items-center gap-3 px-3.5 py-1.5 rounded-lg text-[11.5px] font-medium transition-all cursor-pointer ${
+                currentTab === 'admin_firms'
+                  ? 'modulix-active-nav'
+                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
+              }`}
+            >
+              <Building className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <span>Firms Management</span>
+            </button>
+
+            <button
+              onClick={() => handleSelect('admin_python')}
+              className={`w-full flex items-center gap-3 px-3.5 py-1.5 rounded-lg text-[11.5px] font-medium transition-all cursor-pointer ${
+                currentTab === 'admin_python'
+                  ? 'modulix-active-nav'
+                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
+              }`}
+            >
+              <Cpu className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <span>Python Remuneration Engine</span>
+            </button>
+
+            <button
+              onClick={() => handleSelect('admin_database')}
+              className={`w-full flex items-center gap-3 px-3.5 py-1.5 rounded-lg text-[11.5px] font-medium transition-all cursor-pointer ${
+                currentTab === 'admin_database'
+                  ? 'modulix-active-nav'
+                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
+              }`}
+            >
+              <Database className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <span>Database Sync & Health</span>
+            </button>
+
+            <button
+              onClick={() => handleSelect('admin_users')}
+              className={`w-full flex items-center gap-3 px-3.5 py-1.5 rounded-lg text-[11.5px] font-medium transition-all cursor-pointer ${
+                currentTab === 'admin_users'
+                  ? 'modulix-active-nav'
+                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <span>User & Roles Matrix</span>
+            </button>
+
+            <button
+              onClick={() => handleSelect('admin_server')}
+              className={`w-full flex items-center gap-3 px-3.5 py-1.5 rounded-lg text-[11.5px] font-medium transition-all cursor-pointer ${
+                currentTab === 'admin_server'
+                  ? 'modulix-active-nav'
+                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
+              }`}
+            >
+              <Power className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <span>Server & Infrastructure</span>
+            </button>
+          </div>
         </div>
 
-        {/* BOTTOM PROFILE DOCK strictly as requested */}
+        {/* BOTTOM PROFILE DOCK */}
         <div className="pt-4 mt-4 border-t border-[var(--border-color)]/60 shrink-0">
           <div className="flex items-center justify-between bg-slate-50 dark:bg-zinc-800/80 p-2.5 rounded-2xl border border-slate-200/80 dark:border-zinc-700/80">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-9 h-9 rounded-xl bg-slate-900 text-white font-mono font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
-                {userInitials}
+                KV
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                  {userDisplayName}
+                  Karani Victor
                 </p>
                 <p className="text-[10px] text-slate-500 dark:text-zinc-400 truncate">
-                  {userEmail}
+                  vickarani@gmail.com
                 </p>
               </div>
             </div>

@@ -3,10 +3,10 @@ import { HelpCircle, Bot, Mail, Phone, Globe, Save, CheckCircle2, Sliders, Bell,
 
 export const AdminSupportSettingsView: React.FC = () => {
   const [slaTarget, setSlaTarget] = useState('1');
-  const [mattaPrompt, setMattaPrompt] = useState("Heyy, I'm Matta, P3L Dev's Help agent, how may I help you?");
+  const [mattaPrompt, setMattaPrompt] = useState("Hello, welcome to Nyagah B. Kithinji & Co. Advocates Helpdesk, how may I assist you?");
   const [autoReplyEmail, setAutoReplyEmail] = useState(true);
-  const [adminEmail1, setAdminEmail1] = useState('razak.admin@p3ldev.com');
-  const [adminEmail2, setAdminEmail2] = useState('razakwako45@gmail.com');
+  const [adminEmail1, setAdminEmail1] = useState('vickarani@gmail.com');
+  const [adminEmail2, setAdminEmail2] = useState('vickarani@gmail.com');
   const [adminPhone, setAdminPhone] = useState('+254 768 141 129');
   const [webhookUrl, setWebhookUrl] = useState('https://p3ldevelopers.vercel.app/api/webhooks/tickets');
   const [escalationHours, setEscalationHours] = useState('2');

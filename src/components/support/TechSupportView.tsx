@@ -364,7 +364,7 @@ export const TechSupportView: React.FC = () => {
           BoC Builder Software 2026. All rights reserved.
         </p>
         <p className="text-[11px]">
-          Developed by <span className="font-bold text-[var(--text-main)]">© P3L Developers</span>, Nairobi
+          Designed for <span className="font-bold text-[var(--text-main)]">Nyagah B. Kithinji & Co. Advocates</span>, Nairobi
         </p>
       </footer>
     </div>

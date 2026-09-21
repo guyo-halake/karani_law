@@ -155,7 +155,7 @@ export const App: React.FC = () => {
           />
 
           {/* ACCESS DENIED GUARD FOR NON-DEVELOPERS ATTEMPTING ADMIN TABS */}
-          {currentTab.startsWith('admin_') && currentUser?.role !== 'Developer' ? (
+          {currentTab.startsWith('admin_') && currentUser?.role !== 'Developer' && currentUser?.role !== 'Admin' ? (
             <div className="w-full max-w-xl mx-auto my-12 p-8 border border-red-500/30 rounded-2xl bg-red-500/5 text-center space-y-4 shadow-xl">
               <div className="w-14 h-14 mx-auto rounded-full bg-red-500/10 text-red-500 flex items-center justify-center border border-red-500/20">
                 <ShieldAlert className="w-8 h-8" />
