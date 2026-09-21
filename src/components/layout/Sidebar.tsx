@@ -86,10 +86,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Top Logo Header strictly as requested */}
           <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]/60">
             <div className="flex items-center gap-3">
-              {/* Dark Rounded Badge with Initial N */}
-              <div className="w-10 h-10 rounded-xl bg-slate-900 text-white font-brand font-extrabold text-xl flex items-center justify-center shadow-md shadow-slate-900/15 shrink-0">
-                N
-              </div>
+              <img
+                src="/logo.png"
+                alt="Nyagah B. Kithinji & Co. Advocates Logo"
+                className="h-10 w-auto object-contain shrink-0"
+              />
               <div className="min-w-0">
                 <span className="font-brand font-extrabold text-sm text-slate-900 dark:text-white block tracking-tight truncate">
                   Kithinji & Co

@@ -29,9 +29,11 @@ export const CompanyProfileView: React.FC = () => {
     <div className="w-full space-y-8 pb-12">
       {/* TOP CENTER LOGO & HEADER */}
       <div className="text-center space-y-3 pt-4 pb-2 border-b border-[var(--border-color)]/50">
-        <div className="w-20 h-20 mx-auto rounded-2xl bg-black text-white dark:bg-white dark:text-black flex items-center justify-center shadow-lg border border-[var(--border-color)]">
-          <Scale className="w-10 h-10" />
-        </div>
+        <img
+          src="/logo.png"
+          alt="Nyagah B. Kithinji & Co. Advocates Logo"
+          className="h-20 w-auto object-contain mx-auto"
+        />
 
         <div>
           <h1 className="font-brand font-extrabold text-3xl text-[var(--text-main)] tracking-tight uppercase">

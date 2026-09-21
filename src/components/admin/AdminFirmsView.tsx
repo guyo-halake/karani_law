@@ -69,9 +69,11 @@ export const AdminFirmsView: React.FC = () => {
       <div className="vercel-card p-6 bg-gradient-to-br from-[var(--bg-card)] via-[var(--bg-card)] to-[var(--bg-subtle)] border border-[var(--border-color)] space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--border-color)]/50 pb-5">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-slate-900 text-white dark:bg-zinc-800 border border-slate-700 flex items-center justify-center font-brand font-extrabold text-2xl shadow-md shrink-0">
-              NBK
-            </div>
+            <img
+              src="/logo.png"
+              alt="Nyagah B. Kithinji & Co. Advocates Logo"
+              className="h-14 w-auto object-contain shrink-0"
+            />
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-brand font-extrabold text-xl sm:text-2xl text-[var(--text-main)] tracking-tight">

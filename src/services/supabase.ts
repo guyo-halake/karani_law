@@ -97,6 +97,7 @@ export const EXACT_FIRM_INFO = {
   kraPin: "P051123456Z",
   bankDetails: "KCB Bank Kenya Ltd | Kilimani Branch | A/C No: 1104889922 | Swift: KCBLKENX",
   website: "www.kithinjilegal.co.ke",
+  logoUrl: "/logo.png",
   user: {
     name: "Adv. Karani Victor",
     role: "Admin",

@@ -61,38 +61,38 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   );
 
   return (
-    <div className="space-y-8 pb-12">
-      {/* Welcome Header (Hey, Adv. Karani Victor / Welcome to Nyagah B. Kithinji & Co. Advocates - NO hand emoji 👋) */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[var(--border-color)]/60">
+    <div className="space-y-12 sm:space-y-14 pb-12">
+      {/* Welcome Header & Vertically Stacked Quick Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 pb-6 border-b border-[var(--border-color)]/60">
         <div>
-          <h1 className="font-brand font-extrabold text-2xl sm:text-3xl text-slate-900 dark:text-white tracking-tight">
+          <h1 className="font-brand font-extrabold text-2xl sm:text-3xl lg:text-4xl text-slate-900 dark:text-white tracking-tight">
             Hey, {userName}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-1 font-sans">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-1.5 font-sans">
             Welcome to Nyagah B. Kithinji & Co. Advocates
           </p>
         </div>
 
-        {/* Action Buttons: Prominent Drafts / Recents button + New Fee Note + Add Client */}
-        <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
+        {/* Vertically Stacked Action Links (No background, hover to blue) */}
+        <div className="flex flex-col sm:items-end gap-2 shrink-0">
           <button
             onClick={() => onOpenRecents ? onOpenRecents() : onNavigateTab('vault')}
-            className="btn-blue px-4 py-2.5 text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
+            className="bg-transparent text-slate-700 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer p-0 border-0"
             title="Open Draft Fee Notes & Recent Files"
           >
-            <Clock className="w-4 h-4" /> Drafts / Recents
+            <Clock className="w-3.5 h-3.5 text-blue-500" /> Drafts / Recents
           </button>
           <button
             onClick={() => onNavigateTab('boc')}
-            className="btn-navy px-4 py-2.5 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+            className="bg-transparent text-slate-700 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer p-0 border-0"
           >
-            <Plus className="w-4 h-4 text-blue-400" /> New Fee Note
+            <Plus className="w-3.5 h-3.5 text-blue-500" /> New Fee Note
           </button>
           <button
             onClick={() => onNavigateTab('clients')}
-            className="btn-outline px-4 py-2.5 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+            className="bg-transparent text-slate-700 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer p-0 border-0"
           >
-            <UserPlus className="w-4 h-4 text-blue-600" /> Add Client
+            <UserPlus className="w-3.5 h-3.5 text-blue-500" /> Add Client
           </button>
         </div>
       </div>
