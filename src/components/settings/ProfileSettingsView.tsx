@@ -18,6 +18,9 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({ isDarkMode, toggl
   // Theme & Customization Settings
   const [accentColor, setAccentColor] = useState('obsidian');
   const [fontSize, setFontSize] = useState('standard');
+  const [showGraphWidget, setShowGraphWidget] = useState<boolean>(() => {
+    return localStorage.getItem('BILLSZIP_SHOW_GRAPH') === 'true';
+  });
 
   // Notifications Settings
   const [emailNotifs, setEmailNotifs] = useState(true);
@@ -32,6 +35,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({ isDarkMode, toggl
   const [isSaved, setIsSaved] = useState(false);
 
   const handleSave = () => {
+    localStorage.setItem('BILLSZIP_SHOW_GRAPH', showGraphWidget ? 'true' : 'false');
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2500);
   };
@@ -126,6 +130,24 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({ isDarkMode, toggl
                 <option value="standard">Standard (12px / 13px)</option>
                 <option value="large">Large (14px / 15px)</option>
               </select>
+            </div>
+
+            {/* Setting 4: Dashboard Portfolio Graph Widget */}
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)] md:col-span-3">
+              <div>
+                <span className="font-semibold text-[var(--text-main)] block">Dashboard Portfolio Claim Breakdown Graph Widget:</span>
+                <span className="text-[11px] text-[var(--text-muted)]">Check to display interactive legal claim value graph on home dashboard</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={showGraphWidget}
+                onChange={(e) => {
+                  const nextVal = e.target.checked;
+                  setShowGraphWidget(nextVal);
+                  localStorage.setItem('BILLSZIP_SHOW_GRAPH', nextVal ? 'true' : 'false');
+                }}
+                className="rounded accent-black dark:accent-white w-4 h-4 cursor-pointer"
+              />
             </div>
           </div>
         </div>

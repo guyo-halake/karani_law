@@ -58,8 +58,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="h-16 border-b border-[var(--border-color)] bg-[var(--bg-card)] px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 transition-colors duration-200">
-      {/* Left Area: Hamburger Toggle + Conditional Logo (when sidebar closed) + Search Bar */}
+    <header className="h-16 bg-[var(--bg-main)] px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 transition-colors duration-200 border-b border-[var(--border-color)]/30">
+      {/* Left Area: Hamburger Toggle + Logo (Always Visible) + Search Bar */}
       <div className="flex items-center gap-4 flex-1 max-w-3xl">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -69,22 +69,20 @@ export const Navbar: React.FC<NavbarProps> = ({
           {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
 
-        {/* Firm Logo displayed ONLY when sidebar is closed */}
-        {!sidebarOpen && (
-          <div className="flex items-center gap-3 shrink-0 pr-4 border-r border-[var(--border-color)]/60">
-            <div className="w-9 h-9 rounded-xl bg-slate-900 text-white font-brand font-extrabold text-lg flex items-center justify-center shadow-md shrink-0">
-              N
-            </div>
-            <div className="hidden sm:block">
-              <span className="font-brand font-extrabold text-xs text-slate-900 dark:text-white block tracking-tight">
-                Kithinji & Co
-              </span>
-              <span className="text-[9.5px] text-slate-500 font-sans block truncate leading-tight">
-                Advocates of the High Court of Kenya
-              </span>
-            </div>
+        {/* Firm Logo ALWAYS visible on topbar */}
+        <div className="flex items-center gap-3 shrink-0 pr-4 border-r border-[var(--border-color)]/60">
+          <div className="w-9 h-9 rounded-xl bg-slate-900 text-white font-brand font-extrabold text-lg flex items-center justify-center shadow-md shrink-0">
+            N
           </div>
-        )}
+          <div className="hidden sm:block">
+            <span className="font-brand font-extrabold text-xs text-slate-900 dark:text-white block tracking-tight">
+              Kithinji & Co
+            </span>
+            <span className="text-[9.5px] text-slate-500 font-sans block truncate leading-tight">
+              Advocates of the High Court of Kenya
+            </span>
+          </div>
+        </div>
 
         {/* Global Top Search Bar */}
         <div className="flex items-center gap-2 bg-slate-100 dark:bg-zinc-800/80 border border-slate-200/80 dark:border-zinc-700/80 rounded-2xl px-3.5 py-1.5 w-full transition-all focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-zinc-900 focus-within:ring-2 focus-within:ring-blue-500/10">
