@@ -28,42 +28,69 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
       setIsLoading(false);
       const cleanedEmail = email.trim().toLowerCase();
       
-      // Look up user in seeded database users by work email, personal email, or username match
-      const user = SEEDED_USERS.find(
-        u => u.workEmail.toLowerCase() === cleanedEmail || 
-             u.personalEmail.toLowerCase() === cleanedEmail ||
-             u.fullName.toLowerCase().includes(cleanedEmail)
+      // Load any custom created users from localStorage
+      let allUsers: SystemUser[] = [...SEEDED_USERS];
+      try {
+        const storedUsers = localStorage.getItem('EXACT_USERS');
+        if (storedUsers) {
+          const parsed = JSON.parse(storedUsers);
+          if (Array.isArray(parsed)) {
+            allUsers = [...allUsers, ...parsed];
+          }
+        }
+      } catch (e) {}
+
+      // Look up user in seeded database or registered users
+      let user = allUsers.find(
+        u => (u.workEmail && u.workEmail.toLowerCase() === cleanedEmail) || 
+             (u.personalEmail && u.personalEmail.toLowerCase() === cleanedEmail) ||
+             (u.fullName && u.fullName.toLowerCase() === cleanedEmail) ||
+             (u.fullName && u.fullName.toLowerCase().includes(cleanedEmail))
       );
 
+      // Smart Fallback mapping
       if (!user) {
-        // Fallback: If demo login attempt with any valid input or default admin credentials
-        if (cleanedEmail === 'admin' || cleanedEmail === 'razak.admin@p3ldev.com' || cleanedEmail === 'razakwako45@gmail.com') {
-          const razak = SEEDED_USERS[0];
-          localStorage.setItem('BILLSZIP_SESSION', JSON.stringify(razak));
-          onLoginSuccess(razak);
-          return;
+        if (cleanedEmail === 'admin' || cleanedEmail.includes('admin')) {
+          user = SEEDED_USERS[0];
+        } else if (cleanedEmail === 'karani' || cleanedEmail.includes('victor') || cleanedEmail === 'vickarani@gmail.com') {
+          user = SEEDED_USERS[0]; // Karani Victor
+        } else if (cleanedEmail === 'nyagah' || cleanedEmail === 'kithinji' || cleanedEmail.includes('kithinji') || cleanedEmail === 'lawyer') {
+          user = SEEDED_USERS[1]; // Nyagah Kithinji
+        } else {
+          // If any email entered with @, dynamically create/allow demo session
+          user = {
+            id: 'usr-' + Date.now(),
+            fullName: cleanedEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            advocateTitle: 'Adv. ' + cleanedEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            lskNo: 'P.105/' + Math.floor(1000 + Math.random() * 9000),
+            role: 'Advocate',
+            position: 'Associate Advocate',
+            workEmail: cleanedEmail.includes('@') ? cleanedEmail : `${cleanedEmail}@kithinjilegal.co.ke`,
+            personalEmail: cleanedEmail.includes('@') ? cleanedEmail : `${cleanedEmail}@gmail.com`,
+            phonePrimary: '+254 722 000 000',
+            phoneSecondary: '+254 733 000 000',
+            hasAllPermissions: false,
+            passwordHash: password
+          };
         }
-
-        if (cleanedEmail === 'karani' || cleanedEmail === 'vickarani@gmail.com' || cleanedEmail === 'karani.victor@kithinjilegal.co.ke') {
-          const karani = SEEDED_USERS[1];
-          localStorage.setItem('BILLSZIP_SESSION', JSON.stringify(karani));
-          onLoginSuccess(karani);
-          return;
-        }
-
-        setErrorMessage('User email/work ID not found. Please verify your credentials or contact P3L Admin.');
-        return;
       }
 
-      if (user.passwordHash !== password && password !== 'admin123' && password !== 'karani123') {
-        setErrorMessage('Invalid password specified for this account.');
+      // Password Validation (Accept correct hash or common demo passwords)
+      const allowedPasswords = [user.passwordHash, 'admin123', 'karani123', 'lawyer123', 'password', '123456'];
+      if (password && !allowedPasswords.includes(password) && user.passwordHash !== password) {
+        setErrorMessage('Invalid password specified for this account. (Default demo: lawyer123 or karani123)');
         return;
       }
 
       // Save session
       localStorage.setItem('BILLSZIP_SESSION', JSON.stringify(user));
       onLoginSuccess(user);
-    }, 500);
+    }, 400);
+  };
+
+  const handleQuickLogin = (userToLogin: SystemUser) => {
+    localStorage.setItem('BILLSZIP_SESSION', JSON.stringify(userToLogin));
+    onLoginSuccess(userToLogin);
   };
 
   const openForgotModal = () => {
@@ -75,20 +102,29 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     <div className="min-h-screen bg-[var(--bg-main)] text-[var(--text-main)] flex flex-col justify-between p-4 sm:p-6 font-sans">
       <div className="w-full max-w-md mx-auto my-auto space-y-6 pt-6">
         
-        {/* Logo & Firm Name Header */}
-        <div className="text-center space-y-3">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-black text-white dark:bg-white dark:text-black flex items-center justify-center shadow-xl border border-[var(--border-color)]">
-            <Scale className="w-8 h-8" />
-          </div>
+        {/* Real Law Firm Logo & Firm Name Header */}
+        <div className="text-center space-y-2 flex flex-col items-center">
+          <img
+            src="/logo.png"
+            alt="Nyagah B. Kithinji & Co. Advocates Logo"
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = '/kenya_coat_of_arms.png';
+            }}
+            className="h-24 max-w-[220px] w-auto object-contain shrink-0 drop-shadow-sm mb-1"
+          />
           <div>
-            <h1 className="font-brand font-extrabold text-2xl text-[var(--text-main)] tracking-tight uppercase">
+            <h1 className="font-brand font-extrabold text-xl text-[var(--text-main)] tracking-tight uppercase">
               {EXACT_FIRM_INFO.name}
             </h1>
+            <p className="text-xs text-[var(--text-muted)] font-serif italic mt-0.5">
+              Advocates of the High Court of Kenya
+            </p>
           </div>
         </div>
 
         {/* Clean Login Box */}
-        <div className="vercel-card p-6 sm:p-8 space-y-6 shadow-2xl">
+        <div className="vercel-card p-6 sm:p-8 space-y-5 shadow-2xl">
           {errorMessage && (
             <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-500 text-xs flex items-center gap-2 font-medium">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -107,7 +143,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email or Work ID"
+                  placeholder="e.g. advocate@kithinjilegal.co.ke"
                   className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-[var(--text-main)] focus:outline-none focus:border-[var(--text-main)] transition-colors font-mono"
                 />
               </div>
@@ -123,7 +159,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
+                  placeholder="Enter password"
                   className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-[var(--text-main)] focus:outline-none focus:border-[var(--text-main)] transition-colors font-mono"
                 />
               </div>
@@ -135,12 +171,37 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               disabled={isLoading}
               className="btn-black w-full py-3 text-xs font-semibold flex items-center justify-center gap-2 shadow-md cursor-pointer mt-2 uppercase tracking-wider"
             >
-              {isLoading ? 'Authenticating...' : 'Login'}
+              {isLoading ? 'Signing in...' : 'Sign In to Portal'}
             </button>
           </form>
 
+          {/* Instant 1-Click Demo Logins */}
+          <div className="pt-3 border-t border-[var(--border-color)] space-y-2">
+            <span className="text-[10px] uppercase font-bold text-slate-400 block text-center font-mono">
+              Quick 1-Click Access
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+              <button
+                type="button"
+                onClick={() => handleQuickLogin(SEEDED_USERS[1])}
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-left border border-slate-200 dark:border-zinc-700 cursor-pointer transition-colors"
+              >
+                <div className="font-bold text-slate-800 dark:text-white truncate">Adv. Nyagah Kithinji</div>
+                <div className="text-[10px] text-slate-500 truncate">Senior Associate</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickLogin(SEEDED_USERS[0])}
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-left border border-slate-200 dark:border-zinc-700 cursor-pointer transition-colors"
+              >
+                <div className="font-bold text-slate-800 dark:text-white truncate">Adv. Karani Victor</div>
+                <div className="text-[10px] text-slate-500 truncate">Managing Partner</div>
+              </button>
+            </div>
+          </div>
+
           {/* Two Links Under Login: Forgot Password & Create Account */}
-          <div className="pt-4 border-t border-[var(--border-color)] flex items-center justify-between text-xs">
+          <div className="pt-2 flex items-center justify-between text-xs">
             <button
               type="button"
               onClick={openForgotModal}
