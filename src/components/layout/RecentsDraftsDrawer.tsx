@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Clock,
@@ -16,14 +16,15 @@ import {
   EXACT_RECENTS_LOGS,
   EXACT_FEE_NOTES,
   ExactFeeNoteRecord,
-  SystemUser
+  SystemUser,
+  supabase
 } from '../../services/supabase';
 
 interface RecentsDraftsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onNavigateTab: (tab: string) => void;
-  onNavigateToBuilder?: (court: string, value: number) => void;
+  onNavigateToBuilder?: (note?: any, isPreview?: boolean) => void;
   currentUser?: SystemUser | null;
 }
 
@@ -38,13 +39,47 @@ export const RecentsDraftsDrawer: React.FC<RecentsDraftsDrawerProps> = ({
 
   if (!isOpen) return null;
 
-  // Filter drafts for current logged-in user (or all drafts fallback)
   const currentUserId = currentUser?.id || 'usr-karani-001';
   const currentUserName = currentUser?.fullName || 'Karani Victor';
 
-  const userDrafts = EXACT_FEE_NOTES.filter(
-    fn => fn.status === 'draft' && (fn.generatedByUserId === currentUserId || fn.generatedByUser.includes(currentUserName))
-  );
+  const [dbDrafts, setDbDrafts] = useState<any[]>([]);
+  const [dbLogs, setDbLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchRealtimeData();
+    }
+  }, [isOpen]);
+
+  const fetchRealtimeData = async () => {
+    setLoading(true);
+    try {
+      const [draftsRes, logsRes] = await Promise.all([
+        supabase.from('fee_notes').select('*').eq('status', 'draft').order('created_at', { ascending: false }),
+        supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(10)
+      ]);
+      
+      if (draftsRes.data) {
+        setDbDrafts(draftsRes.data);
+      }
+      if (logsRes.data) {
+        setDbLogs(logsRes.data);
+      }
+    } catch (err) {
+      console.error('Error fetching data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const userDrafts = dbDrafts.length > 0 
+    ? dbDrafts 
+    : EXACT_FEE_NOTES.filter(
+        fn => fn.status === 'draft' && (fn.generatedByUserId === currentUserId || fn.generatedByUser.includes(currentUserName))
+      );
+      
+  const displayLogs = dbLogs.length > 0 ? dbLogs : EXACT_RECENTS_LOGS;
 
   // Helper to render type icons for Recents tab
   const getRecentIcon = (type: string) => {
@@ -104,7 +139,7 @@ export const RecentsDraftsDrawer: React.FC<RecentsDraftsDrawerProps> = ({
             <Clock className="w-3.5 h-3.5" />
             Recents Log
             <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-              {EXACT_RECENTS_LOGS.length}
+              {displayLogs.length}
             </span>
           </button>
 
@@ -132,11 +167,14 @@ export const RecentsDraftsDrawer: React.FC<RecentsDraftsDrawerProps> = ({
                 System-Wide Activity Stream
               </span>
 
-              {EXACT_RECENTS_LOGS.map((rec) => (
-                <div
-                  key={rec.id}
-                  className="vercel-card p-3.5 space-y-1.5 hover:border-[var(--text-main)] transition-colors"
-                >
+              {loading ? (
+                <div className="text-center py-4 text-xs text-[var(--text-muted)]">Loading real-time logs...</div>
+              ) : (
+                displayLogs.map((rec: any) => (
+                  <div
+                    key={rec.id}
+                    className="vercel-card p-3.5 space-y-1.5 hover:border-[var(--text-main)] transition-colors"
+                  >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="p-1.5 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-color)]">
@@ -156,7 +194,8 @@ export const RecentsDraftsDrawer: React.FC<RecentsDraftsDrawerProps> = ({
                     <span>Logged User: <strong>{rec.userName}</strong></span>
                   </div>
                 </div>
-              ))}
+              ))
+              )}
             </div>
           ) : (
             <div className="space-y-3">
@@ -164,14 +203,16 @@ export const RecentsDraftsDrawer: React.FC<RecentsDraftsDrawerProps> = ({
                 Draft Fee Notes for {currentUserName}
               </span>
 
-              {userDrafts.length === 0 ? (
+              {loading ? (
+                <div className="text-center py-4 text-xs text-[var(--text-muted)]">Loading real-time drafts...</div>
+              ) : userDrafts.length === 0 ? (
                 <div className="text-center py-12 text-[var(--text-muted)] space-y-2">
                   <CheckCircle2 className="w-8 h-8 mx-auto text-emerald-500 opacity-60" />
                   <p className="font-semibold text-xs text-[var(--text-main)]">No pending drafts found.</p>
                   <p className="text-[11px]">All your created fee notes have been processed.</p>
                 </div>
               ) : (
-                userDrafts.map((draft: ExactFeeNoteRecord) => (
+                userDrafts.map((draft: any) => (
                   <div
                     key={draft.id}
                     className="vercel-card p-4 space-y-3 hover:border-[var(--text-main)] transition-colors"
@@ -180,13 +221,13 @@ export const RecentsDraftsDrawer: React.FC<RecentsDraftsDrawerProps> = ({
                       <span className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-mono font-bold text-[10px]">
                         DRAFT
                       </span>
-                      <span className="font-mono text-[10.5px] text-[var(--text-muted)]">{draft.createdAt}</span>
+                      <span className="font-mono text-[10.5px] text-[var(--text-muted)]">{draft.created_at ? new Date(draft.created_at).toLocaleString() : draft.createdAt}</span>
                     </div>
 
                     <div>
-                      <strong className="font-bold text-xs text-[var(--text-main)] block">{draft.matterTitle}</strong>
+                      <strong className="font-bold text-xs text-[var(--text-main)] block">{draft.matterTitle || draft.bill_number || 'Draft Fee Note'}</strong>
                       <span className="text-[10.5px] text-[var(--text-muted)] block font-mono mt-0.5">
-                        Client: {draft.clientName} &bull; Bill: {draft.billNumber}
+                        Client: {draft.clientName || 'N/A'} &bull; Bill: {draft.billNumber || draft.bill_number}
                       </span>
                     </div>
 
@@ -194,7 +235,7 @@ export const RecentsDraftsDrawer: React.FC<RecentsDraftsDrawerProps> = ({
                       <div>
                         <span className="text-[10px] text-[var(--text-muted)] block">Calculated Total</span>
                         <strong className="text-sm font-bold text-[var(--text-main)]">
-                          Kshs {draft.grandTotal.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
+                          Kshs {(draft.grandTotal || draft.grand_total || 0).toLocaleString('en-KE', { minimumFractionDigits: 2 })}
                         </strong>
                       </div>
 
@@ -202,7 +243,7 @@ export const RecentsDraftsDrawer: React.FC<RecentsDraftsDrawerProps> = ({
                         onClick={() => {
                           onClose();
                           if (onNavigateToBuilder) {
-                            onNavigateToBuilder(draft.courtSchedule, draft.claimValue);
+                            onNavigateToBuilder(draft, false);
                           } else {
                             onNavigateTab('boc');
                           }
