@@ -1,31 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Home,
   FileText,
   Briefcase,
   Users,
-  MessageSquare,
   Folder,
   BookOpen,
-  Building2,
-  User,
   Settings,
   HelpCircle,
   X,
-  Sliders,
-  Building,
-  ShieldCheck,
-  Bot,
-  Cpu,
-  Power,
-  Database,
-  Bell,
   ChevronDown,
   ChevronRight,
   LogOut
 } from 'lucide-react';
 
-import { SystemUser } from '../../services/supabase';
+import { SystemUser, getFeeNotes } from '../../services/supabase';
 
 interface SidebarProps {
   currentTab: string;
@@ -45,6 +34,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout
 }) => {
   const [mattersExpanded, setMattersExpanded] = useState(true);
+  const [feeNotesCount, setFeeNotesCount] = useState<number>(() => getFeeNotes().length);
+
+  const [firmSettings, setFirmSettings] = useState(() => {
+    const saved = localStorage.getItem('BILLSZIP_FIRM_SETTINGS');
+    if (saved) {
+      try { return JSON.parse(saved); } catch(e) {}
+    }
+    return { topbarTitle: 'Kithinji & Co', topbarSubtitle: 'Advocates of the High Court of Kenya', logoUrl: '/logo.png' };
+  });
+
+  useEffect(() => {
+    const handleSettingsChange = () => {
+      const saved = localStorage.getItem('BILLSZIP_FIRM_SETTINGS');
+      if (saved) {
+        try { setFirmSettings(JSON.parse(saved)); } catch(e) {}
+      }
+    };
+    const handleFeeNotes = () => {
+      setFeeNotesCount(getFeeNotes().length);
+    };
+
+    window.addEventListener('firmSettingsChanged', handleSettingsChange);
+    window.addEventListener('feeNotesUpdated', handleFeeNotes);
+    window.addEventListener('storage', handleFeeNotes);
+
+    return () => {
+      window.removeEventListener('firmSettingsChanged', handleSettingsChange);
+      window.removeEventListener('feeNotesUpdated', handleFeeNotes);
+      window.removeEventListener('storage', handleFeeNotes);
+    };
+  }, []);
 
   const handleSelect = (id: string) => {
     setCurrentTab(id);
@@ -60,11 +80,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  const userDisplayName = currentUser?.advocateTitle || currentUser?.fullName || "Adv. Karani Victor";
-  const userEmail = currentUser?.workEmail || currentUser?.personalEmail || "vickarani@gmail.com";
+  const userDisplayName = currentUser?.advocateTitle || currentUser?.fullName || (currentUser?.workEmail ? currentUser.workEmail.split('@')[0] : "Logged In Advocate");
+  const userEmail = currentUser?.workEmail || currentUser?.personalEmail || "";
   const userInitials = currentUser?.fullName 
-    ? currentUser.fullName.split(' ').map(n => n[0]).slice(0, 2).join('') 
-    : "KV";
+    ? currentUser.fullName.split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase() 
+    : (userDisplayName ? userDisplayName.substring(0, 2).toUpperCase() : "AD");
 
   return (
     <>
@@ -83,20 +103,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }`}
       >
         <div className="space-y-6">
-          {/* Top Logo Header strictly as requested */}
+          {/* Top Logo Header */}
           <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]/60">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center text-center gap-2 pt-2 pb-1 w-full relative">
               <img
-                src="/logo.png"
+                src={firmSettings.logoUrl || '/logo.png'}
                 alt="Nyagah B. Kithinji & Co. Advocates Logo"
-                className="h-10 w-auto object-contain shrink-0"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = '/logo.png';
+                }}
+                className="h-20 max-w-[200px] w-auto object-contain shrink-0"
               />
-              <div className="min-w-0">
-                <span className="font-brand font-extrabold text-sm text-slate-900 dark:text-white block tracking-tight truncate">
-                  Kithinji & Co
+              <div className="w-full">
+                <span className="font-brand font-extrabold text-sm text-slate-900 dark:text-white block tracking-tight">
+                  {firmSettings.topbarTitle}
                 </span>
-                <span className="text-[10px] text-slate-500 font-sans block truncate leading-tight">
-                  Advocates of the High Court of Kenya
+                <span className="text-[10px] text-slate-500 font-sans block leading-tight mt-0.5">
+                  {firmSettings.topbarSubtitle}
                 </span>
               </div>
             </div>
@@ -160,7 +184,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span>Fee Notes</span>
               </div>
               <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-amber-500/10 text-amber-700 dark:text-amber-400 font-bold border border-amber-500/20">
-                5
+                {feeNotesCount}
               </span>
             </button>
 
@@ -293,113 +317,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span>Support & Help</span>
             </button>
           </div>
-
-          {/* DEVELOPER & SYSTEM CONTROL PAGES (DEVELOPER ROLE ONLY) */}
-          {currentUser?.role === 'Developer' && (
-            <div className="space-y-1 pt-2 border-t border-[var(--border-color)]/60">
-              <span className="text-[10.5px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 px-3 block mb-1.5 font-mono">
-                DEVELOPER TOOLS
-              </span>
-
-              <button
-                onClick={() => handleSelect('admin_boc')}
-                className={`w-full flex items-center gap-3 px-3.5 py-1.5 rounded-lg text-[11.5px] font-medium transition-all cursor-pointer ${
-                  currentTab === 'admin_boc'
-                    ? 'modulix-active-nav'
-                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
-                }`}
-              >
-                <Sliders className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                <span>BOC Scale Master</span>
-              </button>
-
-              <button
-                onClick={() => handleSelect('admin_firms')}
-                className={`w-full flex items-center gap-3 px-3.5 py-1.5 rounded-lg text-[11.5px] font-medium transition-all cursor-pointer ${
-                  currentTab === 'admin_firms'
-                    ? 'modulix-active-nav'
-                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
-                }`}
-              >
-                <Building className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                <span>Firm Profile Master</span>
-              </button>
-
-              <button
-                onClick={() => handleSelect('admin_python')}
-                className={`w-full flex items-center gap-3 px-3.5 py-1.5 rounded-lg text-[11.5px] font-medium transition-all cursor-pointer ${
-                  currentTab === 'admin_python'
-                    ? 'modulix-active-nav'
-                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
-                }`}
-              >
-                <Cpu className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                <span>Python Remuneration Engine</span>
-              </button>
-
-              <button
-                onClick={() => handleSelect('admin_database')}
-                className={`w-full flex items-center gap-3 px-3.5 py-1.5 rounded-lg text-[11.5px] font-medium transition-all cursor-pointer ${
-                  currentTab === 'admin_database'
-                    ? 'modulix-active-nav'
-                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
-                }`}
-              >
-                <Database className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                <span>Database Sync & Health</span>
-              </button>
-
-              <button
-                onClick={() => handleSelect('admin_users')}
-                className={`w-full flex items-center gap-3 px-3.5 py-1.5 rounded-lg text-[11.5px] font-medium transition-all cursor-pointer ${
-                  currentTab === 'admin_users'
-                    ? 'modulix-active-nav'
-                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
-                }`}
-              >
-                <Users className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                <span>User & Roles Matrix</span>
-              </button>
-
-              <button
-                onClick={() => handleSelect('admin_server')}
-                className={`w-full flex items-center gap-3 px-3.5 py-1.5 rounded-lg text-[11.5px] font-medium transition-all cursor-pointer ${
-                  currentTab === 'admin_server'
-                    ? 'modulix-active-nav'
-                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
-                }`}
-              >
-                <Power className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                <span>Server & Infrastructure</span>
-              </button>
-            </div>
-          )}
         </div>
 
-        {/* BOTTOM PROFILE DOCK */}
-        <div className="pt-4 mt-4 border-t border-[var(--border-color)]/60 shrink-0">
-          <div className="flex items-center justify-between bg-slate-50 dark:bg-zinc-800/80 p-2.5 rounded-2xl border border-slate-200/80 dark:border-zinc-700/80">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-slate-900 text-white font-mono font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
-                KV
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                  Karani Victor
-                </p>
-                <p className="text-[10px] text-slate-500 dark:text-zinc-400 truncate">
-                  vickarani@gmail.com
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={handleLogOut}
-              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer shrink-0 ml-1"
-              title="Log Out"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+        {/* BOTTOM BRAND LOGO DOCK: P3L LOGO 2.jpeg */}
+        <div className="pt-3 mt-4 border-t border-[var(--border-color)]/60 shrink-0">
+          <div className="p-3 rounded-2xl bg-white dark:bg-zinc-800/90 border border-slate-200/80 dark:border-zinc-700/80 flex items-center justify-center shadow-xs">
+            <img
+              src="/p3l_logo_nobg.png"
+              alt="P3L Logo"
+              className="w-full max-h-28 object-contain rounded-xl"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = '/logo.png';
+              }}
+            />
           </div>
         </div>
       </aside>
