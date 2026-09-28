@@ -134,6 +134,211 @@ export const MattersView: React.FC<MattersViewProps> = ({ onNavigateTab }) => {
     );
   };
 
+  if (selectedMatter) {
+    return (
+      <div className="space-y-6 pb-12">
+        {/* THE ULTIMATE MATTER DETAIL COMMAND CENTER (FULL PAGE) */}
+        <div className="w-full bg-[var(--bg-main)] rounded-2xl p-0 flex flex-col">
+          
+          {/* The Case Status Header */}
+          <div className="p-8 border-b border-[var(--border-color)] bg-[var(--bg-subtle)] relative">
+            <button
+              onClick={() => setSelectedMatter(null)}
+              className="absolute top-6 right-6 px-4 py-2 rounded-xl bg-[var(--bg-main)] border border-[var(--border-color)] text-[var(--text-main)] hover:bg-[var(--bg-subtle)] transition-all font-bold text-xs"
+            >
+              &larr; Back to Matters
+            </button>
+            
+            <div className="space-y-4 max-w-3xl">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="px-3 py-1 rounded-full border border-[var(--border-color)] bg-[var(--bg-main)] text-[var(--text-main)] text-[10px] font-mono font-bold tracking-widest uppercase">
+                  {selectedMatter.caseNo}
+                </span>
+                <span className="px-3 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-mono font-bold tracking-widest uppercase flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div> {selectedMatter.status}
+                </span>
+              </div>
+              
+              <h2 className="font-brand font-extrabold text-3xl sm:text-4xl text-[var(--text-main)] tracking-tight leading-tight">
+                {selectedMatter.title}
+              </h2>
+              
+              <div className="flex items-center gap-4 text-xs font-mono text-[var(--text-muted)]">
+                <span className="flex items-center gap-1.5"><Building2 className="w-4 h-4"/> {selectedMatter.forum}</span>
+                <span>&bull;</span>
+                <span>Filed by: {selectedMatter.filedBy}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            {/* Left Column: The "Versus" Matrix & Financial Core */}
+            <div className="lg:col-span-1 space-y-8">
+              
+              {/* The "Versus" Matrix */}
+              <div className="space-y-3 relative">
+                <h3 className="font-mono text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
+                  Parties Matrix
+                </h3>
+                
+                <div className="relative space-y-4 before:absolute before:inset-y-0 before:left-[21px] before:w-[2px] before:bg-[var(--border-color)] before:z-0">
+                  
+                  {/* Claimant Card */}
+                  <div className="relative z-10 p-4 rounded-xl border border-blue-500/30 bg-blue-500/5 hover:border-blue-500/50 transition-colors ml-10">
+                    <div className="absolute top-1/2 -left-[27px] -translate-y-1/2 w-6 h-6 rounded-full bg-[var(--bg-main)] border-2 border-blue-500 flex items-center justify-center text-[10px] font-bold text-blue-500">
+                      C
+                    </div>
+                    <p className="text-[10px] font-mono text-blue-600 dark:text-blue-400 uppercase font-bold mb-1">Claimant / Plaintiff</p>
+                    <p className="text-sm font-bold text-[var(--text-main)] leading-tight">{selectedMatter.applicant}</p>
+                  </div>
+
+                  {/* VS Badge */}
+                  <div className="relative z-10 flex items-center ml-10">
+                    <div className="absolute top-1/2 -left-[26px] -translate-y-1/2 w-5 h-5 rounded bg-[var(--bg-subtle)] border border-[var(--border-color)] flex items-center justify-center text-[8px] font-mono font-bold text-[var(--text-muted)]">
+                      VS
+                    </div>
+                  </div>
+
+                  {/* Respondent Card */}
+                  <div className="relative z-10 p-4 rounded-xl border border-red-500/30 bg-red-500/5 hover:border-red-500/50 transition-colors ml-10">
+                    <div className="absolute top-1/2 -left-[27px] -translate-y-1/2 w-6 h-6 rounded-full bg-[var(--bg-main)] border-2 border-red-500 flex items-center justify-center text-[10px] font-bold text-red-500">
+                      R
+                    </div>
+                    <p className="text-[10px] font-mono text-red-600 dark:text-red-400 uppercase font-bold mb-1">Respondent / Defendant</p>
+                    <p className="text-sm font-bold text-[var(--text-main)] leading-tight">{selectedMatter.respondent}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Financial Core */}
+              <div className="space-y-3">
+                <h3 className="font-mono text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
+                  Financial Core Metrics
+                </h3>
+                
+                <div className="grid gap-3">
+                  {/* Claim Value */}
+                  <div className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-subtle)]">
+                    <span className="text-[10px] text-[var(--text-muted)] block font-mono font-bold uppercase mb-1">Total Claim Value</span>
+                    <strong className="text-xl font-mono font-bold text-[var(--text-main)] block">
+                      Kshs {selectedMatter.amount.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
+                    </strong>
+                  </div>
+
+                  {/* Billed So Far */}
+                  {(() => {
+                    const totalBilled = getFeeNotesForMatter(selectedMatter).reduce((acc, fn) => acc + fn.grandTotal, 0);
+                    const percentage = selectedMatter.amount > 0 ? ((totalBilled / selectedMatter.amount) * 100).toFixed(1) : 0;
+                    return (
+                      <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block font-mono font-bold uppercase">Billed to Date</span>
+                          <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-600 px-1.5 py-0.5 rounded">{percentage}%</span>
+                        </div>
+                        <strong className="text-xl font-mono font-bold text-[var(--text-main)] block">
+                          Kshs {totalBilled.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
+                        </strong>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Evidence Vault & Activity Timeline */}
+            <div className="lg:col-span-2 space-y-8">
+              
+              {/* The Evidence Vault */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-2">
+                  <h3 className="font-mono text-[11px] font-bold text-[var(--text-main)] uppercase tracking-widest flex items-center gap-2">
+                    <FolderOpen className="w-4 h-4 text-purple-500" /> Evidence & Documents Vault
+                  </h3>
+                  <span className="font-mono text-[10px] bg-[var(--bg-subtle)] px-2 py-0.5 rounded border border-[var(--border-color)] text-[var(--text-muted)]">
+                    {getDocumentsForMatter(selectedMatter).length} FILES
+                  </span>
+                </div>
+
+                {getDocumentsForMatter(selectedMatter).length === 0 ? (
+                  <div className="p-6 text-center border border-dashed border-[var(--border-color)] rounded-xl">
+                    <p className="text-xs text-[var(--text-muted)] font-mono">No documents securely vaulted.</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-2">
+                    {getDocumentsForMatter(selectedMatter).map((doc) => (
+                      <div key={doc.id} className="p-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] hover:border-purple-500/50 transition-all flex items-center justify-between group">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <div className="p-2 rounded bg-purple-500/10 border border-purple-500/20">
+                            <FileText className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="font-semibold text-xs text-[var(--text-main)] block truncate">{doc.filename}</span>
+                            <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase">
+                              {doc.size} &bull; {doc.updatedAt}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3 shrink-0 ml-4">
+                          {doc.extractedMetrics && (
+                            <span className="hidden sm:inline-block px-2 py-1 rounded bg-[var(--bg-subtle)] border border-[var(--border-color)] text-[9px] font-mono font-bold text-[var(--text-muted)]">
+                              PARSED DATA ✓
+                            </span>
+                          )}
+                          <button className="opacity-0 group-hover:opacity-100 p-1.5 rounded bg-slate-900 text-white hover:bg-slate-800 transition-all shadow-sm flex items-center gap-1.5 text-[10px] font-bold uppercase cursor-pointer" title="Download Document">
+                            <ExternalLink className="w-3 h-3" /> OPEN
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Case Timeline / Fee Notes */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-2">
+                  <h3 className="font-mono text-[11px] font-bold text-[var(--text-main)] uppercase tracking-widest flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Generated Fee Notes
+                  </h3>
+                </div>
+
+                {getFeeNotesForMatter(selectedMatter).length === 0 ? (
+                  <div className="p-6 text-center border border-dashed border-[var(--border-color)] rounded-xl">
+                    <p className="text-xs text-[var(--text-muted)] font-mono">No bills generated for this matter.</p>
+                  </div>
+                ) : (
+                  <div className="relative space-y-0 before:absolute before:inset-y-0 before:left-[15px] before:w-[2px] before:bg-[var(--border-color)] before:z-0 py-2">
+                    {getFeeNotesForMatter(selectedMatter).map((fn, idx) => (
+                      <div key={fn.id} className="relative z-10 flex items-start gap-4 mb-6 last:mb-0">
+                        <div className="w-8 h-8 rounded-full bg-[var(--bg-main)] border-2 border-emerald-500 flex items-center justify-center shrink-0 mt-1 shadow-sm">
+                          <FileText className="w-3.5 h-3.5 text-emerald-500" />
+                        </div>
+                        <div className="flex-1 p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-subtle)]">
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                            <strong className="font-mono font-bold text-[var(--text-main)] text-sm">{fn.billNumber}</strong>
+                            <span className="font-mono font-bold text-sm text-[var(--text-main)]">
+                              Kshs {fn.grandTotal.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[var(--text-muted)] font-mono">
+                            Generated by {fn.generatedByUser} on {fn.createdAt}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-12">
       {/* Header Banner */}
@@ -385,207 +590,18 @@ export const MattersView: React.FC<MattersViewProps> = ({ onNavigateTab }) => {
         </div>
       )}
 
-      {/* MATTER DETAIL DRAWER / MODAL */}
-      {selectedMatter && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="vercel-card p-6 sm:p-8 max-w-3xl w-full space-y-6 my-8 max-h-[90vh] overflow-y-auto text-xs shadow-2xl">
-            {/* Modal Header */}
-            <div className="flex items-start justify-between gap-4 border-b border-[var(--border-color)] pb-4">
-              <div>
-                <span className="text-[11px] font-mono font-bold text-[var(--text-muted)] uppercase">
-                  {selectedMatter.caseNo} &bull; {selectedMatter.forum}
-                </span>
-                <h2 className="font-brand font-extrabold text-xl text-[var(--text-main)] mt-0.5">
-                  {selectedMatter.title}
-                </h2>
-                <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                  {selectedMatter.filedBy}
-                </p>
-              </div>
 
-              <button
-                onClick={() => setSelectedMatter(null)}
-                className="p-1.5 rounded-xl border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-main)]"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Matter Metric Chips */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 font-mono">
-              <div className="p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
-                <span className="text-[10px] text-[var(--text-muted)] block font-semibold uppercase">Claim Amount</span>
-                <strong className="text-sm font-bold text-[var(--text-main)]">
-                  Kshs {selectedMatter.amount.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
-                </strong>
-              </div>
-
-              <div className="p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
-                <span className="text-[10px] text-[var(--text-muted)] block font-semibold uppercase">Status</span>
-                <strong className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                  {selectedMatter.status}
-                </strong>
-              </div>
-
-              <div className="p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
-                <span className="text-[10px] text-[var(--text-muted)] block font-semibold uppercase">Claimant / Plaintiff</span>
-                <strong className="text-xs font-bold text-[var(--text-main)] truncate block">
-                  {selectedMatter.applicant}
-                </strong>
-              </div>
-
-              <div className="p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
-                <span className="text-[10px] text-[var(--text-muted)] block font-semibold uppercase">Respondent</span>
-                <strong className="text-xs font-bold text-[var(--text-main)] truncate block">
-                  {selectedMatter.respondent}
-                </strong>
-              </div>
-            </div>
-
-            {/* Client Information Section */}
-            {(() => {
-              const client = getClientForMatter(selectedMatter);
-              return (
-                <div className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-subtle)]/40 space-y-3">
-                  <div className="flex items-center gap-2 border-b border-[var(--border-color)]/60 pb-2">
-                    <Building2 className="w-4 h-4 text-[var(--text-main)]" />
-                    <h3 className="font-brand font-bold text-xs uppercase text-[var(--text-main)] tracking-wider">
-                      Associated Law Firm Client Details
-                    </h3>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <span className="text-[10.5px] text-[var(--text-muted)] uppercase block font-semibold">Client Name:</span>
-                      <strong className="font-bold text-[var(--text-main)]">{client.name}</strong>
-                    </div>
-
-                    <div>
-                      <span className="text-[10.5px] text-[var(--text-muted)] uppercase block font-semibold">Company Entity:</span>
-                      <p className="font-medium text-[var(--text-main)]">{client.company}</p>
-                    </div>
-
-                    <div>
-                      <span className="text-[10.5px] text-[var(--text-muted)] uppercase block font-semibold">Contact Email & Phone:</span>
-                      <p className="font-mono text-[11px] text-[var(--text-main)]">{client.email}</p>
-                      <p className="font-mono text-[11px] text-[var(--text-muted)]">{client.phonePrimary} | {client.phoneSecondary}</p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Issued Fee Notes & Bills of Costs Section */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-2">
-                <h3 className="font-brand font-bold text-xs uppercase text-[var(--text-main)] tracking-wider flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-emerald-500" /> Fee Notes & Bills of Costs for this Matter
-                </h3>
-                <span className="font-mono text-[10.5px] text-[var(--text-muted)]">
-                  {getFeeNotesForMatter(selectedMatter).length} Bills Found
-                </span>
-              </div>
-
-              {getFeeNotesForMatter(selectedMatter).length === 0 ? (
-                <p className="text-[11px] text-[var(--text-muted)] italic">No fee notes generated for this matter yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {getFeeNotesForMatter(selectedMatter).map((fn) => (
-                    <div
-                      key={fn.id}
-                      className="p-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <strong className="font-mono font-bold text-[var(--text-main)]">{fn.billNumber}</strong>
-                          <span className="px-2 py-0.2 rounded bg-emerald-500/10 text-emerald-600 font-mono text-[10px] font-bold">
-                            {fn.status.toUpperCase()}
-                          </span>
-                        </div>
-                        <span className="text-[11px] text-[var(--text-muted)] block mt-0.5">
-                          {fn.courtSchedule} &bull; Generated by {fn.generatedByUser} ({fn.createdAt})
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span className="font-mono font-bold text-sm text-[var(--text-main)]">
-                          Kshs {fn.grandTotal.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
-                        </span>
-
-                        <button
-                          onClick={() => alert(`Opening PDF statement for ${fn.billNumber}...`)}
-                          className="btn-outline px-2.5 py-1 text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
-                        >
-                          <ExternalLink className="w-3 h-3" /> PDF
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Attached Vault Documents Section */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-2">
-                <h3 className="font-brand font-bold text-xs uppercase text-[var(--text-main)] tracking-wider flex items-center gap-2">
-                  <FolderOpen className="w-4 h-4 text-purple-500" /> Storage Vault Documents for this Matter
-                </h3>
-                <span className="font-mono text-[10.5px] text-[var(--text-muted)]">
-                  {getDocumentsForMatter(selectedMatter).length} Files Attached
-                </span>
-              </div>
-
-              {getDocumentsForMatter(selectedMatter).length === 0 ? (
-                <p className="text-[11px] text-[var(--text-muted)] italic">No documents attached in storage vault yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {getDocumentsForMatter(selectedMatter).map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="p-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] flex items-center justify-between gap-3"
-                    >
-                      <div className="min-w-0">
-                        <strong className="font-semibold text-[var(--text-main)] block truncate">{doc.filename}</strong>
-                        <span className="text-[10.5px] text-[var(--text-muted)] font-mono">
-                          {doc.size} &bull; {doc.fileType} &bull; Updated: {doc.updatedAt}
-                        </span>
-                      </div>
-
-                      <button
-                        onClick={() => alert(`Downloading "${doc.filename}" from Supabase vault...`)}
-                        className="btn-outline px-3 py-1 text-[11px] font-semibold flex items-center gap-1 shrink-0 cursor-pointer"
-                      >
-                        <ExternalLink className="w-3 h-3" /> View / Download
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end pt-2 border-t border-[var(--border-color)]">
-              <button
-                onClick={() => setSelectedMatter(null)}
-                className="btn-black px-5 py-2 text-xs font-semibold cursor-pointer"
-              >
-                Close Matter Details
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* NEW MATTER REGISTRATION MODAL */}
       {showNewMatterModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="vercel-card p-6 max-w-lg w-full space-y-4 shadow-2xl text-xs">
+        <div className="fixed inset-0 bg-[#0b1b36] flex items-center justify-center p-4 z-50">
+          <div className="vercel-card p-6 max-w-lg w-full space-y-4 shadow-2xl text-xs border-2 border-amber-500/30">
             <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
-              <h3 className="font-brand font-bold text-sm text-[var(--text-main)] uppercase tracking-wider">
-                Register New Law Firm Matter / Cause
+              <h3 className="font-brand font-bold text-sm text-[var(--text-main)] uppercase tracking-wider flex items-center gap-2">
+                <Plus className="w-5 h-5 text-amber-500" /> Register New Law Firm Matter / Cause
               </h3>
-              <button onClick={() => setShowNewMatterModal(false)} className="text-[var(--text-muted)]">
-                <X className="w-4 h-4" />
+              <button onClick={() => setShowNewMatterModal(false)} className="text-[var(--text-muted)] hover:text-red-500 transition-colors">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -597,7 +613,6 @@ export const MattersView: React.FC<MattersViewProps> = ({ onNavigateTab }) => {
                   required
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="e.g. Seyani Brothers v Greenhills Investment Ltd"
                   className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)]"
                 />
               </div>
@@ -609,7 +624,6 @@ export const MattersView: React.FC<MattersViewProps> = ({ onNavigateTab }) => {
                     type="text"
                     value={newCaseNo}
                     onChange={(e) => setNewCaseNo(e.target.value)}
-                    placeholder="HCCC No. E104 of 2025"
                     className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-mono"
                   />
                 </div>
@@ -637,7 +651,6 @@ export const MattersView: React.FC<MattersViewProps> = ({ onNavigateTab }) => {
                     type="text"
                     value={newApplicant}
                     onChange={(e) => setNewApplicant(e.target.value)}
-                    placeholder="Seyani Brothers & Co."
                     className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)]"
                   />
                 </div>
@@ -648,7 +661,6 @@ export const MattersView: React.FC<MattersViewProps> = ({ onNavigateTab }) => {
                     type="text"
                     value={newRespondent}
                     onChange={(e) => setNewRespondent(e.target.value)}
-                    placeholder="Greenhills Investment Ltd"
                     className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)]"
                   />
                 </div>
@@ -658,9 +670,8 @@ export const MattersView: React.FC<MattersViewProps> = ({ onNavigateTab }) => {
                 <label className="block text-[var(--text-muted)] mb-1 font-semibold">Subject / Claim Amount (Kshs)</label>
                 <input
                   type="number"
-                  value={newClaimAmount}
+                  value={newClaimAmount === 0 ? '' : newClaimAmount}
                   onChange={(e) => setNewClaimAmount(parseFloat(e.target.value) || 0)}
-                  placeholder="0.00"
                   className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-mono"
                 />
               </div>
