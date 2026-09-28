@@ -75,13 +75,13 @@ export const BreadcrumbsNav: React.FC<BreadcrumbsNavProps> = ({
   };
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[var(--bg-subtle)] border border-[var(--border-color)] px-4 py-2.5 rounded-2xl text-xs">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-2 py-1 text-xs">
       <button
         onClick={handleBack}
-        className="btn-outline px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+        className="text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition-colors cursor-pointer flex items-center justify-center p-1.5"
         title="Return to Previous Page"
       >
-        <ArrowLeft className="w-3.5 h-3.5" /> Back
+        <ArrowLeft className="w-5 h-5" />
       </button>
 
       <div className="flex items-center gap-1.5 font-medium text-[var(--text-muted)] overflow-x-auto py-0.5">
