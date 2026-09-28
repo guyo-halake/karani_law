@@ -50,7 +50,24 @@ export interface SystemUser {
   phoneSecondary: string;
   hasAllPermissions: boolean;
   passwordHash: string;
+  avatarUrl?: string;
 }
+
+export const saveUserProfile = (user: SystemUser) => {
+  try {
+    localStorage.setItem('BILLSZIP_SESSION', JSON.stringify(user));
+    const stored = localStorage.getItem('EXACT_USERS');
+    let list: SystemUser[] = stored ? JSON.parse(stored) : [...SEEDED_USERS];
+    const idx = list.findIndex(u => u.id === user.id || u.workEmail === user.workEmail);
+    if (idx !== -1) {
+      list[idx] = user;
+    } else {
+      list.push(user);
+    }
+    localStorage.setItem('EXACT_USERS', JSON.stringify(list));
+  } catch (e) {}
+  window.dispatchEvent(new CustomEvent('userProfileUpdated', { detail: user }));
+};
 
 // SEEDED USERS IN DATABASE
 export const SEEDED_USERS: SystemUser[] = [
@@ -276,9 +293,14 @@ export interface ExactFeeNoteRecord {
   createdAt: string;
   pdfUrl: string;
   excelUrl: string;
+  excelData?: any[];
+  claimantName?: string;
+  respondentName?: string;
+  judgeName?: string;
+  forumName?: string;
 }
 
-export const EXACT_FEE_NOTES: ExactFeeNoteRecord[] = [
+const INITIAL_FEE_NOTES: ExactFeeNoteRecord[] = [
   {
     id: "fn-001",
     billNumber: "BOC-2026-SEYANI-001",
@@ -370,6 +392,42 @@ export const EXACT_FEE_NOTES: ExactFeeNoteRecord[] = [
     excelUrl: ""
   }
 ];
+
+export let EXACT_FEE_NOTES: ExactFeeNoteRecord[] = [];
+
+export const getFeeNotes = (): ExactFeeNoteRecord[] => {
+  try {
+    const saved = localStorage.getItem('EXACT_FEE_NOTES');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        EXACT_FEE_NOTES = parsed;
+        return parsed;
+      }
+    }
+  } catch (e) {}
+  if (!EXACT_FEE_NOTES || EXACT_FEE_NOTES.length === 0) {
+    EXACT_FEE_NOTES = [...INITIAL_FEE_NOTES];
+  }
+  return EXACT_FEE_NOTES;
+};
+
+EXACT_FEE_NOTES = getFeeNotes();
+
+export const persistFeeNotes = (notes: ExactFeeNoteRecord[]) => {
+  EXACT_FEE_NOTES = [...notes];
+  try {
+    localStorage.setItem('EXACT_FEE_NOTES', JSON.stringify(notes));
+  } catch (e) {}
+  window.dispatchEvent(new CustomEvent('feeNotesUpdated', { detail: notes }));
+};
+
+export const saveFeeNotes = () => {
+  try {
+    localStorage.setItem('EXACT_FEE_NOTES', JSON.stringify(EXACT_FEE_NOTES));
+  } catch (e) {}
+  window.dispatchEvent(new CustomEvent('feeNotesUpdated', { detail: EXACT_FEE_NOTES }));
+};
 
 // 4. MESSAGES DATABASE SCHEMA & INTERFACE (WhatsApp, Email & Internal)
 export interface ExactMessageRecord {
