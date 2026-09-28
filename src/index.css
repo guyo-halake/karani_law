@@ -21,18 +21,7 @@
   --font-mono: 'Roboto Mono', monospace;
 }
 
-body.dark-mode {
-  --bg-main: #0b0f19;
-  --bg-card: #111827;
-  --bg-subtle: #1f2937;
-  --border-color: #27272a;
-  --text-main: #f9fafb;
-  --text-muted: #9ca3af;
-  --accent-blue: #3b82f6;
-  --accent-green: #10b981;
-  --btn-bg: #ffffff;
-  --btn-text: #0f172a;
-}
+
 
 body {
   background-color: var(--bg-main);
@@ -204,4 +193,48 @@ body.dark-mode .badge-blue {
   background-color: rgba(59, 130, 246, 0.15);
   color: #60a5fa;
   border-color: rgba(59, 130, 246, 0.3);
+}
+
+/* --- PRINT STYLES --- */
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+  
+  /* Hide absolutely everything by default */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Make sure the modal overlay and structural wrappers don't block the view */
+  #root, .fixed, .absolute {
+    position: static !important;
+    overflow: visible !important;
+    transform: none !important;
+    background: transparent !important;
+    width: auto !important;
+    height: auto !important;
+  }
+
+  /* Only make the print-container visible */
+  .print-container, .print-container * {
+    visibility: visible !important;
+  }
+
+  .print-container {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Explicitly hide the title and buttons inside the modal when printing */
+  .no-print {
+    display: none !important;
+  }
 }
