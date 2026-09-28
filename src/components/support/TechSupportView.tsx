@@ -11,129 +11,107 @@ interface TechProblem {
   id: number;
   category: string;
   problem: string;
-  solution: string[];
+  solution: (string | React.ReactNode)[];
 }
 
 export const SIMPLE_TECH_PROBLEMS: TechProblem[] = [
   {
     id: 1,
-    category: 'Website Basics',
-    problem: 'How to calculate a new Bill of Costs or Fee Note',
+    category: 'Guides',
+    problem: 'How to Calculate Bill of costs or fee note',
     solution: [
-      '1. Click "Bill of Costs Builder" on the left menu.',
-      '2. Select a schedule from the dropdown (e.g. Schedule 6 for High Court).',
-      '3. Type your Subject Claim Value in Kshs.',
-      '4. Click "Pick Item" or "Add New Item" to add your work items.',
-      '5. Click "Print / Export" to view and print your finished bill.'
+      '1. Open the left sidebar and navigate to the Bill of Costs or Fee Notes section.',
+      '2. Select the specific schedule or category that applies to your matter.',
+      '3. Enter the required base values, such as the Subject Value or Instruction Fee.',
+      '4. Add any individual items, attendances, or disbursements using the "Add Item" button.',
+      '5. Verify the totals, including VAT and Getting-up fees, in the summary panel.',
+      '6. Click the export or print button to generate the final document.',
+      <a href="/fee-notes" className="inline-block mt-2 px-4 py-2 bg-black text-white rounded-lg text-xs font-bold hover:bg-gray-800 transition-colors">Open Fee Note Page</a>
     ]
   },
   {
     id: 2,
-    category: 'Website Basics',
-    problem: 'Could not find a saved bill of cost?',
+    category: 'Guides',
+    problem: 'Cant find saved fee notes',
     solution: [
-      '1. Open "Home Overview" or "Documentations & Storage".',
-      '2. Use the top search bar to type the matter or client name.',
-      '3. Click on the matter card or file row to open your saved draft.'
+      '1. Go to your Document Vault or My Matters section.',
+      '2. Use the search bar at the top to type the client name or matter reference.',
+      '3. Ensure you have not accidentally applied a filter hiding older fee notes.',
+      '4. Click on the relevant matter to see all attached drafts and fee notes.'
     ]
   },
   {
     id: 3,
-    category: 'Website Basics',
-    problem: 'Bill of cost not downloading as PDF',
+    category: 'Guides',
+    problem: 'Fee notes not downloding as pdf or excel sheet',
     solution: [
-      '1. Make sure pop-ups are allowed in your browser address bar.',
-      '2. Click "Print / Export" in the Fee Note Builder.',
-      '3. Click the black "Download / Print PDF" button.',
-      '4. Select "Save as PDF" in the print destination dropdown.'
+      '1. Check if your browser is blocking pop-ups from this site.',
+      '2. Ensure you have a stable internet connection for the PDF generator to run.',
+      '3. Click the download button and wait a few seconds; do not double-click.',
+      '4. If it still fails, try clearing your browser cache and refreshing the page.'
     ]
   },
   {
     id: 4,
-    category: 'Website Basics',
-    problem: 'How to search for a matter or case file',
+    category: 'Profile',
+    problem: 'How to change or update your profile details',
     solution: [
-      '1. Go to "My Matters" on the left sidebar.',
-      '2. Type the cause number or matter title in the search box.',
-      '3. Switch between Card, Table, or List view to see your case details.'
+      '1. Click on your profile picture or name in the top right corner.',
+      '2. Select "Settings" or "Firm Settings" from the dropdown.',
+      '3. Update your name, email, or contact details in the form.',
+      '4. Click "Save Changes" at the bottom of the screen.'
     ]
   },
   {
     id: 5,
-    category: 'Website Basics',
-    problem: 'How to send an email to a client with attachments',
+    category: 'Profile',
+    problem: 'Changing or updating your login password',
     solution: [
-      '1. Go to "My Clients" on the sidebar.',
-      '2. Click the Email icon beside any client row.',
-      '3. A Gmail-style window will pop up.',
-      '4. Attach your PDF or Word document and click "Send Email".'
+      '1. For security reasons, direct password changes are managed by the admin.',
+      '2. You must send an email to p3lcodes@gmail.com requesting a password reset.',
+      '3. Include your username and registered email address in the request.',
+      '4. You will receive a temporary password within 24 hours.'
     ]
   },
   {
     id: 6,
-    category: 'Website Basics',
-    problem: 'How to switch between Light Mode and Dark Mode',
+    category: 'Troubleshooting',
+    problem: 'Troubleshooting of software (data is not shown)',
     solution: [
-      '1. Click the Sun/Moon icon on the top right bar beside the notification bell.',
-      '2. Your theme preference is saved automatically.'
+      '1. Hard refresh the page using Ctrl + F5 (Windows) or Cmd + Shift + R (Mac).',
+      '2. Check your internet connection.',
+      '3. Ensure you have the correct permissions to view the requested data.',
+      '4. If the database is syncing, wait a few moments and try again.'
     ]
   },
   {
     id: 7,
-    category: 'Website Basics',
-    problem: 'How to view and edit client contact information',
+    category: 'Troubleshooting',
+    problem: 'Getting up fee not adding to total',
     solution: [
-      '1. Click "My Clients" on the left sidebar.',
-      '2. Use the search bar to find the client.',
-      '3. Click the Call, Email, or WhatsApp icons to connect instantly.'
+      '1. Check that the "Include Getting-Up Fee" toggle is activated in your settings.',
+      '2. Ensure you have entered a valid Instruction Fee, as Getting-up is calculated from it.',
+      '3. Verify that the selected schedule allows for Getting-up fees.'
     ]
   },
   {
     id: 8,
-    category: 'Website Basics',
-    problem: 'How to upload files to Documentations & Storage',
+    category: 'Troubleshooting',
+    problem: '16% vat not showing in bill',
     solution: [
-      '1. Click "Documentations & Storage" on the left menu.',
-      '2. Click the black "Upload New File" button at the top right.',
-      '3. Choose your PDF, Excel, or Word file from your computer.'
+      '1. Ensure the specific items added are marked as taxable.',
+      '2. Disbursements are usually non-taxable and will not incur VAT.',
+      '3. Check the Firm Settings to ensure VAT calculation is turned on globally.'
     ]
   },
   {
     id: 9,
-    category: 'Website Basics',
-    problem: 'How to view your Advocate Profile and LSK details',
-    solution: [
-      '1. Click your profile avatar at the top right navbar.',
-      '2. Select "View Profile".',
-      '3. View your LSK practice certificate, contact details, and firm roles.'
-    ]
-  },
-  {
-    id: 10,
-    category: 'Website Basics',
-    problem: 'How to log out of the Karani Law Platform',
-    solution: [
-      '1. Click your profile avatar at the top right navbar or bottom sidebar.',
-      '2. Click "Log Out" to return to the secure login screen.'
-    ]
-  },
-  {
-    id: 11,
     category: 'Troubleshooting',
-    problem: 'Getting-Up fee 1/3 surcharge not adding to total',
+    problem: 'Internal emails not sending',
     solution: [
-      '1. Make sure "Include Getting-Up Fee (33.33%)" checkbox is checked.',
-      '2. Select a contentious schedule (e.g. Schedule 6 for High Court).',
-      '3. The 33.33% getting-up surcharge is calculated on the instruction fee.'
-    ]
-  },
-  {
-    id: 12,
-    category: 'Troubleshooting',
-    problem: 'Statutory 16% VAT not showing on bill',
-    solution: [
-      '1. Statutory 16% VAT is automatically added to all taxable items.',
-      '2. Disbursements (court filing fees) are non-taxable and added after VAT.'
+      '1. Verify the recipient email address is spelled correctly.',
+      '2. Check if the attached files exceed the maximum allowed size (usually 10MB).',
+      '3. If the system is offline, emails will be queued and sent when reconnected.'
     ]
   }
 ];
@@ -152,7 +130,7 @@ export const TechSupportView: React.FC = () => {
     setTimeout(() => {
       setIsSending(false);
       setSupportMessage('');
-      alert('✓ Your support request has been submitted to Karani Law Helpdesk. An advocate administrator will contact you shortly.');
+      alert('✓ Your support request has been submitted to p3lcodes@gmail.com. A P3L Developer will contact you shortly.');
     }, 600);
   };
 
@@ -167,14 +145,14 @@ export const TechSupportView: React.FC = () => {
       {/* Title Header */}
       <div className="border-b border-[var(--border-color)] pb-4 space-y-1">
         <h1 className="font-brand font-extrabold text-2xl sm:text-3xl text-[var(--text-main)] tracking-tight">
-          Welcome to Firm Technical Support & Helpdesk
+          Technical Support and Help desk
         </h1>
         <p className="text-xs sm:text-sm text-[var(--text-muted)] font-mono font-semibold">
-          Nyagah B. Kithinji & Co. Advocates • Legal Software Technical Support
+          P3L Developers Helpdesk system
         </p>
       </div>
 
-      {/* TOP SECTION: Two Columns (Message Form Left + Firm Business Card Right) */}
+      {/* TOP SECTION */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-xs">
         
         {/* LEFT COLUMN: Quick Message Form */}
@@ -205,7 +183,7 @@ export const TechSupportView: React.FC = () => {
           </div>
 
           <p className="text-[11px] text-[var(--text-muted)] italic leading-relaxed pt-2 border-t border-[var(--border-color)]">
-            Use the text field to send a quick message to our support team and we will respond as soon as possible.
+            Use the text field to send a quick message to our support team and we will respond as soon as possible. Emails are sent to p3lcodes@gmail.com.
           </p>
         </div>
 
@@ -215,11 +193,11 @@ export const TechSupportView: React.FC = () => {
             <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-black font-bold text-sm flex items-center justify-center font-mono shadow-md">
-                  N
+                  P
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-[var(--text-main)]">Advocates Support Desk</h3>
-                  <span className="text-[10.5px] text-[var(--text-muted)] font-mono">Nyagah B. Kithinji & Co. Advocates</span>
+                  <h3 className="font-bold text-sm text-[var(--text-main)]">Ticketing and Tech support Helpdesk</h3>
+                  <span className="text-[10.5px] text-[var(--text-muted)] font-mono">P3L Developers</span>
                 </div>
               </div>
               <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold text-[10px]">
@@ -229,29 +207,24 @@ export const TechSupportView: React.FC = () => {
 
             <div className="space-y-3 pt-4 text-xs font-mono">
               <div>
-                <span className="text-[var(--text-muted)] text-[10px] uppercase block font-sans font-semibold">Managing Advocate Email:</span>
-                <a href="mailto:vickarani@gmail.com" className="font-bold text-[var(--text-main)] hover:underline">
-                  vickarani@gmail.com
-                </a>
-              </div>
-
-              <div>
-                <span className="text-[var(--text-muted)] text-[10px] uppercase block font-sans font-semibold">Support Desk Telephone:</span>
-                <a href="tel:+254712345678" className="font-bold text-[var(--text-main)] hover:underline">
-                  +254 712 345 678
-                </a>
-              </div>
-
-              <div>
-                <span className="text-[var(--text-muted)] text-[10px] uppercase block font-sans font-semibold">Firm Portal:</span>
-                <span className="font-bold text-blue-500">
-                  www.kithinjilegal.co.ke
+                <span className="text-[var(--text-muted)] text-[10px] uppercase block font-sans font-semibold">Admin email:</span>
+                <span className="font-bold text-[var(--text-main)]">
+                  razakwako45@gmail.com, vickarani@gmail.com
                 </span>
               </div>
 
               <div>
-                <span className="text-[var(--text-muted)] text-[10px] uppercase block font-sans font-semibold">HQ Location:</span>
-                <span className="font-bold text-[var(--text-main)]">Nairobi, Kenya</span>
+                <span className="text-[var(--text-muted)] text-[10px] uppercase block font-sans font-semibold">Support Desk Telephone:</span>
+                <a href="tel:+254141888585" className="font-bold text-[var(--text-main)] hover:underline">
+                  +254 141888585
+                </a>
+              </div>
+
+              <div>
+                <span className="text-[var(--text-muted)] text-[10px] uppercase block font-sans font-semibold">Web:</span>
+                <span className="font-bold text-blue-500">
+                  www.p3ldevelopers.co.ke
+                </span>
               </div>
             </div>
           </div>
@@ -328,9 +301,9 @@ export const TechSupportView: React.FC = () => {
                     </span>
                     <div className="space-y-1.5 text-[var(--text-main)] leading-relaxed pl-1 font-sans text-xs">
                       {item.solution.map((step, idx) => (
-                        <p key={idx} className="bg-[var(--bg-card)] p-2.5 rounded-lg border border-[var(--border-color)]">
+                        <div key={idx} className="bg-[var(--bg-card)] p-2.5 rounded-lg border border-[var(--border-color)]">
                           {step}
-                        </p>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -344,10 +317,7 @@ export const TechSupportView: React.FC = () => {
       {/* FOOTER */}
       <footer className="pt-8 border-t border-[var(--border-color)] text-center space-y-1 text-xs text-[var(--text-muted)]">
         <p className="font-semibold text-[var(--text-main)]">
-          BoC Builder Software 2026. All rights reserved.
-        </p>
-        <p className="text-[11px]">
-          Designed for <span className="font-bold text-[var(--text-main)]">Nyagah B. Kithinji & Co. Advocates</span>, Nairobi
+          P3L Developers Software © 2026. All rights reserved.
         </p>
       </footer>
     </div>
