@@ -17,32 +17,33 @@ import { ProfileSettingsView } from './components/settings/ProfileSettingsView';
 import { TechSupportView } from './components/support/TechSupportView';
 import { LoginView } from './components/auth/LoginView';
 import { RecentsDraftsDrawer } from './components/layout/RecentsDraftsDrawer';
+import { AdminDashboard } from './components/admin/AdminDashboard';
 
-// Import 11 Packed Admin Settings Views
-import AdminBocSettingsView from './components/admin/AdminBocSettingsView';
-import AdminFirmsView from './components/admin/AdminFirmsView';
-import AdminDocumentsPolicyView from './components/admin/AdminDocumentsPolicyView';
-import AdminSupportSettingsView from './components/admin/AdminSupportSettingsView';
-import AdminPythonEngineView from './components/admin/AdminPythonEngineView';
-import AdminPermissionsView from './components/admin/AdminPermissionsView';
-import AdminUsersRolesView from './components/admin/AdminUsersRolesView';
-import AdminNotificationsDispatchView from './components/admin/AdminNotificationsDispatchView';
-import AdminTicketingView from './components/admin/AdminTicketingView';
-import AdminDatabaseHealthView from './components/admin/AdminDatabaseHealthView';
-import AdminServerControlView from './components/admin/AdminServerControlView';
-
-import { SystemUser } from './services/supabase';
+import { SystemUser, SEEDED_USERS } from './services/supabase';
 
 export const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<SystemUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<SystemUser | null>(() => {
+    const savedSession = localStorage.getItem('BILLSZIP_SESSION');
+    if (savedSession) {
+      try {
+        return JSON.parse(savedSession);
+      } catch (e) {}
+    }
+    const defaultUser = SEEDED_USERS[1]; // Adv. Nyagah Kithinji
+    try {
+      localStorage.setItem('BILLSZIP_SESSION', JSON.stringify(defaultUser));
+    } catch (e) {}
+    return defaultUser;
+  });
+
   const [currentTab, setCurrentTab] = useState<string>('home');
   const [previousTab, setPreviousTab] = useState<string>('home');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [showRecentsDrawer, setShowRecentsDrawer] = useState<boolean>(false);
 
-  const [builderCourt, setBuilderCourt] = useState('schedule_6_high_court');
-  const [builderValue, setBuilderValue] = useState(0);
+  const [builderNote, setBuilderNote] = useState<any>(null);
+  const [builderPreview, setBuilderPreview] = useState<boolean>(false);
 
   useEffect(() => {
     // Check Session
@@ -51,20 +52,17 @@ export const App: React.FC = () => {
       try {
         setCurrentUser(JSON.parse(savedSession));
       } catch (e) {
-        setCurrentUser(null);
+        setCurrentUser(SEEDED_USERS[1]);
       }
     } else {
-      setCurrentUser(null); // Show login view if no active session
+      setCurrentUser(SEEDED_USERS[1]);
     }
 
-    const savedTheme = localStorage.getItem('BILLSZIP_THEME') || 'light';
-    if (savedTheme === 'dark') {
-      setIsDarkMode(true);
-      document.body.classList.add('dark-mode');
-    } else {
-      setIsDarkMode(false);
-      document.body.classList.remove('dark-mode');
-    }
+    // Force Light Theme
+    setIsDarkMode(false);
+    document.body.classList.remove('dark-mode');
+    document.documentElement.classList.remove('dark');
+    localStorage.setItem('BILLSZIP_THEME', 'light');
 
     const handleResize = () => {
       if (window.innerWidth >= 1024) {
@@ -74,9 +72,23 @@ export const App: React.FC = () => {
       }
     };
 
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const handleProfileUpdate = (e: any) => {
+      if (e.detail) {
+        setCurrentUser(e.detail);
+      } else {
+        const saved = localStorage.getItem('BILLSZIP_SESSION');
+        if (saved) {
+          try { setCurrentUser(JSON.parse(saved)); } catch(e) {}
+        }
+      }
+    };
+
+    window.addEventListener('userProfileUpdated', handleProfileUpdate);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('userProfileUpdated', handleProfileUpdate);
+    };
   }, []);
 
   const handleNavigateTab = (newTab: string) => {
@@ -105,11 +117,16 @@ export const App: React.FC = () => {
     });
   };
 
-  const handleNavigateToBuilder = (court: string, value: number) => {
-    setBuilderCourt(court);
-    setBuilderValue(value);
+  const handleNavigateToBuilder = (note?: any, isPreview?: boolean) => {
+    setBuilderNote(note || null);
+    setBuilderPreview(isPreview || false);
     handleNavigateTab('boc');
   };
+
+  // If accessing the standalone Developer Page (now Admin Dashboard)
+  if (window.location.pathname === '/developer-page' || window.location.pathname === '/admin') {
+    return <AdminDashboard />;
+  }
 
   // If user is not logged in, render Login View
   if (!currentUser) {
@@ -124,25 +141,28 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--bg-main)] text-[var(--text-main)] transition-colors duration-200 font-sans relative">
-      {/* Top Bar Header */}
-      <Navbar
+    <div className="h-screen flex bg-[var(--bg-main)] text-[var(--text-main)] transition-colors duration-200 font-sans relative overflow-hidden">
+      
+      {/* Sidebar: Full Height on Left */}
+      <Sidebar
+        currentTab={currentTab}
+        setCurrentTab={handleNavigateTab}
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
-        isDarkMode={isDarkMode}
-        toggleTheme={toggleTheme}
-        onNavigateTab={handleNavigateTab}
-        onLogout={handleLogout}
         currentUser={currentUser}
+        onLogout={handleLogout}
       />
 
-      {/* Main Workspace Layout */}
-      <div className="flex-1 flex overflow-hidden relative">
-        <Sidebar
-          currentTab={currentTab}
-          setCurrentTab={handleNavigateTab}
+      {/* Main Content Area: Stacking Navbar and Dashboard */}
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
+        {/* Top Bar Header */}
+        <Navbar
           sidebarOpen={sidebarOpen}
           setSidebarOpen={setSidebarOpen}
+          isDarkMode={isDarkMode}
+          toggleTheme={toggleTheme}
+          onNavigateTab={handleNavigateTab}
+          onLogout={handleLogout}
           currentUser={currentUser}
         />
 
@@ -154,91 +174,54 @@ export const App: React.FC = () => {
             previousTab={previousTab}
           />
 
-          {/* ACCESS DENIED GUARD FOR NON-DEVELOPERS ATTEMPTING DEVELOPER TABS */}
-          {currentTab.startsWith('admin_') && currentUser?.role !== 'Developer' ? (
-            <div className="w-full max-w-xl mx-auto my-12 p-8 border border-red-500/30 rounded-2xl bg-red-500/5 text-center space-y-4 shadow-xl">
-              <div className="w-14 h-14 mx-auto rounded-full bg-red-500/10 text-red-500 flex items-center justify-center border border-red-500/20">
-                <ShieldAlert className="w-8 h-8" />
-              </div>
-              <div>
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-500 bg-red-500/10 px-2.5 py-0.5 rounded-full border border-red-500/20">
-                  DEVELOPER ROLE REQUIRED
-                </span>
-                <h2 className="font-brand font-bold text-xl text-[var(--text-main)] mt-2">
-                  Access Restricted to Lead Developer
-                </h2>
-                <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed">
-                  The Admin Control Panel and System Infrastructure Settings are strictly reserved for system developers (<span className="font-mono font-bold text-[var(--text-main)]">Role: Developer</span>). Firm Admins and Advocates do not have access to these controls.
-                </p>
-              </div>
-              <button
-                onClick={() => handleNavigateTab('home')}
-                className="btn-black px-6 py-2.5 text-xs font-semibold inline-flex items-center gap-2 cursor-pointer shadow-md"
-              >
-                <ArrowLeft className="w-4 h-4" /> Return to Home Dashboard
-              </button>
-            </div>
-          ) : (
-            <>
-              {/* BASIC NAVIGATION VIEWS */}
-              {currentTab === 'home' && (
-                <DashboardView
-                  onNavigateTab={handleNavigateTab}
-                  onNavigateToBuilder={handleNavigateToBuilder}
-                  onOpenRecents={() => setShowRecentsDrawer(true)}
-                  currentUser={currentUser}
-                />
-              )}
-
-              {currentTab === 'boc' && (
-                <FeeNoteBuilderView
-                  initialCourt={builderCourt}
-                  initialValue={builderValue}
-                  onNavigateToTab={handleNavigateTab}
-                />
-              )}
-
-              {currentTab === 'feenotes' && (
-                <FeeNotesListView
-                  onNavigateTab={handleNavigateTab}
-                  onNavigateToBuilder={handleNavigateToBuilder}
-                />
-              )}
-
-              {currentTab === 'matters' && <MattersView onNavigateTab={handleNavigateTab} />}
-
-              {currentTab === 'clients' && <ClientsView />}
-
-              {currentTab === 'messages' && <MessagesView />}
-
-              {currentTab === 'vault' && <DocumentVaultView />}
-
-              {currentTab === 'guide' && <RemunerationGuideView />}
-
-              {currentTab === 'company' && <CompanyProfileView />}
-
-              {currentTab === 'profile' && <MyProfileView currentUser={currentUser} />}
-
-              {currentTab === 'settings' && (
-                <ProfileSettingsView isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
-              )}
-
-              {currentTab === 'support' && <TechSupportView />}
-
-              {/* 11 PACKED ADMIN CONTROL PANEL VIEWS (DEVELOPER ROLE ONLY) */}
-              {currentTab === 'admin_boc' && <AdminBocSettingsView />}
-              {currentTab === 'admin_firms' && <AdminFirmsView />}
-              {currentTab === 'admin_documents' && <AdminDocumentsPolicyView />}
-              {currentTab === 'admin_support' && <AdminSupportSettingsView />}
-              {currentTab === 'admin_python' && <AdminPythonEngineView />}
-              {currentTab === 'admin_permissions' && <AdminPermissionsView />}
-              {currentTab === 'admin_users' && <AdminUsersRolesView />}
-              {currentTab === 'admin_notifications' && <AdminNotificationsDispatchView />}
-              {currentTab === 'admin_ticketing' && <AdminTicketingView />}
-              {currentTab === 'admin_database' && <AdminDatabaseHealthView />}
-              {currentTab === 'admin_server' && <AdminServerControlView />}
-            </>
+          {/* BASIC NAVIGATION VIEWS */}
+          {currentTab === 'home' && (
+            <DashboardView
+              onNavigateTab={handleNavigateTab}
+              onNavigateToBuilder={handleNavigateToBuilder}
+              onOpenRecents={() => setShowRecentsDrawer(true)}
+              currentUser={currentUser}
+            />
           )}
+
+          {currentTab === 'boc' && (
+            <FeeNoteBuilderView
+              initialNote={builderNote}
+              isPreview={builderPreview}
+              onNavigateToTab={handleNavigateTab}
+              currentUser={currentUser}
+            />
+          )}
+
+          {currentTab === 'feenotes' && (
+            <FeeNotesListView
+              onNavigateTab={handleNavigateTab}
+              onNavigateToBuilder={handleNavigateToBuilder}
+            />
+          )}
+
+          {currentTab === 'matters' && <MattersView onNavigateTab={handleNavigateTab} />}
+
+          {currentTab === 'clients' && <ClientsView />}
+
+          {currentTab === 'messages' && <MessagesView />}
+
+          {currentTab === 'vault' && <DocumentVaultView />}
+
+          {currentTab === 'guide' && <RemunerationGuideView />}
+
+          {currentTab === 'company' && <CompanyProfileView />}
+
+          {currentTab === 'profile' && <MyProfileView currentUser={currentUser} />}
+
+          {currentTab === 'settings' && (
+            <ProfileSettingsView isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
+          )}
+
+          {currentTab === 'support' && <TechSupportView />}
+
+          {/* NEW MASTER ADMIN DASHBOARD */}
+          {currentTab === 'admin' && <AdminDashboard />}
         </main>
       </div>
 
