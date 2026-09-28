@@ -57,9 +57,191 @@ export interface BillOfCostsResult {
 }
 
 /**
+ * Schedule 1 — Conveyancing & Sales of Immovable Property
+ */
+export function calculate_schedule_1_conveyancing(value: number, role: 'vendor' | 'purchaser' = 'purchaser'): InstructionFeeResult {
+  const val = Math.max(0.0, value);
+  const min_fee = 35000.0;
+  let base_fee = 0;
+  let formula_desc = '';
+
+  if (val <= 1000000) {
+    base_fee = 35000.0;
+    formula_desc = 'Fixed minimum for value up to Kshs 1,000,000';
+  } else if (val <= 5000000) {
+    const excess = val - 1000000;
+    base_fee = 35000.0 + (excess * 0.02);
+    formula_desc = `Kshs 35,000 + 2.0% of excess over 1M (excess: Kshs ${excess.toLocaleString()})`;
+  } else if (val <= 10000000) {
+    const excess = val - 5000000;
+    base_fee = 115000.0 + (excess * 0.015);
+    formula_desc = `Kshs 115,000 + 1.5% of excess over 5M (excess: Kshs ${excess.toLocaleString()})`;
+  } else if (val <= 20000000) {
+    const excess = val - 10000000;
+    base_fee = 190000.0 + (excess * 0.010);
+    formula_desc = `Kshs 190,000 + 1.0% of excess over 10M (excess: Kshs ${excess.toLocaleString()})`;
+  } else {
+    const excess = val - 20000000;
+    base_fee = 290000.0 + (excess * 0.0075);
+    formula_desc = `Kshs 290,000 + 0.75% of excess over 20M (excess: Kshs ${excess.toLocaleString()})`;
+  }
+
+  let final_fee = Math.max(base_fee, min_fee);
+  if (role === 'vendor') {
+    final_fee = final_fee * 0.75;
+  }
+
+  return {
+    court_or_domain: `Schedule 1: Conveyancing (${role === 'purchaser' ? 'Purchaser' : 'Vendor'})`,
+    schedule: 'Schedule 1',
+    claim_value: val,
+    raw_calculated_fee: Number(base_fee.toFixed(2)),
+    minimum_prescribed_fee: min_fee,
+    instruction_fee: Number(final_fee.toFixed(2)),
+    formula: formula_desc
+  };
+}
+
+/**
+ * Schedule 2 — Debentures, Mortgages & Corporate Security Charges
+ */
+export function calculate_schedule_2_debentures(value: number, role: 'lender' | 'borrower' = 'lender'): InstructionFeeResult {
+  const val = Math.max(0.0, value);
+  const min_fee = 50000.0;
+  let base_fee = 0;
+  let formula_desc = '';
+
+  if (val <= 1000000) {
+    base_fee = 50000.0;
+    formula_desc = 'Fixed minimum for value up to Kshs 1,000,000';
+  } else if (val <= 10000000) {
+    const excess = val - 1000000;
+    base_fee = 50000.0 + (excess * 0.015);
+    formula_desc = `Kshs 50,000 + 1.5% of excess over 1M (excess: Kshs ${excess.toLocaleString()})`;
+  } else {
+    const excess = val - 10000000;
+    base_fee = 185000.0 + (excess * 0.010);
+    formula_desc = `Kshs 185,000 + 1.0% of excess over 10M (excess: Kshs ${excess.toLocaleString()})`;
+  }
+
+  let final_fee = Math.max(base_fee, min_fee);
+  if (role === 'borrower') {
+    final_fee = final_fee * 0.50; // Borrower scale is 50% of Lender scale
+  }
+
+  return {
+    court_or_domain: `Schedule 2: Debentures/Mortgages (${role === 'lender' ? 'Lender' : 'Borrower'})`,
+    schedule: 'Schedule 2',
+    claim_value: val,
+    raw_calculated_fee: Number(base_fee.toFixed(2)),
+    minimum_prescribed_fee: min_fee,
+    instruction_fee: Number(final_fee.toFixed(2)),
+    formula: formula_desc
+  };
+}
+
+/**
+ * Schedule 3 — Probate & Estate Administration
+ */
+export function calculate_schedule_3_probate(gross_estate_value: number): InstructionFeeResult {
+  const val = Math.max(0.0, gross_estate_value);
+  const min_fee = 40000.0;
+  let base_fee = 0;
+  let formula_desc = '';
+
+  if (val <= 500000) {
+    base_fee = 40000.0;
+    formula_desc = 'Fixed scale for gross estate value up to Kshs 500,000';
+  } else if (val <= 5000000) {
+    const excess = val - 500000;
+    base_fee = 40000.0 + (excess * 0.025);
+    formula_desc = `Kshs 40,000 + 2.5% of excess over 500k (excess: Kshs ${excess.toLocaleString()})`;
+  } else {
+    const excess = val - 5000000;
+    base_fee = 152500.0 + (excess * 0.015);
+    formula_desc = `Kshs 152,500 + 1.5% of excess over 5M (excess: Kshs ${excess.toLocaleString()})`;
+  }
+
+  const final_fee = Math.max(base_fee, min_fee);
+  return {
+    court_or_domain: 'Schedule 3: Probate & Estate Administration',
+    schedule: 'Schedule 3',
+    claim_value: val,
+    raw_calculated_fee: Number(base_fee.toFixed(2)),
+    minimum_prescribed_fee: min_fee,
+    instruction_fee: Number(final_fee.toFixed(2)),
+    formula: formula_desc
+  };
+}
+
+/**
+ * Schedule 4 — Trademarks, Patents, Designs
+ */
+export function calculate_schedule_4_ip(ip_service: 'trademark_reg' | 'opposition' | 'assignment'): InstructionFeeResult {
+  let fee = 25000.0;
+  let desc = 'Trademark Registration Application (per class)';
+  
+  if (ip_service === 'opposition') {
+    fee = 45000.0;
+    desc = 'Filing Notice of Opposition';
+  } else if (ip_service === 'assignment') {
+    fee = 20000.0;
+    desc = 'Assignment / Transfer of Registration';
+  }
+
+  return {
+    court_or_domain: 'Schedule 4: Trademarks & IP',
+    schedule: 'Schedule 4',
+    claim_value: fee,
+    raw_calculated_fee: fee,
+    minimum_prescribed_fee: fee,
+    instruction_fee: fee,
+    formula: desc
+  };
+}
+
+/**
+ * Schedule 5 — Subordinate (Magistrate's) Court Litigation
+ */
+export function calculate_schedule_5_subordinate(value: number): InstructionFeeResult {
+  const val = Math.max(0.0, value);
+  const min_fee = 30000.0;
+  let base_fee = 0;
+  let formula_desc = '';
+
+  if (val <= 100000) {
+    base_fee = 20000.0;
+    formula_desc = 'Fixed scale fee for Magistrate Court value up to Kshs 100,000';
+  } else if (val <= 500000) {
+    const excess = val - 100000;
+    base_fee = 30000.0 + (excess * 0.05);
+    formula_desc = `Kshs 30,000 + 5% of excess over 100k (excess: Kshs ${excess.toLocaleString()})`;
+  } else if (val <= 1000000) {
+    const excess = val - 500000;
+    base_fee = 50000.0 + (excess * 0.03);
+    formula_desc = `Kshs 50,000 + 3% of excess over 500k (excess: Kshs ${excess.toLocaleString()})`;
+  } else {
+    const excess = val - 1000000;
+    base_fee = 65000.0 + (excess * 0.02);
+    formula_desc = `Kshs 65,000 + 2% of excess over 1M (excess: Kshs ${excess.toLocaleString()})`;
+  }
+
+  const final_fee = Math.max(base_fee, min_fee);
+  return {
+    court_or_domain: "Schedule 5: Magistrate's Court",
+    schedule: 'Schedule 5',
+    claim_value: val,
+    raw_calculated_fee: Number(base_fee.toFixed(2)),
+    minimum_prescribed_fee: min_fee,
+    instruction_fee: Number(final_fee.toFixed(2)),
+    formula: formula_desc
+  };
+}
+
+/**
  * Schedule 6 — Superior Courts (High Court, ELC, ELRC, Court of Appeal, Supreme Court)
  */
-export function calculate_high_court_instruction_fee(value: number, is_defendant: boolean = false): InstructionFeeResult {
+export function calculate_schedule_6_high_court(value: number, is_defendant: boolean = false): InstructionFeeResult {
   const min_fee = is_defendant ? 50000.0 : 75000.0;
   const val = Math.max(0.0, value);
   let base_fee = 0;
@@ -96,7 +278,7 @@ export function calculate_high_court_instruction_fee(value: number, is_defendant
   }
 
   return {
-    court_or_domain: 'High Court / ELC / ELRC / Court of Appeal',
+    court_or_domain: `Schedule 6: Superior Courts (${is_defendant ? 'Defendant' : 'Plaintiff'})`,
     schedule: 'Schedule 6',
     claim_value: val,
     is_defendant,
@@ -108,120 +290,74 @@ export function calculate_high_court_instruction_fee(value: number, is_defendant
 }
 
 /**
- * Schedule 5 — Subordinate (Magistrate's) Court Litigation
+ * Schedule 7 — Subordinate Courts Secondary Scale
  */
-export function calculate_subordinate_court_instruction_fee(value: number): InstructionFeeResult {
-  const val = Math.max(0.0, value);
-  const min_fee = 30000.0;
-  let base_fee = 0;
-  let formula_desc = '';
-
-  if (val <= 100000) {
-    base_fee = 20000.0;
-    formula_desc = 'Fixed scale fee for Magistrate Court value up to Kshs 100,000';
-  } else if (val <= 500000) {
-    const excess = val - 100000;
-    base_fee = 30000.0 + (excess * 0.05);
-    formula_desc = `Kshs 30,000 + 5% of excess over 100k (excess: Kshs ${excess.toLocaleString()})`;
-  } else if (val <= 1000000) {
-    const excess = val - 500000;
-    base_fee = 50000.0 + (excess * 0.03);
-    formula_desc = `Kshs 50,000 + 3% of excess over 500k (excess: Kshs ${excess.toLocaleString()})`;
-  } else {
-    const excess = val - 1000000;
-    base_fee = 65000.0 + (excess * 0.02);
-    formula_desc = `Kshs 65,000 + 2% of excess over 1M (excess: Kshs ${excess.toLocaleString()})`;
-  }
-
-  const final_fee = Math.max(base_fee, min_fee);
+export function calculate_schedule_7_secondary(): InstructionFeeResult {
   return {
-    court_or_domain: "Subordinate / Magistrate's Court",
-    schedule: 'Schedule 5',
-    claim_value: val,
-    raw_calculated_fee: Number(base_fee.toFixed(2)),
-    minimum_prescribed_fee: min_fee,
-    instruction_fee: Number(final_fee.toFixed(2)),
-    formula: formula_desc
+    court_or_domain: 'Schedule 7: Secondary Scale',
+    schedule: 'Schedule 7',
+    claim_value: 0,
+    raw_calculated_fee: 15000.0,
+    minimum_prescribed_fee: 15000.0,
+    instruction_fee: 15000.0,
+    formula: 'Base fee for uncontested applications / default judgments'
   };
 }
 
 /**
- * Schedule 1 — Conveyancing & Sales of Immovable Property
+ * Schedule 8 — Rent & Business Tribunals
  */
-export function calculate_conveyancing_instruction_fee(value: number, role: 'vendor' | 'purchaser' | 'mortgagor' | 'mortgagee' = 'purchaser'): InstructionFeeResult {
-  const val = Math.max(0.0, value);
-  const min_fee = 35000.0;
-  let base_fee = 0;
-  let formula_desc = '';
-
-  if (val <= 1000000) {
-    base_fee = 35000.0;
-    formula_desc = 'Scale fee for property value up to Kshs 1,000,000';
-  } else if (val <= 5000000) {
-    const excess = val - 1000000;
-    base_fee = 35000.0 + (excess * 0.02);
-    formula_desc = `Kshs 35,000 + 2.0% of excess over 1M (excess: Kshs ${excess.toLocaleString()})`;
-  } else if (val <= 10000000) {
-    const excess = val - 5000000;
-    base_fee = 115000.0 + (excess * 0.015);
-    formula_desc = `Kshs 115,000 + 1.5% of excess over 5M (excess: Kshs ${excess.toLocaleString()})`;
-  } else if (val <= 20000000) {
-    const excess = val - 10000000;
-    base_fee = 190000.0 + (excess * 0.010);
-    formula_desc = `Kshs 190,000 + 1.0% of excess over 10M (excess: Kshs ${excess.toLocaleString()})`;
-  } else {
-    const excess = val - 20000000;
-    base_fee = 290000.0 + (excess * 0.0075);
-    formula_desc = `Kshs 290,000 + 0.75% of excess over 20M (excess: Kshs ${excess.toLocaleString()})`;
-  }
-
-  let final_fee = Math.max(base_fee, min_fee);
-  if (role === 'vendor') {
-    final_fee = final_fee * 0.75; // Vendor's advocate rate per Schedule 1
-  }
-
+export function calculate_schedule_8_tribunals(): InstructionFeeResult {
   return {
-    court_or_domain: `Conveyancing Land Sale / Transfer (${role.toUpperCase()})`,
-    schedule: 'Schedule 1',
-    claim_value: val,
-    raw_calculated_fee: Number(base_fee.toFixed(2)),
-    minimum_prescribed_fee: min_fee,
-    instruction_fee: Number(final_fee.toFixed(2)),
-    formula: formula_desc
+    court_or_domain: 'Schedule 8: Tribunals',
+    schedule: 'Schedule 8',
+    claim_value: 0,
+    raw_calculated_fee: 25000.0,
+    minimum_prescribed_fee: 25000.0,
+    instruction_fee: 25000.0,
+    formula: 'Base tribunal assessment fee'
   };
 }
 
 /**
- * Schedule 3 — Probate & Estate Administration
+ * Schedule 9 — Arbitrations
  */
-export function calculate_probate_instruction_fee(gross_estate_value: number): InstructionFeeResult {
-  const val = Math.max(0.0, gross_estate_value);
-  const min_fee = 40000.0;
-  let base_fee = 0;
-  let formula_desc = '';
-
-  if (val <= 500000) {
-    base_fee = 40000.0;
-    formula_desc = 'Fixed scale for gross estate value up to Kshs 500,000';
-  } else if (val <= 5000000) {
-    const excess = val - 500000;
-    base_fee = 40000.0 + (excess * 0.025);
-    formula_desc = `Kshs 40,000 + 2.5% of excess over 500k (excess: Kshs ${excess.toLocaleString()})`;
-  } else {
-    const excess = val - 5000000;
-    base_fee = 152500.0 + (excess * 0.015);
-    formula_desc = `Kshs 152,500 + 1.5% of excess over 5M (excess: Kshs ${excess.toLocaleString()})`;
-  }
-
-  const final_fee = Math.max(base_fee, min_fee);
+export function calculate_schedule_9_arbitration(value: number): InstructionFeeResult {
+  const result = calculate_schedule_6_high_court(value, false);
   return {
-    court_or_domain: 'Probate & Estate Administration',
-    schedule: 'Schedule 3',
-    claim_value: val,
-    raw_calculated_fee: Number(base_fee.toFixed(2)),
-    minimum_prescribed_fee: min_fee,
-    instruction_fee: Number(final_fee.toFixed(2)),
-    formula: formula_desc
+    ...result,
+    court_or_domain: 'Schedule 9: Arbitration (High Court Scale)',
+    schedule: 'Schedule 9'
+  };
+}
+
+/**
+ * Schedule 10 — Criminal Proceedings
+ */
+export function calculate_schedule_10_criminal(): InstructionFeeResult {
+  return {
+    court_or_domain: 'Schedule 10: Criminal Proceedings',
+    schedule: 'Schedule 10',
+    claim_value: 0,
+    raw_calculated_fee: 50000.0,
+    minimum_prescribed_fee: 50000.0,
+    instruction_fee: 50000.0,
+    formula: 'Minimum Criminal Retainer Fee'
+  };
+}
+
+/**
+ * Schedule 11 — Itemized Folio Scale (Base Placeholder)
+ */
+export function calculate_schedule_11_itemized(): InstructionFeeResult {
+  return {
+    court_or_domain: 'Schedule 11: Itemized Folios',
+    schedule: 'Schedule 11',
+    claim_value: 0,
+    raw_calculated_fee: 500.0,
+    minimum_prescribed_fee: 500.0,
+    instruction_fee: 500.0,
+    formula: 'Per Folio Base Rate'
   };
 }
 
@@ -277,14 +413,14 @@ export function calculate_bill_of_costs(
 ): BillOfCostsResult {
   let instr_data: InstructionFeeResult;
 
-  if (court_schedule === 'schedule_5_magistrate') {
-    instr_data = calculate_subordinate_court_instruction_fee(claim_value);
+  if (court_schedule === 'schedule_5_subordinate') {
+    instr_data = calculate_schedule_5_subordinate(claim_value);
   } else if (court_schedule === 'schedule_1_conveyancing') {
-    instr_data = calculate_conveyancing_instruction_fee(claim_value, 'purchaser');
+    instr_data = calculate_schedule_1_conveyancing(claim_value, 'purchaser');
   } else if (court_schedule === 'schedule_3_probate') {
-    instr_data = calculate_probate_instruction_fee(claim_value);
+    instr_data = calculate_schedule_3_probate(claim_value);
   } else {
-    instr_data = calculate_high_court_instruction_fee(claim_value, is_defendant);
+    instr_data = calculate_schedule_6_high_court(claim_value, is_defendant);
   }
 
   let instruction_fee = instr_data.instruction_fee;
