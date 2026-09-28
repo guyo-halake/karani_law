@@ -237,3 +237,19 @@ VALUES
     'P3L/DEV/2026/001',
     'developer'
 ) ON CONFLICT DO NOTHING;
+
+ C R E A T E   T A B L E   I F   N O T   E X I S T S   s t a t u t o r y _ f e e s   ( 
+     i d   U U I D   P R I M A R Y   K E Y   D E F A U L T   u u i d _ g e n e r a t e _ v 4 ( ) , 
+     d e s c r i p t i o n   T E X T   N O T   N U L L , 
+     a m o u n t   N U M E R I C   N O T   N U L L , 
+     c r e a t e d _ a t   T I M E S T A M P   W I T H   T I M E   Z O N E   D E F A U L T   N O W ( ) 
+ ) ; 
+ 
+ I N S E R T   I N T O   s t a t u t o r y _ f e e s   ( d e s c r i p t i o n ,   a m o u n t )   V A L U E S   
+ ( ' P r o c e d u r a l   M e e t i n g ' ,   1 1 0 0 ) , 
+ ( ' H e a r i n g   F u l l   D a y ' ,   1 0 0 0 0 ) , 
+ ( ' H e a r i n g   H a l f   D a y ' ,   5 0 0 0 ) , 
+ ( ' D r a w i n g   P l a i n t ' ,   5 0 0 ) 
+ O N   C O N F L I C T   D O   N O T H I N G ; 
+  
+ 
