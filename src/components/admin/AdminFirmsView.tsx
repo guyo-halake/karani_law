@@ -7,27 +7,35 @@ import {
 
 export const AdminFirmsView: React.FC = () => {
   // Active logged-in law firm profile state for Nyagah B. Kithinji & Co. Advocates
-  const [firmProfile, setFirmProfile] = useState({
-    name: EXACT_FIRM_INFO.name,
-    firmRegNo: EXACT_FIRM_INFO.firmRegNo,
-    managingAdvocate: EXACT_FIRM_INFO.user.name,
-    email: EXACT_FIRM_INFO.email,
-    taxationEmail: EXACT_FIRM_INFO.taxationEmail || 'taxation@kithinjilegal.co.ke',
-    billingEmail: EXACT_FIRM_INFO.billingEmail || 'billing@kithinjilegal.co.ke',
-    phonePrimary: EXACT_FIRM_INFO.phone,
-    phoneSecondary: '+254 711 000 000',
-    addressLine1: EXACT_FIRM_INFO.address,
-    city: EXACT_FIRM_INFO.fullLocation,
-    poBox: EXACT_FIRM_INFO.poBox,
-    website: EXACT_FIRM_INFO.website,
-    kraPin: EXACT_FIRM_INFO.kraPin,
-    bankName: 'KCB Bank Kenya Ltd',
-    bankBranch: 'Kilimani Branch, Nairobi',
-    bankAccountNo: '1104889922',
-    bankSwiftCode: 'KCBLKENX',
-    plan: 'Enterprise Platinum',
-    storageQuota: '100 GB',
-    userSeats: '50 Seats'
+  const [firmProfile, setFirmProfile] = useState(() => {
+    let customSettings = { topbarTitle: 'Kithinji & Co', topbarSubtitle: 'Advocates of the High Court of Kenya', logoUrl: '/logo.png' };
+    const savedCustom = localStorage.getItem('BILLSZIP_FIRM_SETTINGS');
+    if (savedCustom) {
+      try { customSettings = JSON.parse(savedCustom); } catch(e) {}
+    }
+    return {
+      name: EXACT_FIRM_INFO.name,
+      firmRegNo: EXACT_FIRM_INFO.firmRegNo,
+      managingAdvocate: EXACT_FIRM_INFO.user.name,
+      email: EXACT_FIRM_INFO.email,
+      taxationEmail: EXACT_FIRM_INFO.taxationEmail || 'taxation@kithinjilegal.co.ke',
+      billingEmail: EXACT_FIRM_INFO.billingEmail || 'billing@kithinjilegal.co.ke',
+      phonePrimary: EXACT_FIRM_INFO.phone,
+      phoneSecondary: '+254 711 000 000',
+      addressLine1: EXACT_FIRM_INFO.address,
+      city: EXACT_FIRM_INFO.fullLocation,
+      poBox: EXACT_FIRM_INFO.poBox,
+      website: EXACT_FIRM_INFO.website,
+      kraPin: EXACT_FIRM_INFO.kraPin,
+      bankName: 'KCB Bank Kenya Ltd',
+      bankBranch: 'Kilimani Branch, Nairobi',
+      bankAccountNo: '1104889922',
+      bankSwiftCode: 'KCBLKENX',
+      plan: 'Enterprise Platinum',
+      storageQuota: '100 GB',
+      userSeats: '50 Seats',
+      ...customSettings
+    };
   });
 
   const [isEditing, setIsEditing] = useState(false);
@@ -35,6 +43,12 @@ export const AdminFirmsView: React.FC = () => {
 
   const handleSaveFirmProfile = (e: React.FormEvent) => {
     e.preventDefault();
+    localStorage.setItem('BILLSZIP_FIRM_SETTINGS', JSON.stringify({
+      topbarTitle: firmProfile.topbarTitle,
+      topbarSubtitle: firmProfile.topbarSubtitle,
+      logoUrl: firmProfile.logoUrl
+    }));
+    window.dispatchEvent(new Event('firmSettingsChanged'));
     setIsEditing(false);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2500);
@@ -107,6 +121,39 @@ export const AdminFirmsView: React.FC = () => {
                   value={firmProfile.name}
                   onChange={(e) => setFirmProfile({ ...firmProfile, name: e.target.value })}
                   className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[var(--text-main)] focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-[var(--text-main)] block mb-1">Top bar Title (Firm Name):</label>
+                <input
+                  type="text"
+                  required
+                  value={firmProfile.topbarTitle}
+                  onChange={(e) => setFirmProfile({ ...firmProfile, topbarTitle: e.target.value })}
+                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2.5 text-xs font-bold text-[var(--text-main)] focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-[var(--text-main)] block mb-1">Top bar Subtitle:</label>
+                <input
+                  type="text"
+                  required
+                  value={firmProfile.topbarSubtitle}
+                  onChange={(e) => setFirmProfile({ ...firmProfile, topbarSubtitle: e.target.value })}
+                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-[var(--text-main)] block mb-1">Logo Image URL:</label>
+                <input
+                  type="text"
+                  required
+                  value={firmProfile.logoUrl}
+                  onChange={(e) => setFirmProfile({ ...firmProfile, logoUrl: e.target.value })}
+                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-blue-500"
                 />
               </div>
 
@@ -308,44 +355,45 @@ export const AdminFirmsView: React.FC = () => {
 
             <div className="space-y-2 p-4 rounded-2xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
               <span className="text-[10.5px] text-[var(--text-muted)] uppercase block font-sans font-bold flex items-center gap-1.5">
-                <Globe className="w-4 h-4 text-purple-500" /> System Quota & Plan
+                <Globe className="w-4 h-4 text-purple-500" /> BOC system quot and plan....set_3
               </span>
               <p className="text-purple-400 font-bold">{firmProfile.plan}</p>
-              <p className="text-[var(--text-muted)] text-[11px]">Storage Allocated: {firmProfile.storageQuota}</p>
-              <p className="text-[var(--text-muted)] text-[11px]">Active Licences: {firmProfile.userSeats}</p>
-              <p className="text-emerald-500 font-bold text-[11px]">Status: Verified Active</p>
+              <p className="text-[var(--text-muted)] text-[11px]">Storage Allocated: 543 GB</p>
+              <p className="text-[var(--text-muted)] text-[11px]">P3L L Number: p3l_6847300288774hg492</p>
+              
+              <div className="mt-2 p-2.5 bg-slate-900 rounded-lg flex items-start gap-2 border border-slate-700">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse mt-1 shrink-0"></div>
+                <div className="text-[10px] font-mono text-emerald-400 leading-tight">
+                  <span className="text-white font-bold block mb-0.5">Razak Server Connected</span>
+                  Location: Marsabit County<br/>
+                  IP: 197.232.14.88
+                </div>
+              </div>
+              
+              <p className="text-emerald-500 font-bold text-[11px] mt-2">Status: Verified Active</p>
             </div>
           </div>
         )}
       </div>
 
-      {/* Law Firm Practice Credentials & Software Status */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-mono">
-        <div className="vercel-card p-5 space-y-2">
-          <div className="flex items-center gap-2">
-            <Award className="w-4 h-4 text-amber-500" />
-            <span className="text-[11px] text-[var(--text-muted)] uppercase font-sans font-bold">LSK Verification</span>
-          </div>
-          <p className="text-lg font-extrabold text-[var(--text-main)]">100% Certified</p>
-          <p className="text-[11px] text-[var(--text-muted)] font-sans">Registered with Advocates Complaints Commission & LSK Secretariat.</p>
-        </div>
-
+      {/* Software Status */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-mono">
         <div className="vercel-card p-5 space-y-2">
           <div className="flex items-center gap-2">
             <HardDrive className="w-4 h-4 text-blue-500" />
-            <span className="text-[11px] text-[var(--text-muted)] uppercase font-sans font-bold">Document Storage</span>
+            <span className="text-[11px] text-[var(--text-muted)] uppercase font-sans font-bold">Documentation and Users Storage</span>
           </div>
-          <p className="text-lg font-extrabold text-blue-500">100 GB Encrypted</p>
-          <p className="text-[11px] text-[var(--text-muted)] font-sans">Automated Supabase S3 Vault Backup Enabled.</p>
+          <p className="text-lg font-extrabold text-blue-500">100 GB Hash Encrypt</p>
+          <p className="text-[11px] text-[var(--text-muted)] font-sans">Automated Supabase S3 Backup Enabled. Backup to AWS S3 Enabled.</p>
         </div>
 
         <div className="vercel-card p-5 space-y-2">
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-emerald-500" />
-            <span className="text-[11px] text-[var(--text-muted)] uppercase font-sans font-bold">Seat Licences</span>
+            <span className="text-[11px] text-[var(--text-muted)] uppercase font-sans font-bold">AWS Seat Licences</span>
           </div>
-          <p className="text-lg font-extrabold text-emerald-500">50 Active Seats</p>
-          <p className="text-[11px] text-[var(--text-muted)] font-sans">Assigned to Advocates, Partners & Associate Counsel.</p>
+          <p className="text-lg font-extrabold text-emerald-500">4 Active Seats</p>
+          <p className="text-[11px] text-[var(--text-muted)] font-sans">Administartor, Systems Developer - P3L Developers IC, Advocates and Lawyers, Managing and Exec</p>
         </div>
       </div>
     </div>
