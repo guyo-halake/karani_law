@@ -319,19 +319,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* BOTTOM BRAND LOGO DOCK: P3L LOGO 2.jpeg */}
-        <div className="pt-3 mt-4 border-t border-[var(--border-color)]/60 shrink-0">
-          <div className="p-3 rounded-2xl bg-white dark:bg-zinc-800/90 border border-slate-200/80 dark:border-zinc-700/80 flex items-center justify-center shadow-xs">
-            <img
-              src="/p3l_logo_nobg.png"
-              alt="P3L Logo"
-              className="w-full max-h-28 object-contain rounded-xl"
-              onError={(e) => {
-                e.currentTarget.onerror = null;
-                e.currentTarget.src = '/logo.png';
-              }}
-            />
-          </div>
+        {/* P3L LOGO — pinned to very bottom of sidebar */}
+        <div className="shrink-0 mt-auto flex items-center justify-center px-2 py-2">
+          <img
+            src="/p3l_logo_nobg.png"
+            alt="P3L Logo"
+            className="w-full max-h-40 object-contain opacity-90 drop-shadow-sm scale-110"
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = '/logo.png';
+            }}
+          />
         </div>
       </aside>
     </>
