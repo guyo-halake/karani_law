@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { calculateLegalBill, BillCalculationResult } from '../../services/api';
 import { EXACT_FIRM_INFO, EXACT_FEE_NOTES, supabase, ExactFeeNoteRecord, saveFeeNotes, SystemUser } from '../../services/supabase';
+import { logSystemActivity } from '../../services/activityLogger';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -212,6 +213,12 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
       EXACT_FEE_NOTES.unshift(savedRecord);
     }
     saveFeeNotes();
+    logSystemActivity(
+      currentUser?.fullName || 'Advocate',
+      `saved Bill of Costs ${documentRef} (Kshs ${(savedRecord.grandTotal || 0).toLocaleString()})`,
+      'feenote',
+      'bg-emerald-500'
+    );
 
     try {
       await supabase.from('fee_notes').upsert({

@@ -12,7 +12,11 @@ import {
   ChevronDown,
   ChevronRight,
   LogOut,
-  ShieldCheck
+  ShieldCheck,
+  Clock,
+  TrendingUp,
+  Lock,
+  Activity
 } from 'lucide-react';
 
 import { SystemUser, getFeeNotes } from '../../services/supabase';
@@ -156,24 +160,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </button>
 
-            {/* Managing Partner (God Mode) */}
-            <button
-              onClick={() => handleSelect('admin')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                currentTab === 'admin'
-                  ? 'bg-amber-500 text-slate-950 shadow-md font-bold'
-                  : 'text-amber-700 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <ShieldCheck className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                <span>Managing Partner (God Mode)</span>
-              </div>
-              <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-black bg-amber-500 text-slate-950 uppercase">
-                ADMIN
-              </span>
-            </button>
-
             {/* Bill of Costs Builder */}
             <button
               onClick={() => handleSelect('boc')}
@@ -290,6 +276,93 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="flex items-center gap-3">
                 <Folder className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
                 <span>Document Vault</span>
+              </div>
+            </button>
+          </div>
+
+          {/* MANAGING PARTNER SUITE */}
+          <div className="space-y-1 pt-2 border-t border-[var(--border-color)]/60">
+            <div className="flex items-center justify-between px-3 mb-1.5">
+              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-amber-600 dark:text-amber-400 font-mono">
+                MANAGING PARTNER
+              </span>
+              <span className="text-[9px] px-1.5 py-0.2 rounded font-mono font-black bg-amber-500 text-slate-950 uppercase">
+                GOD MODE
+              </span>
+            </div>
+
+            {/* Managing Partner Hub */}
+            <button
+              onClick={() => handleSelect('managing_hub')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                currentTab === 'managing_hub'
+                  ? 'bg-amber-500 text-slate-950 shadow-md font-bold'
+                  : 'text-amber-700 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <ShieldCheck className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>Executive Hub</span>
+              </div>
+            </button>
+
+            {/* BOC Approval Queue */}
+            <button
+              onClick={() => handleSelect('managing_approvals')}
+              className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                currentTab === 'managing_approvals'
+                  ? 'modulix-active-nav'
+                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Clock className="w-4 h-4 shrink-0 text-amber-500" />
+                <span>Approval Queue</span>
+              </div>
+            </button>
+
+            {/* Revenue Analytics */}
+            <button
+              onClick={() => handleSelect('managing_revenue')}
+              className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                currentTab === 'managing_revenue'
+                  ? 'modulix-active-nav'
+                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <TrendingUp className="w-4 h-4 shrink-0 text-blue-500" />
+                <span>Revenue Analytics</span>
+              </div>
+            </button>
+
+            {/* Advocate Permissions */}
+            <button
+              onClick={() => handleSelect('managing_permissions')}
+              className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                currentTab === 'managing_permissions'
+                  ? 'modulix-active-nav'
+                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Lock className="w-4 h-4 shrink-0 text-purple-500" />
+                <span>Advocate Permissions</span>
+              </div>
+            </button>
+
+            {/* Live Activity Feed */}
+            <button
+              onClick={() => handleSelect('managing_audit')}
+              className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                currentTab === 'managing_audit'
+                  ? 'modulix-active-nav'
+                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Activity className="w-4 h-4 shrink-0 text-emerald-500" />
+                <span>Live Activity Stream</span>
               </div>
             </button>
           </div>

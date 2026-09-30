@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 
 import { EXACT_MATTERS, EXACT_CLIENTS, EXACT_FIRM_INFO, SystemUser, saveFeeNotes, ExactFeeNoteRecord, getFeeNotes, persistFeeNotes } from '../../services/supabase';
-import { ManagingPartnerGodMode } from '../admin/ManagingPartnerGodMode';
 import { 
   calculate_schedule_1_conveyancing,
   calculate_schedule_2_debentures,
@@ -479,12 +478,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </button>
         </div>
       </div>
-
-      {/* MANAGING PARTNER (GOD MODE) SECTION */}
-      <ManagingPartnerGodMode
-        onNavigateToBuilder={onNavigateToBuilder}
-        onNavigateTab={onNavigateTab}
-      />
 
       {/* Main 12-Column Modulix Dashboard Grid Layout */}
       <div className="grid grid-cols-12 gap-6 lg:gap-8">

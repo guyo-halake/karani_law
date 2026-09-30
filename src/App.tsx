@@ -19,6 +19,11 @@ import { LoginView } from './components/auth/LoginView';
 import { RecentsDraftsDrawer } from './components/layout/RecentsDraftsDrawer';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { ManagingPartnerGodMode } from './components/admin/ManagingPartnerGodMode';
+import { ManagingPartnerHubView } from './components/admin/ManagingPartnerHubView';
+import { ApprovalQueueView } from './components/admin/ApprovalQueueView';
+import { RevenueAnalyticsView } from './components/admin/RevenueAnalyticsView';
+import { AdvocatePermissionsView } from './components/admin/AdvocatePermissionsView';
+import { LiveActivityFeedView } from './components/admin/LiveActivityFeedView';
 
 import { SystemUser, SEEDED_USERS } from './services/supabase';
 
@@ -221,7 +226,19 @@ export const App: React.FC = () => {
 
           {currentTab === 'support' && <TechSupportView />}
 
-          {/* NEW MASTER MANAGING PARTNER (GOD MODE) CONSOLE */}
+          {/* MANAGING PARTNER SUITE PAGES */}
+          {currentTab === 'managing_hub' && <ManagingPartnerHubView onNavigateTab={handleNavigateTab} />}
+          {currentTab === 'managing_approvals' && (
+            <ApprovalQueueView
+              onNavigateToBuilder={handleNavigateToBuilder}
+              onNavigateTab={handleNavigateTab}
+            />
+          )}
+          {currentTab === 'managing_revenue' && <RevenueAnalyticsView />}
+          {currentTab === 'managing_permissions' && <AdvocatePermissionsView />}
+          {currentTab === 'managing_audit' && <LiveActivityFeedView />}
+
+          {/* MASTER DEVELOPER CONSOLE */}
           {currentTab === 'admin' && (
             <ManagingPartnerGodMode
               onNavigateToBuilder={handleNavigateToBuilder}
