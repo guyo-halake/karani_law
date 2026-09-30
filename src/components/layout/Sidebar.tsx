@@ -11,7 +11,8 @@ import {
   X,
   ChevronDown,
   ChevronRight,
-  LogOut
+  LogOut,
+  ShieldCheck
 } from 'lucide-react';
 
 import { SystemUser, getFeeNotes } from '../../services/supabase';
@@ -153,6 +154,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <Home className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
                 <span>Dashboard</span>
               </div>
+            </button>
+
+            {/* Managing Partner (God Mode) */}
+            <button
+              onClick={() => handleSelect('admin')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                currentTab === 'admin'
+                  ? 'bg-amber-500 text-slate-950 shadow-md font-bold'
+                  : 'text-amber-700 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <ShieldCheck className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>Managing Partner (God Mode)</span>
+              </div>
+              <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-black bg-amber-500 text-slate-950 uppercase">
+                ADMIN
+              </span>
             </button>
 
             {/* Bill of Costs Builder */}

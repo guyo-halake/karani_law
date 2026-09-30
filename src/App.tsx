@@ -18,6 +18,7 @@ import { TechSupportView } from './components/support/TechSupportView';
 import { LoginView } from './components/auth/LoginView';
 import { RecentsDraftsDrawer } from './components/layout/RecentsDraftsDrawer';
 import { AdminDashboard } from './components/admin/AdminDashboard';
+import { ManagingPartnerGodMode } from './components/admin/ManagingPartnerGodMode';
 
 import { SystemUser, SEEDED_USERS } from './services/supabase';
 
@@ -220,8 +221,13 @@ export const App: React.FC = () => {
 
           {currentTab === 'support' && <TechSupportView />}
 
-          {/* NEW MASTER ADMIN DASHBOARD */}
-          {currentTab === 'admin' && <AdminDashboard />}
+          {/* NEW MASTER MANAGING PARTNER (GOD MODE) CONSOLE */}
+          {currentTab === 'admin' && (
+            <ManagingPartnerGodMode
+              onNavigateToBuilder={handleNavigateToBuilder}
+              onNavigateTab={handleNavigateTab}
+            />
+          )}
         </main>
       </div>
 
