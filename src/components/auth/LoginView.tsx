@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { SEEDED_USERS, SystemUser, EXACT_FIRM_INFO } from '../../services/supabase';
+import { supabase, SystemUser, EXACT_FIRM_INFO } from '../../services/supabase';
+import { signInWithPassword } from '../../services/auth';
 import { Scale, Lock, Mail, Key, X, CheckCircle2, MessageSquare, AlertCircle } from 'lucide-react';
 
 interface LoginViewProps {
@@ -16,86 +17,45 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotStep, setForgotStep] = useState<'options' | 'email_sent' | 'whatsapp_sent'>('options');
 
-  // Create Account Modal state
-  const [showCreateModal, setShowCreateModal] = useState(false);
-
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
     setIsLoading(true);
 
-    setTimeout(() => {
+    try {
+      const authenticatedUser = await signInWithPassword(email, password);
+      localStorage.setItem('BILLSZIP_SESSION', JSON.stringify(authenticatedUser));
       setIsLoading(false);
-      const cleanedEmail = email.trim().toLowerCase();
-      
-      // Load any custom created users from localStorage
-      let allUsers: SystemUser[] = [...SEEDED_USERS];
-      try {
-        const storedUsers = localStorage.getItem('EXACT_USERS');
-        if (storedUsers) {
-          const parsed = JSON.parse(storedUsers);
-          if (Array.isArray(parsed)) {
-            allUsers = [...allUsers, ...parsed];
-          }
-        }
-      } catch (e) {}
-
-      // Look up user in seeded database or registered users
-      let user = allUsers.find(
-        u => (u.workEmail && u.workEmail.toLowerCase() === cleanedEmail) || 
-             (u.personalEmail && u.personalEmail.toLowerCase() === cleanedEmail) ||
-             (u.fullName && u.fullName.toLowerCase() === cleanedEmail) ||
-             (u.fullName && u.fullName.toLowerCase().includes(cleanedEmail))
-      );
-
-      // Smart Fallback mapping
-      if (!user) {
-        if (cleanedEmail === 'admin' || cleanedEmail.includes('admin')) {
-          user = SEEDED_USERS[0];
-        } else if (cleanedEmail === 'karani' || cleanedEmail.includes('victor') || cleanedEmail === 'vickarani@gmail.com') {
-          user = SEEDED_USERS[0]; // Karani Victor
-        } else if (cleanedEmail === 'nyagah' || cleanedEmail === 'kithinji' || cleanedEmail.includes('kithinji') || cleanedEmail === 'lawyer') {
-          user = SEEDED_USERS[1]; // Nyagah Kithinji
-        } else {
-          // If any email entered with @, dynamically create/allow demo session
-          user = {
-            id: 'usr-' + Date.now(),
-            fullName: cleanedEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-            advocateTitle: 'Adv. ' + cleanedEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-            lskNo: 'P.105/' + Math.floor(1000 + Math.random() * 9000),
-            role: 'Advocate',
-            position: 'Associate Advocate',
-            workEmail: cleanedEmail.includes('@') ? cleanedEmail : `${cleanedEmail}@kithinjilegal.co.ke`,
-            personalEmail: cleanedEmail.includes('@') ? cleanedEmail : `${cleanedEmail}@gmail.com`,
-            phonePrimary: '+254 722 000 000',
-            phoneSecondary: '+254 733 000 000',
-            hasAllPermissions: false,
-            passwordHash: password
-          };
-        }
-      }
-
-      // Password Validation (Accept correct hash or common demo passwords)
-      const allowedPasswords = [user.passwordHash, 'admin123', 'karani123', 'lawyer123', 'password', '123456'];
-      if (password && !allowedPasswords.includes(password) && user.passwordHash !== password) {
-        setErrorMessage('Invalid password specified for this account. (Default demo: lawyer123 or karani123)');
-        return;
-      }
-
-      // Save session
-      localStorage.setItem('BILLSZIP_SESSION', JSON.stringify(user));
-      onLoginSuccess(user);
-    }, 400);
-  };
-
-  const handleQuickLogin = (userToLogin: SystemUser) => {
-    localStorage.setItem('BILLSZIP_SESSION', JSON.stringify(userToLogin));
-    onLoginSuccess(userToLogin);
+      onLoginSuccess(authenticatedUser);
+      return;
+    } catch (error: any) {
+      setIsLoading(false);
+      setErrorMessage(error?.message || 'Unable to sign in. Check your credentials and try again.');
+      return;
+    }
   };
 
   const openForgotModal = () => {
     setForgotStep('options');
     setShowForgotModal(true);
+  };
+
+  const handlePasswordReset = async () => {
+    if (!email.trim()) {
+      setErrorMessage('Enter your account email first, then select Forgot Password.');
+      setShowForgotModal(false);
+      return;
+    }
+    const publicAppUrl = (import.meta as ImportMeta & { env?: { VITE_PUBLIC_APP_URL?: string } }).env?.VITE_PUBLIC_APP_URL || window.location.origin;
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: publicAppUrl,
+    });
+    if (error) {
+      setErrorMessage(error.message);
+      setShowForgotModal(false);
+      return;
+    }
+    setForgotStep('email_sent');
   };
 
   return (
@@ -143,7 +103,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="e.g. advocate@kithinjilegal.co.ke"
                   className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-[var(--text-main)] focus:outline-none focus:border-[var(--text-main)] transition-colors font-mono"
                 />
               </div>
@@ -159,7 +118,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter password"
                   className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-[var(--text-main)] focus:outline-none focus:border-[var(--text-main)] transition-colors font-mono"
                 />
               </div>
@@ -175,46 +133,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             </button>
           </form>
 
-          {/* Instant 1-Click Demo Logins */}
-          <div className="pt-3 border-t border-[var(--border-color)] space-y-2">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block text-center font-mono">
-              Quick 1-Click Access
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin(SEEDED_USERS[1])}
-                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-left border border-slate-200 dark:border-zinc-700 cursor-pointer transition-colors"
-              >
-                <div className="font-bold text-slate-800 dark:text-white truncate">Adv. Nyagah Kithinji</div>
-                <div className="text-[10px] text-slate-500 truncate">Senior Associate</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin(SEEDED_USERS[0])}
-                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-left border border-slate-200 dark:border-zinc-700 cursor-pointer transition-colors"
-              >
-                <div className="font-bold text-slate-800 dark:text-white truncate">Adv. Karani Victor</div>
-                <div className="text-[10px] text-slate-500 truncate">Managing Partner</div>
-              </button>
-            </div>
-          </div>
-
-          {/* Two Links Under Login: Forgot Password & Create Account */}
-          <div className="pt-2 flex items-center justify-between text-xs">
+          <div className="pt-2 flex items-center justify-start text-xs">
             <button
               type="button"
               onClick={openForgotModal}
               className="text-amber-600 dark:text-amber-400 font-bold hover:underline cursor-pointer"
             >
               Forgot Password?
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowCreateModal(true)}
-              className="text-[var(--text-muted)] hover:text-[var(--text-main)] font-semibold transition-colors cursor-pointer"
-            >
-              Create an Account
             </button>
           </div>
         </div>
@@ -243,13 +168,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 </p>
                 <div className="grid grid-cols-2 gap-3 pt-2">
                   <button
-                    onClick={() => setForgotStep('email_sent')}
+                    onClick={() => void handlePasswordReset()}
                     className="btn-black py-2.5 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Mail className="w-4 h-4 text-emerald-400" /> Email
                   </button>
                   <button
-                    onClick={() => setForgotStep('whatsapp_sent')}
+                    onClick={() => setErrorMessage('WhatsApp password reset is not configured. Use the Email option.')}
                     className="py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-md"
                   >
                     <MessageSquare className="w-4 h-4" /> WhatsApp
@@ -293,33 +218,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 </button>
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* CREATE ACCOUNT MODAL */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl relative font-sans text-xs text-center">
-            <button
-              onClick={() => setShowCreateModal(false)}
-              className="absolute top-4 right-4 text-[var(--text-muted)] hover:text-[var(--text-main)] p-1"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <div className="w-12 h-12 mx-auto rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center border border-blue-500/20">
-              <AlertCircle className="w-6 h-6" />
-            </div>
-            <h3 className="font-bold text-sm text-[var(--text-main)]">Account Registration</h3>
-            <p className="text-[var(--text-muted)] leading-relaxed font-semibold">
-              Please contact your admin for account addition.
-            </p>
-            <button
-              onClick={() => setShowCreateModal(false)}
-              className="btn-black w-full py-2.5 cursor-pointer mt-2"
-            >
-              Got it
-            </button>
           </div>
         </div>
       )}

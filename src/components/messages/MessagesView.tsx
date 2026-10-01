@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { EXACT_CLIENTS, SEEDED_USERS, SystemUser } from '../../services/supabase';
+import React, { useEffect, useState } from 'react';
+import { ExactClientRecord, SystemUser } from '../../services/supabase';
+import { fetchClients, fetchFirmUsers, fetchMessages, FirmMessage, sendMessage } from '../../services/data';
 import {
   Search,
   Send,
@@ -10,47 +11,73 @@ import {
   MessageSquareOff
 } from 'lucide-react';
 
-export const MessagesView: React.FC = () => {
+interface MessagesViewProps {
+  currentUser?: SystemUser | null;
+}
+
+export const MessagesView: React.FC<MessagesViewProps> = ({ currentUser }) => {
   const [activeTab, setActiveTab] = useState<'clients' | 'internal'>('clients');
-  const [selectedId, setSelectedId] = useState<string>(EXACT_CLIENTS[0].id);
+  const [selectedId, setSelectedId] = useState<string>('');
+  const [clients, setClients] = useState<ExactClientRecord[]>([]);
+  const [users, setUsers] = useState<SystemUser[]>([]);
   const [search, setSearch] = useState('');
   const [messageInput, setMessageInput] = useState('');
-  const [sentMessages, setSentMessages] = useState<Record<string, Array<{ text: string; time: string }>>>({});
+  const [activeMessages, setActiveMessages] = useState<FirmMessage[]>([]);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    if (!currentUser?.firmId) return;
+    Promise.all([fetchClients(currentUser.firmId), fetchFirmUsers(currentUser.firmId)])
+      .then(([loadedClients, loadedUsers]) => {
+        setClients(loadedClients);
+        setUsers(loadedUsers);
+        setSelectedId(loadedClients[0]?.id || loadedUsers[0]?.id || '');
+      })
+      .catch(error => setErrorMessage(error.message || 'Unable to load contacts.'));
+  }, [currentUser?.firmId]);
+
+  useEffect(() => {
+    if (!currentUser?.firmId || !currentUser.id || !selectedId) return;
+    const loadMessages = () => fetchMessages(currentUser.firmId!, currentUser.id, selectedId).then(setActiveMessages).catch(error => setErrorMessage(error.message || 'Unable to load messages.'));
+    void loadMessages();
+    const handleRealtime = (event: Event) => {
+      const detail = (event as CustomEvent<{ table?: string }>).detail;
+      if (detail?.table === 'messages') void loadMessages();
+    };
+    window.addEventListener('databaseRealtimeUpdate', handleRealtime);
+    return () => window.removeEventListener('databaseRealtimeUpdate', handleRealtime);
+  }, [currentUser?.firmId, currentUser?.id, selectedId]);
 
   // Filter clients and internal users by search
-  const filteredClients = EXACT_CLIENTS.filter(c =>
+  const filteredClients = clients.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     c.email.toLowerCase().includes(search.toLowerCase())
   );
 
-  const filteredInternal = SEEDED_USERS.filter(u =>
+  const filteredInternal = users.filter(u =>
     u.fullName.toLowerCase().includes(search.toLowerCase()) ||
     u.workEmail.toLowerCase().includes(search.toLowerCase()) ||
     u.position.toLowerCase().includes(search.toLowerCase())
   );
 
   const activeContact = activeTab === 'clients'
-    ? EXACT_CLIENTS.find(c => c.id === selectedId) || EXACT_CLIENTS[0]
-    : SEEDED_USERS.find(u => u.id === selectedId) || SEEDED_USERS[0];
+    ? clients.find(c => c.id === selectedId) || { id: '', name: 'Select a client', email: '' }
+    : users.find(u => u.id === selectedId) || { id: '', fullName: 'Select a colleague', workEmail: '', position: '' } as SystemUser;
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!messageInput.trim()) return;
 
-    const newMsg = {
-      text: messageInput.trim(),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    setSentMessages(prev => ({
-      ...prev,
-      [selectedId]: [...(prev[selectedId] || []), newMsg]
-    }));
-
-    setMessageInput('');
+    if (!currentUser?.firmId || !currentUser.id || !selectedId) return;
+    try {
+      const recipientName = 'name' in activeContact ? activeContact.name : activeContact.fullName;
+      const savedMessage = await sendMessage(currentUser.firmId, currentUser, selectedId, recipientName, messageInput.trim());
+      setActiveMessages(prev => [...prev, savedMessage]);
+      setMessageInput('');
+    } catch (error: any) {
+      setErrorMessage(error.message || 'Unable to send message.');
+    }
   };
-
-  const activeMessages = sentMessages[selectedId] || [];
 
   return (
     <div className="space-y-4 h-[calc(100vh-140px)] min-h-[550px] flex flex-col">
@@ -70,7 +97,7 @@ export const MessagesView: React.FC = () => {
           <button
             onClick={() => {
               setActiveTab('clients');
-              setSelectedId(EXACT_CLIENTS[0].id);
+              setSelectedId(clients[0]?.id || '');
             }}
             className={`px-3.5 py-1.5 rounded-lg font-semibold flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'clients'
@@ -81,14 +108,14 @@ export const MessagesView: React.FC = () => {
             <Building2 className="w-3.5 h-3.5" />
             Clients
             <span className="px-1.5 py-0.2 rounded-full bg-[var(--border-color)] font-mono text-[10px]">
-              {EXACT_CLIENTS.length}
+              {clients.length}
             </span>
           </button>
 
           <button
             onClick={() => {
               setActiveTab('internal');
-              setSelectedId(SEEDED_USERS[0].id);
+              setSelectedId(users[0]?.id || '');
             }}
             className={`px-3.5 py-1.5 rounded-lg font-semibold flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'internal'
@@ -99,7 +126,7 @@ export const MessagesView: React.FC = () => {
             <Users className="w-3.5 h-3.5" />
             Internal Lawyers
             <span className="px-1.5 py-0.2 rounded-full bg-[var(--border-color)] font-mono text-[10px]">
-              {SEEDED_USERS.length}
+              {users.length}
             </span>
           </button>
         </div>
@@ -202,7 +229,7 @@ export const MessagesView: React.FC = () => {
               <div className="w-full space-y-3 self-stretch my-auto">
                 {activeMessages.map((m, idx) => (
                   <div key={idx} className="flex flex-col items-end">
-                    <span className="text-[10px] text-[var(--text-muted)] mb-1 font-mono">You • {m.time}</span>
+                    <span className="text-[10px] text-[var(--text-muted)] mb-1 font-mono">{m.senderId === currentUser?.id ? 'You' : m.senderName} • {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     <div className="p-3 rounded-2xl bg-black text-white dark:bg-white dark:text-black text-xs leading-relaxed max-w-md rounded-tr-none">
                       {m.text}
                     </div>

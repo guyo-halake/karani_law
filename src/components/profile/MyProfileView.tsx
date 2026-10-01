@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SystemUser, EXACT_LOGGED_IN_USER, saveUserProfile } from '../../services/supabase';
+import { supabase, SystemUser } from '../../services/supabase';
 import {
   User,
   Briefcase,
@@ -24,13 +24,11 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({ currentUser }) => 
   // Dynamically resolve currently logged in session user
   const resolveUser = (): SystemUser => {
     if (currentUser) return currentUser;
-    const saved = localStorage.getItem('BILLSZIP_SESSION');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return EXACT_LOGGED_IN_USER;
+    return {
+      id: '', fullName: '', advocateTitle: '', lskNo: '', role: 'Advocate', position: '',
+      workEmail: '', personalEmail: '', phonePrimary: '', phoneSecondary: '',
+      hasAllPermissions: false, passwordHash: ''
+    };
   };
 
   const [user, setUser] = useState<SystemUser>(resolveUser);
@@ -84,7 +82,7 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({ currentUser }) => 
     e.target.value = '';
   };
 
-  const handleSaveProfile = (e?: React.FormEvent) => {
+  const handleSaveProfile = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
     const updatedUser: SystemUser = {
@@ -100,10 +98,22 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({ currentUser }) => 
       avatarUrl: avatarPreview || user.avatarUrl
     };
 
-    saveUserProfile(updatedUser);
-    setUser(updatedUser);
+    if (!updatedUser.id) return;
+    const { data, error } = await supabase.from('users').update({
+      full_name: updatedUser.fullName,
+      lsk_no: updatedUser.lskNo,
+      position: updatedUser.position,
+      email: updatedUser.workEmail,
+      phone_primary: updatedUser.phonePrimary,
+      phone_secondary: updatedUser.phoneSecondary,
+      avatar_url: updatedUser.avatarUrl?.startsWith('data:') ? null : updatedUser.avatarUrl || null,
+    }).eq('id', updatedUser.id).select('*').single();
+    if (error) return;
+    const savedUser = { ...updatedUser, fullName: data.full_name, lskNo: data.lsk_no || '', position: data.position || '' };
+    setUser(savedUser);
     setIsEditing(false);
     setSaveSuccess(true);
+    window.dispatchEvent(new CustomEvent('userProfileUpdated', { detail: savedUser }));
     setTimeout(() => setSaveSuccess(false), 3500);
   };
 
