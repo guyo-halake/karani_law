@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 
 import { SystemUser, getFeeNotes } from '../../services/supabase';
+import { hasPermission } from '../../services/rbac';
 
 interface SidebarProps {
   currentTab: string;
@@ -38,8 +39,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentUser,
   onLogout
 }) => {
-  const [mattersExpanded, setMattersExpanded] = useState(true);
+  const [mattersExpanded, setMattersExpanded] = useState(false);
   const [feeNotesCount, setFeeNotesCount] = useState<number>(() => getFeeNotes().length);
+  const [, setPermissionTick] = useState(0);
+
+  const can = (code: string) => hasPermission(currentUser, code);
 
   const [firmSettings, setFirmSettings] = useState(() => {
     const saved = localStorage.getItem('BILLSZIP_FIRM_SETTINGS');
@@ -59,14 +63,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const handleFeeNotes = () => {
       setFeeNotesCount(getFeeNotes().length);
     };
+    const handlePermissions = () => {
+      setPermissionTick(t => t + 1);
+    };
 
     window.addEventListener('firmSettingsChanged', handleSettingsChange);
     window.addEventListener('feeNotesUpdated', handleFeeNotes);
+    window.addEventListener('permissionsUpdated', handlePermissions);
+    window.addEventListener('storage', handlePermissions);
     window.addEventListener('storage', handleFeeNotes);
 
     return () => {
       window.removeEventListener('firmSettingsChanged', handleSettingsChange);
       window.removeEventListener('feeNotesUpdated', handleFeeNotes);
+      window.removeEventListener('permissionsUpdated', handlePermissions);
+      window.removeEventListener('storage', handlePermissions);
       window.removeEventListener('storage', handleFeeNotes);
     };
   }, []);
@@ -85,14 +96,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  const userDisplayName = currentUser?.advocateTitle || currentUser?.fullName || (currentUser?.workEmail ? currentUser.workEmail.split('@')[0] : "Logged In Advocate");
-  const userEmail = currentUser?.workEmail || currentUser?.personalEmail || "";
-  const userInitials = currentUser?.fullName 
-    ? currentUser.fullName.split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase() 
-    : (userDisplayName ? userDisplayName.substring(0, 2).toUpperCase() : "AD");
-
   return (
     <>
+      {/* Invisible Hover Trigger on Left Screen Edge */}
+      {!sidebarOpen && (
+        <div 
+          onMouseEnter={() => setSidebarOpen(true)}
+          className="fixed left-0 top-0 bottom-0 w-3 z-30 hidden lg:block cursor-pointer hover:bg-blue-500/10 transition-colors"
+          title="Hover to open navigation sidebar"
+        />
+      )}
+
       {/* Mobile Drawer Overlay */}
       {sidebarOpen && (
         <div
@@ -101,24 +115,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* Modulix-Inspired Executive Sidebar */}
+      {/* Unified Seamless Sidebar with Hover Sensor */}
       <aside
-        className={`fixed lg:static top-0 bottom-0 left-0 w-64 border-r border-[var(--border-color)] bg-[var(--bg-card)] p-4 flex flex-col justify-between z-50 lg:z-10 transition-all duration-200 ease-in-out shrink-0 overflow-y-auto ${
-          sidebarOpen ? 'translate-x-0 shadow-2xl lg:shadow-none' : '-translate-x-full lg:w-0 lg:p-0 lg:overflow-hidden lg:border-none'
+        onMouseEnter={() => {
+          if (window.innerWidth >= 1024) setSidebarOpen(true);
+        }}
+        className={`fixed lg:static top-0 bottom-0 left-0 w-64 border-r border-[var(--border-color)] bg-[var(--bg-card)] flex flex-col justify-between z-50 lg:z-10 transition-all duration-300 ease-in-out shrink-0 overflow-hidden shadow-2xl lg:shadow-none ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:w-0 lg:p-0 lg:border-none'
         }`}
       >
-        <div className="space-y-6">
+        {/* Scrollable Navigation Body */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          
           {/* Top Logo Header */}
           <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]/60">
-            <div className="flex flex-col items-center text-center gap-2 pt-2 pb-1 w-full relative">
+            <div className="flex flex-col items-center text-center gap-1.5 pt-1 pb-1 w-full relative">
               <img
                 src={firmSettings.logoUrl || '/logo.png'}
-                alt="Nyagah B. Kithinji & Co. Advocates Logo"
+                alt="Logo"
                 onError={(e) => {
                   e.currentTarget.onerror = null;
                   e.currentTarget.src = '/logo.png';
                 }}
-                className="h-20 max-w-[200px] w-auto object-contain shrink-0"
+                className="h-16 max-w-[180px] w-auto object-contain shrink-0"
               />
               <div className="w-full">
                 <span className="font-brand font-extrabold text-sm text-slate-900 dark:text-white block tracking-tight">
@@ -139,289 +158,238 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </div>
 
-          {/* MAIN MENU SECTION */}
-          <div className="space-y-1">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 px-3 block mb-1.5 font-mono">
-              MAIN MENU
-            </span>
-
-            {/* Home / Dashboard */}
-            <button
-              onClick={() => handleSelect('home')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                currentTab === 'home'
-                  ? 'modulix-active-nav'
-                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Home className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
-                <span>Dashboard</span>
-              </div>
-            </button>
-
-            {/* Bill of Costs Builder */}
-            <button
-              onClick={() => handleSelect('boc')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                currentTab === 'boc'
-                  ? 'modulix-active-nav'
-                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <FileText className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
-                <span>BOC Builder</span>
-              </div>
-            </button>
-
-            {/* Saved Fee Notes */}
-            <button
-              onClick={() => handleSelect('feenotes')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                currentTab === 'feenotes'
-                  ? 'modulix-active-nav'
-                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <FileText className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
-                <span>Fee Notes</span>
-              </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-amber-500/10 text-amber-700 dark:text-amber-400 font-bold border border-amber-500/20">
-                {feeNotesCount}
-              </span>
-            </button>
-
-            {/* Collapsible My Matters with Sub-Tree Guide Lines */}
-            <div>
+          {/* Unified Seamless Navigation List (In exact order requested) */}
+          <nav className="space-y-1">
+            
+            {/* 1. Dashboard */}
+            {can('dashboard.view') && (
               <button
-                onClick={() => {
-                  handleSelect('matters');
-                  setMattersExpanded(!mattersExpanded);
-                }}
+                onClick={() => handleSelect('home')}
                 className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                  currentTab === 'matters'
-                    ? 'modulix-active-nav'
-                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
+                  currentTab === 'home'
+                    ? 'modulix-active-nav font-bold shadow-xs'
+                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Briefcase className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
-                  <span>My Matters</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400 font-bold">
-                    3
-                  </span>
-                  {mattersExpanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
+                  <Home className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
+                  <span>Dashboard</span>
                 </div>
               </button>
+            )}
 
-              {/* Sub-Tree Guide Lines for Matters */}
-              {mattersExpanded && (
-                <div className="pl-6 pt-1.5 space-y-1 subtree-connector">
-                  <button
-                    onClick={() => handleSelect('matters')}
-                    className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11.5px] text-slate-500 hover:text-slate-900 transition-colors rounded-lg hover:bg-slate-100/60 text-left"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                    <span>High Court Commercial</span>
-                  </button>
-                  <button
-                    onClick={() => handleSelect('matters')}
-                    className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11.5px] text-slate-500 hover:text-slate-900 transition-colors rounded-lg hover:bg-slate-100/60 text-left"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                    <span>Subordinate Court</span>
-                  </button>
-                  <button
-                    onClick={() => handleSelect('matters')}
-                    className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11.5px] text-slate-500 hover:text-slate-900 transition-colors rounded-lg hover:bg-slate-100/60 text-left"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                    <span>Arbitration tribunal</span>
-                  </button>
+            {/* 2. BOC Builder */}
+            {can('boc.view') && (
+              <button
+                onClick={() => handleSelect('boc')}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                  currentTab === 'boc'
+                    ? 'modulix-active-nav font-bold shadow-xs'
+                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <FileText className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
+                  <span>BOC Builder</span>
                 </div>
-              )}
-            </div>
+              </button>
+            )}
 
-            {/* Clients Directory */}
-            <button
-              onClick={() => handleSelect('clients')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                currentTab === 'clients'
-                  ? 'modulix-active-nav'
-                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Users className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
-                <span>My Clients</span>
+            {/* 3. Fee Notes */}
+            {can('feenotes.view') && (
+              <button
+                onClick={() => handleSelect('feenotes')}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                  currentTab === 'feenotes'
+                    ? 'modulix-active-nav font-bold shadow-xs'
+                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <FileText className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
+                  <span>Fee Notes</span>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-amber-500/10 text-amber-700 dark:text-amber-400 font-bold border border-amber-500/20">
+                  {feeNotesCount}
+                </span>
+              </button>
+            )}
+
+            {/* 4. My Matters */}
+            {can('matters.view') && (
+              <div>
+                <button
+                  onClick={() => {
+                    handleSelect('matters');
+                    setMattersExpanded(!mattersExpanded);
+                  }}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                    currentTab === 'matters'
+                      ? 'modulix-active-nav font-bold shadow-xs'
+                      : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Briefcase className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
+                    <span>My Matters</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {mattersExpanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
+                  </div>
+                </button>
+
+                {mattersExpanded && (
+                  <div className="pl-6 pt-1 space-y-0.5 subtree-connector">
+                    <button
+                      onClick={() => handleSelect('matters')}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors rounded-lg hover:bg-slate-100/60 dark:hover:bg-zinc-800/40 text-left"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                      <span>High Court Commercial</span>
+                    </button>
+                    <button
+                      onClick={() => handleSelect('matters')}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors rounded-lg hover:bg-slate-100/60 dark:hover:bg-zinc-800/40 text-left"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      <span>Subordinate Court</span>
+                    </button>
+                    <button
+                      onClick={() => handleSelect('matters')}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors rounded-lg hover:bg-slate-100/60 dark:hover:bg-zinc-800/40 text-left"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                      <span>Arbitration Tribunal</span>
+                    </button>
+                  </div>
+                )}
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400 font-bold">
-                5
-              </span>
-            </button>
+            )}
 
-            {/* Documentations & Vault */}
-            <button
-              onClick={() => handleSelect('vault')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                currentTab === 'vault'
-                  ? 'modulix-active-nav'
-                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Folder className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
-                <span>Document Vault</span>
-              </div>
-            </button>
-          </div>
+            {/* 5. My Clients */}
+            {can('clients.view') && (
+              <button
+                onClick={() => handleSelect('clients')}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                  currentTab === 'clients'
+                    ? 'modulix-active-nav font-bold shadow-xs'
+                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Users className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
+                  <span>My Clients</span>
+                </div>
+              </button>
+            )}
 
-          {/* MANAGING PARTNER SUITE */}
-          <div className="space-y-1 pt-2 border-t border-[var(--border-color)]/60">
-            <div className="flex items-center justify-between px-3 mb-1.5">
-              <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-amber-600 dark:text-amber-400 font-mono">
-                MANAGING PARTNER
-              </span>
-              <span className="text-[9px] px-1.5 py-0.2 rounded font-mono font-black bg-amber-500 text-slate-950 uppercase">
-                GOD MODE
-              </span>
-            </div>
+            {/* 6. Remuneration Guide */}
+            {can('guide.view') && (
+              <button
+                onClick={() => handleSelect('guide')}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                  currentTab === 'guide'
+                    ? 'modulix-active-nav font-bold shadow-xs'
+                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <BookOpen className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
+                <span>Remuneration Guide</span>
+              </button>
+            )}
 
-            {/* Managing Partner Hub */}
-            <button
-              onClick={() => handleSelect('managing_hub')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                currentTab === 'managing_hub'
-                  ? 'bg-amber-500 text-slate-950 shadow-md font-bold'
-                  : 'text-amber-700 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <ShieldCheck className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                <span>Executive Hub</span>
-              </div>
-            </button>
+            {/* 7. Firm Settings */}
+            {can('settings.view') && (
+              <button
+                onClick={() => handleSelect('settings')}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                  currentTab === 'settings'
+                    ? 'modulix-active-nav font-bold shadow-xs'
+                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Settings className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
+                <span>Firm Settings</span>
+              </button>
+            )}
 
-            {/* BOC Approval Queue */}
-            <button
-              onClick={() => handleSelect('managing_approvals')}
-              className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                currentTab === 'managing_approvals'
-                  ? 'modulix-active-nav'
-                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Clock className="w-4 h-4 shrink-0 text-amber-500" />
-                <span>Approval Queue</span>
-              </div>
-            </button>
+            {/* 8. Document Vault */}
+            {can('vault.view') && (
+              <button
+                onClick={() => handleSelect('vault')}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                  currentTab === 'vault'
+                    ? 'modulix-active-nav font-bold shadow-xs'
+                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Folder className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
+                  <span>Document Vault</span>
+                </div>
+              </button>
+            )}
 
-            {/* Revenue Analytics */}
-            <button
-              onClick={() => handleSelect('managing_revenue')}
-              className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                currentTab === 'managing_revenue'
-                  ? 'modulix-active-nav'
-                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <TrendingUp className="w-4 h-4 shrink-0 text-blue-500" />
-                <span>Revenue Analytics</span>
-              </div>
-            </button>
+            {/* 9. Support & Help */}
+            {can('support.view') && (
+              <button
+                onClick={() => handleSelect('support')}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                  currentTab === 'support'
+                    ? 'modulix-active-nav font-bold shadow-xs'
+                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <HelpCircle className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
+                <span>Support & Help</span>
+              </button>
+            )}
 
-            {/* Advocate Permissions */}
-            <button
-              onClick={() => handleSelect('managing_permissions')}
-              className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                currentTab === 'managing_permissions'
-                  ? 'modulix-active-nav'
-                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Lock className="w-4 h-4 shrink-0 text-purple-500" />
-                <span>Advocate Permissions</span>
-              </div>
-            </button>
+            {/* 10. Permissions & Templates */}
+            {(can('permissions.view') || currentUser?.role === 'Admin' || currentUser?.role === 'Developer') && (
+              <button
+                onClick={() => handleSelect('permissions')}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                  (currentTab === 'permissions' || currentTab === 'managing_permissions')
+                    ? 'modulix-active-nav font-bold shadow-xs'
+                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Lock className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
+                  <span>Permissions & Templates</span>
+                </div>
+              </button>
+            )}
 
-            {/* Live Activity Feed */}
-            <button
-              onClick={() => handleSelect('managing_audit')}
-              className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                currentTab === 'managing_audit'
-                  ? 'modulix-active-nav'
-                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Activity className="w-4 h-4 shrink-0 text-emerald-500" />
-                <span>Live Activity Stream</span>
-              </div>
-            </button>
-          </div>
+            {/* 11. Executive Hub */}
+            {(can('managing_hub.view') || currentUser?.role === 'Admin' || currentUser?.role === 'Developer') && (
+              <button
+                onClick={() => handleSelect('managing_hub')}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                  currentTab === 'managing_hub'
+                    ? 'modulix-active-nav font-bold shadow-xs'
+                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <ShieldCheck className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
+                  <span>Executive Hub</span>
+                </div>
+              </button>
+            )}
 
-          {/* SETTINGS SECTION */}
-          <div className="space-y-1 pt-2 border-t border-[var(--border-color)]/60">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 px-3 block mb-1.5 font-mono">
-              SETTING
-            </span>
-
-            <button
-              onClick={() => handleSelect('guide')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                currentTab === 'guide'
-                  ? 'modulix-active-nav'
-                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
-              }`}
-            >
-              <BookOpen className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
-              <span>Remuneration Guide</span>
-            </button>
-
-            <button
-              onClick={() => handleSelect('settings')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                currentTab === 'settings'
-                  ? 'modulix-active-nav'
-                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
-              }`}
-            >
-              <Settings className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
-              <span>Firm Settings</span>
-            </button>
-
-            <button
-              onClick={() => handleSelect('support')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                currentTab === 'support'
-                  ? 'modulix-active-nav'
-                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900'
-              }`}
-            >
-              <HelpCircle className="w-4 h-4 shrink-0 text-slate-700 dark:text-zinc-300" />
-              <span>Support & Help</span>
-            </button>
-          </div>
+          </nav>
         </div>
 
-        {/* P3L LOGO — pinned to very bottom of sidebar */}
-        <div className="shrink-0 mt-auto flex items-center justify-center px-2 py-2">
-          <img
-            src="/p3l_logo_nobg.png"
-            alt="P3L Logo"
-            className="w-full max-h-40 object-contain opacity-90 drop-shadow-sm scale-110"
-            onError={(e) => {
-              e.currentTarget.onerror = null;
-              e.currentTarget.src = '/logo.png';
-            }}
-          />
+        {/* Pinned Minimalist Footer (Strictly in Sora font as requested) */}
+        <div className="shrink-0 p-4 border-t border-[var(--border-color)]/60 bg-[var(--bg-subtle)]/40 text-center select-none font-['Sora']">
+          <div className="text-[11px] font-extrabold tracking-tight text-slate-800 dark:text-zinc-200">
+            FNB V1.3 Beta Version
+          </div>
+          <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+            P3L Developers, Kenya
+          </div>
         </div>
       </aside>
     </>
