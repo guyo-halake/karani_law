@@ -3,52 +3,64 @@ export interface ActivityLogItem {
   advocateName: string;
   advocateRole?: string;
   action: string;
+  actionDescription?: string;
+  actionType?: ActivityLogItem['type'];
   timeAgo: string;
   timestamp: number;
-  type: 'feenote' | 'approval' | 'return' | 'permission' | 'login' | 'letter' | 'vault';
+  type: 'feenote' | 'approval' | 'return' | 'permission' | 'login' | 'letter' | 'vault' | 'profile' | 'settings';
   badgeColor: string;
 }
 
 const INITIAL_LOGS: ActivityLogItem[] = [
   {
     id: 'log-1',
-    advocateName: 'Adv. Wanjiku',
-    advocateRole: 'Senior Associate',
-    action: 'submitted BOC-2026-007 for Managing Partner sign-off',
-    timeAgo: '10 mins ago',
-    timestamp: Date.now() - 10 * 60 * 1000,
+    advocateName: 'Adv. Guyoh Alake',
+    advocateRole: 'Managing Partner',
+    action: 'authenticated & accessed Executive Oversight Docket',
+    timeAgo: 'Just now',
+    timestamp: Date.now() - 2 * 60 * 1000,
+    type: 'login',
+    badgeColor: 'bg-blue-500'
+  },
+  {
+    id: 'log-2',
+    advocateName: 'Adv. Karani Victor',
+    advocateRole: 'Senior Partner',
+    action: 'calculated & approved BOC-2026-SEYANI-001 (KES 30,820,193.28)',
+    timeAgo: '15 mins ago',
+    timestamp: Date.now() - 15 * 60 * 1000,
     type: 'feenote',
     badgeColor: 'bg-emerald-500'
   },
   {
-    id: 'log-2',
-    advocateName: 'Adv. Ochieng',
-    advocateRole: 'Associate Advocate',
-    action: 'sent a demand letter to Dhanya Construction Kenya Ltd',
-    timeAgo: '25 mins ago',
-    timestamp: Date.now() - 25 * 60 * 1000,
-    type: 'letter',
-    badgeColor: 'bg-blue-500'
-  },
-  {
     id: 'log-3',
-    advocateName: 'Adv. Kamau',
-    advocateRole: 'Junior Associate',
-    action: 'logged in from Mombasa IP (197.237.11.4)',
+    advocateName: 'Adv. Nyagah Kithinji',
+    advocateRole: 'Senior Associate',
+    action: 'filed Party & Party Bill of Costs for HCCOMM E547/2024 (KES 405,594.00)',
     timeAgo: '45 mins ago',
     timestamp: Date.now() - 45 * 60 * 1000,
-    type: 'login',
-    badgeColor: 'bg-purple-500'
+    type: 'approval',
+    badgeColor: 'bg-amber-500'
   },
   {
     id: 'log-4',
-    advocateName: 'Adv. Nyagah Kithinji',
-    advocateRole: 'Managing Partner',
-    action: 'generated Fee Note BOC-2026-SEYANI-001 (KES 30,820,193)',
+    advocateName: 'Razak Wako',
+    advocateRole: 'Lead Developer',
+    action: 'synchronized legal vault spreadsheet: 14.01.2026 - Bill of Costs - Dhanya v Sunil.xlsx',
     timeAgo: '2 hours ago',
     timestamp: Date.now() - 2 * 3600 * 1000,
+    type: 'vault',
+    badgeColor: 'bg-purple-500'
+  },
+  {
+    id: 'log-5',
+    advocateName: 'Adv. Karani Victor',
+    advocateRole: 'Senior Partner',
+    action: 'verified Schedule 6 ad valorem instruction fee calculation for Seyani v Greenhills',
+    timeAgo: '3 hours ago',
+    timestamp: Date.now() - 3 * 3600 * 1000,
     type: 'approval',
-    badgeColor: 'bg-amber-500'
+    badgeColor: 'bg-emerald-500'
   }
 ];
 
@@ -56,9 +68,13 @@ export const getActivityLogs = (): ActivityLogItem[] => {
   try {
     const saved = localStorage.getItem('SYSTEM_ACTIVITY_LOGS');
     if (saved) {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0 && !parsed.some(p => p.advocateName === 'Adv. Wanjiku')) {
+        return parsed;
+      }
     }
   } catch (e) {}
+  localStorage.setItem('SYSTEM_ACTIVITY_LOGS', JSON.stringify(INITIAL_LOGS));
   return INITIAL_LOGS;
 };
 
