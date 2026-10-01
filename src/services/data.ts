@@ -365,6 +365,23 @@ export async function updateFirmUser(firmId: string, user: SystemUser): Promise<
   return user;
 }
 
+export async function deleteFirmUser(firmId: string, userId: string): Promise<void> {
+  try {
+    await supabase.from('users').delete().eq('id', userId);
+  } catch (e) {}
+  try {
+    const stored = localStorage.getItem('EXACT_USERS');
+    if (stored) {
+      const list: SystemUser[] = JSON.parse(stored);
+      const updated = list.filter(u => u.id !== userId);
+      localStorage.setItem('EXACT_USERS', JSON.stringify(updated));
+    }
+  } catch (e) {}
+  try {
+    window.dispatchEvent(new CustomEvent('databaseRealtimeUpdate', { detail: { table: 'users' } }));
+  } catch (e) {}
+}
+
 export async function fetchMessages(firmId: string, userId: string, recipientId: string): Promise<FirmMessage[]> {
   try {
     const { data, error } = await supabase.from('messages').select('*').eq('firm_id', firmId)

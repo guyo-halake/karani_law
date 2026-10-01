@@ -79,7 +79,7 @@ export const saveUserProfile = (user: SystemUser) => {
   window.dispatchEvent(new CustomEvent('userProfileUpdated', { detail: user }));
 };
 
-// SEEDED USERS IN DATABASE
+// SEEDED USERS IN DATABASE (Authoritative Firm Roster)
 export const SEEDED_USERS: SystemUser[] = [
   {
     id: "usr-guyoh-admin",
@@ -115,12 +115,12 @@ export const SEEDED_USERS: SystemUser[] = [
     advocateTitle: "Adv. Nyagah Kithinji",
     lskNo: "P.105/1992",
     role: "Advocate",
-    position: "Senior Associate Advocate",
+    position: "Managing Partner & Senior Counsel",
     workEmail: "advocate@kithinjilegal.co.ke",
     personalEmail: "nkithinji@gmail.com",
     phonePrimary: "+254 722 000 111",
     phoneSecondary: "+254 733 111 222",
-    hasAllPermissions: false,
+    hasAllPermissions: true,
     passwordHash: "lawyer123"
   },
   {
@@ -136,6 +136,62 @@ export const SEEDED_USERS: SystemUser[] = [
     phoneSecondary: "+254 711 654321",
     hasAllPermissions: true,
     passwordHash: "razak123"
+  },
+  {
+    id: "usr-faith-chebet",
+    fullName: "Faith Chebet",
+    advocateTitle: "Adv. Faith Chebet",
+    lskNo: "P.105/14820",
+    role: "Advocate",
+    position: "Senior Associate — Commercial Litigation",
+    workEmail: "fchebet@kithinjilegal.co.ke",
+    personalEmail: "fchebet@gmail.com",
+    phonePrimary: "+254 720 445 566",
+    phoneSecondary: "+254 734 112 233",
+    hasAllPermissions: false,
+    passwordHash: "chebet123"
+  },
+  {
+    id: "usr-brian-omondi",
+    fullName: "Brian Omondi",
+    advocateTitle: "Adv. Brian Omondi",
+    lskNo: "P.105/16301",
+    role: "Advocate",
+    position: "Associate Advocate — Conveyancing & Banking",
+    workEmail: "bomondi@kithinjilegal.co.ke",
+    personalEmail: "bomondi.law@gmail.com",
+    phonePrimary: "+254 711 889 900",
+    phoneSecondary: "+254 722 334 455",
+    hasAllPermissions: false,
+    passwordHash: "brian123"
+  },
+  {
+    id: "usr-mercy-wanjiku",
+    fullName: "Mercy Wanjiku",
+    advocateTitle: "Mercy Wanjiku",
+    lskNo: "FIN/2024/089",
+    role: "Advocate",
+    position: "Finance & Taxation Billing Manager",
+    workEmail: "mwanjiku@kithinjilegal.co.ke",
+    personalEmail: "mwanjiku@gmail.com",
+    phonePrimary: "+254 723 667 788",
+    phoneSecondary: "+254 735 990 011",
+    hasAllPermissions: false,
+    passwordHash: "mercy123"
+  },
+  {
+    id: "usr-kevin-mutua",
+    fullName: "Kevin Mutua",
+    advocateTitle: "Kevin Mutua (Pupil)",
+    lskNo: "PUP/2026/042",
+    role: "Advocate",
+    position: "Legal Assistant & Pupil",
+    workEmail: "kmutua@kithinjilegal.co.ke",
+    personalEmail: "kmutua.legal@gmail.com",
+    phonePrimary: "+254 701 556 677",
+    phoneSecondary: "+254 712 778 899",
+    hasAllPermissions: false,
+    passwordHash: "kevin123"
   }
 ];
 
