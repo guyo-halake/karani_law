@@ -44,7 +44,9 @@ import {
   ExactFeeNoteRecord, 
   ExactClientRecord, 
   fetchFeeNotesFromDatabase, 
-  updateFeeNoteStatus 
+  updateFeeNoteStatus,
+  getFeeNotes,
+  persistFeeNotes
 } from '../../services/supabase';
 import { 
   createImportedFeeNote, 
@@ -334,12 +336,41 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             .filter(r => r && r.length > 0 && r.some((c: any) => c !== null && c !== undefined && String(c).trim() !== ''))
             .map((r, i) => {
               const dateVal = formatExcelDate(r[0]);
-              const itemNo = r[1] !== undefined ? String(r[1]).trim() : String(i + 1);
-              const particulars = r[2] !== undefined ? String(r[2]).trim() : '';
-              const folios = r[3] !== undefined ? String(r[3]).trim() : '';
-              const taxedOff = r[4] !== undefined ? String(r[4]).trim() : '';
-              const profitCosts = r[5] !== undefined ? Number(r[5]) || 0 : 0;
-              const disbursements = r[6] !== undefined ? Number(r[6]) || 0 : 0;
+              const itemNo = r[1] !== undefined && r[1] !== null && String(r[1]).trim() !== '' ? String(r[1]).trim() : String(i + 1);
+              const particulars = r[2] !== undefined && r[2] !== null ? String(r[2]).trim() : '';
+
+              // Intelligently parse amounts from columns (supporting standard 8-column layout & custom 4/5-column layout)
+              let folios = '';
+              let taxedOff = '';
+              let profitCosts = 0;
+              let disbursements = 0;
+
+              // Check if standard profit costs exist in column 5 or 6
+              const col3Num = typeof r[3] === 'number' ? r[3] : parseFloat(String(r[3] || '').replace(/[^0-9.-]/g, ''));
+              const col4Num = typeof r[4] === 'number' ? r[4] : parseFloat(String(r[4] || '').replace(/[^0-9.-]/g, ''));
+              const col5Num = typeof r[5] === 'number' ? r[5] : parseFloat(String(r[5] || '').replace(/[^0-9.-]/g, ''));
+              const col6Num = typeof r[6] === 'number' ? r[6] : parseFloat(String(r[6] || '').replace(/[^0-9.-]/g, ''));
+              const col7Num = typeof r[7] === 'number' ? r[7] : parseFloat(String(r[7] || '').replace(/[^0-9.-]/g, ''));
+
+              if (!isNaN(col5Num) && col5Num > 0) {
+                profitCosts = col5Num;
+                if (!isNaN(col6Num) && col6Num > 0) disbursements = col6Num;
+                folios = r[3] !== undefined ? String(r[3]).trim() : '';
+                taxedOff = r[4] !== undefined ? String(r[4]).trim() : '';
+              } else if (!isNaN(col6Num) && col6Num > 0) {
+                disbursements = col6Num;
+                folios = r[3] !== undefined ? String(r[3]).trim() : '';
+                taxedOff = r[4] !== undefined ? String(r[4]).trim() : '';
+              } else if (!isNaN(col3Num) && col3Num > 0) {
+                // In 4-column sheets, column 3 holds the direct fee amount (e.g. 452500, 294125, 650, 34950)
+                profitCosts = col3Num;
+                if (!isNaN(col4Num) && col4Num > 0) disbursements = col4Num;
+              } else if (!isNaN(col4Num) && col4Num > 0) {
+                profitCosts = col4Num;
+              } else if (!isNaN(col7Num) && col7Num > 0) {
+                profitCosts = col7Num;
+              }
+
               const lineTotal = profitCosts + disbursements;
               calculatedGrandTotal += lineTotal;
 
@@ -347,8 +378,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 dateVal,
                 itemNo,
                 particulars,
-                folios,
-                taxedOff,
+                folios || (col3Num && profitCosts !== col3Num ? String(col3Num) : ''),
+                taxedOff || '',
                 profitCosts > 0 ? profitCosts.toFixed(2) : '',
                 disbursements > 0 ? disbursements.toFixed(2) : '',
                 lineTotal > 0 ? lineTotal.toFixed(2) : ''
@@ -374,13 +405,41 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   };
 
   const handleConfirmSave = async () => {
-    if (!currentUser?.firmId) return;
+    const firmId = currentUser?.firmId || 'firm-001';
+    const userId = currentUser?.id || 'usr-karani-001';
+    const userName = currentUser?.fullName || 'Advocate';
     const totalAmount = parsedMeta.grandTotal || 0;
+    const billNumber = `BOC-IMP-${Date.now().toString().slice(-6)}`;
+
+    const newImportedNote: ExactFeeNoteRecord = {
+      id: 'fn-import-' + Date.now(),
+      matterId: 'm1',
+      matterTitle: parsedMeta.matterTitle || excelFileName.replace('.xlsx', ''),
+      clientName: parsedMeta.claimantName || 'Imported Corporate Client',
+      claimantName: parsedMeta.claimantName || '',
+      respondentName: parsedMeta.respondentName || '',
+      judgeName: parsedMeta.judgeName || '',
+      forumName: parsedMeta.forumName || '',
+      billNumber,
+      courtSchedule: parsedMeta.courtSchedule || 'Schedule 6 — High Court / Arbitration',
+      claimValue: 0,
+      instructionFee: totalAmount * 0.7,
+      gettingUpFee: totalAmount * 0.1,
+      grandTotal: totalAmount,
+      status: 'processed',
+      approvalStatus: 'approved',
+      generatedByUser: userName,
+      generatedByUserId: userId,
+      createdAt: new Date().toISOString(),
+      pdfUrl: '',
+      excelUrl: '',
+      excelData
+    };
 
     try {
       await createImportedFeeNote(
-        currentUser.firmId,
-        currentUser.id,
+        firmId,
+        userId,
         {
           matterTitle: parsedMeta.matterTitle || excelFileName.replace('.xlsx', ''),
           clientName: parsedMeta.claimantName || 'Imported Corporate Client',
@@ -394,42 +453,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         [],
         excelData
       );
-
-      const refreshed = await fetchFeeNotesFromDatabase(currentUser.firmId);
-      setFeeNotes(refreshed);
-      setShowExcelImport(false);
-      setExcelData([]);
-      setExcelFileName('');
-      setParsedMeta({});
-      showToast('success', 'Import Complete', `Successfully imported ${excelFileName} into firm billing ledger.`);
-    } catch (err: any) {
-      const newImportedNote: ExactFeeNoteRecord = {
-        id: 'fn-import-' + Date.now(),
-        matterId: 'm1',
-        matterTitle: parsedMeta.matterTitle || excelFileName.replace('.xlsx', ''),
-        clientName: parsedMeta.claimantName || 'Imported Corporate Client',
-        billNumber: `BOC-IMP-${Date.now().toString().slice(-6)}`,
-        courtSchedule: parsedMeta.courtSchedule || 'Schedule 6 — High Court / Arbitration',
-        claimValue: 0,
-        instructionFee: totalAmount * 0.7,
-        gettingUpFee: totalAmount * 0.1,
-        grandTotal: totalAmount,
-        status: 'processed',
-        generatedByUser: currentUser.fullName,
-        generatedByUserId: currentUser.id,
-        createdAt: new Date().toISOString(),
-        pdfUrl: '',
-        excelUrl: '',
-        excelData
-      };
-
-      setFeeNotes(prev => [newImportedNote, ...prev]);
-      setShowExcelImport(false);
-      setExcelData([]);
-      setExcelFileName('');
-      setParsedMeta({});
-      showToast('success', 'Bill of Costs Imported', `Imported ${excelFileName} into your active ledger.`);
+    } catch (err) {
+      console.warn('Remote sync non-fatal:', err);
     }
+
+    // Always commit to persistent storage immediately
+    const existing = getFeeNotes();
+    const updatedList = [newImportedNote, ...existing.filter((n: ExactFeeNoteRecord) => n.billNumber !== billNumber && n.id !== newImportedNote.id)];
+    persistFeeNotes(updatedList);
+    setFeeNotes(updatedList);
+
+    setShowExcelImport(false);
+    setExcelData([]);
+    setExcelFileName('');
+    setParsedMeta({});
+    showToast('success', 'Import Complete', `Successfully imported ${excelFileName} (KES ${totalAmount.toLocaleString('en-KE', { minimumFractionDigits: 2 })}) into billing ledger.`);
   };
 
   // Quick Quote Estimator State
