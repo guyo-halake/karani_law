@@ -195,6 +195,194 @@ body.dark-mode .badge-blue {
   border-color: rgba(59, 130, 246, 0.3);
 }
 
+/* --- GLASSMORPHISM DESIGN SYSTEM --- */
+.glass-card {
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 20px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.dark-mode .glass-card {
+  background: rgba(24, 24, 27, 0.65);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.glass-card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+body.dark-mode .glass-card-hover:hover {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.glass-banner {
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.92) 0%, rgba(30, 41, 59, 0.88) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+body.dark-mode .glass-banner {
+  background: linear-gradient(135deg, rgba(9, 9, 11, 0.95) 0%, rgba(24, 24, 27, 0.9) 100%);
+}
+
+.glass-modal-overlay {
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.glass-modal {
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 24px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.15), 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+body.dark-mode .glass-modal {
+  background: rgba(24, 24, 27, 0.92);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.glass-input {
+  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+body.dark-mode .glass-input {
+  background: rgba(39, 39, 42, 0.6);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.glass-input:focus {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+  outline: none;
+}
+
+/* --- STAGGER ANIMATIONS --- */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+}
+
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes progressGrow {
+  from { width: 0%; }
+}
+
+.anim-fade-up { animation: fadeSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
+.anim-fade-up-d1 { animation-delay: 50ms; }
+.anim-fade-up-d2 { animation-delay: 100ms; }
+.anim-fade-up-d3 { animation-delay: 150ms; }
+.anim-fade-up-d4 { animation-delay: 200ms; }
+.anim-fade-up-d5 { animation-delay: 250ms; }
+
+.anim-fade-in { animation: fadeSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
+.anim-scale-in { animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.anim-pulse-glow { animation: pulseGlow 2s ease-in-out infinite; }
+.anim-count-up { animation: countUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
+.anim-progress { animation: progressGrow 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+/* --- CUSTOM TOGGLE SWITCH --- */
+.toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: #d1d5db;
+  border: none;
+  cursor: pointer;
+  transition: background 0.25s ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+body.dark-mode .toggle-switch {
+  background: #3f3f46;
+}
+
+.toggle-switch.active {
+  background: #10b981;
+}
+
+.toggle-switch.active.danger {
+  background: #ef4444;
+}
+
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toggle-switch.active::after {
+  transform: translateX(18px);
+}
+
+/* --- ACCENT BORDER CARDS --- */
+.accent-border-amber { border-left: 4px solid #f59e0b; }
+.accent-border-blue { border-left: 4px solid #3b82f6; }
+.accent-border-purple { border-left: 4px solid #8b5cf6; }
+.accent-border-emerald { border-left: 4px solid #10b981; }
+.accent-border-red { border-left: 4px solid #ef4444; }
+
+/* --- SCROLLBAR STYLING --- */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
+}
+body.dark-mode .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 /* --- PRINT STYLES --- */
 @media print {
   body {
