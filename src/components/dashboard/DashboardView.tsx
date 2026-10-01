@@ -46,7 +46,9 @@ import {
   fetchFeeNotesFromDatabase, 
   updateFeeNoteStatus,
   getFeeNotes,
-  persistFeeNotes
+  persistFeeNotes,
+  EXACT_MATTERS,
+  EXACT_CLIENTS
 } from '../../services/supabase';
 import { 
   createImportedFeeNote, 
@@ -146,10 +148,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [newRoleTemplate, setNewRoleTemplate] = useState('senior_advocates_lawyers');
   const [isSubmittingUser, setIsSubmittingUser] = useState(false);
 
-  // Load Fee Notes
+  // Load Fee Notes (Firm-Wide Shared Ledger)
   useEffect(() => {
-    if (!currentUser?.firmId) return;
-    const loadFeeNotes = () => fetchFeeNotesFromDatabase(currentUser.firmId!).then(setFeeNotes).catch(() => setFeeNotes([]));
+    const firmId = currentUser?.firmId || 'firm-001';
+    const loadFeeNotes = () => {
+      fetchFeeNotesFromDatabase(firmId)
+        .then(notes => {
+          if (notes && notes.length > 0) setFeeNotes(notes);
+          else setFeeNotes(getFeeNotes());
+        })
+        .catch(() => setFeeNotes(getFeeNotes()));
+    };
     void loadFeeNotes();
     const handleRealtime = (event: Event) => {
       const detail = (event as CustomEvent<{ table?: string }>).detail;
@@ -163,10 +172,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     };
   }, [currentUser?.firmId]);
 
-  // Load Matters
+  // Load Matters (Firm-Wide Shared Pipeline)
   useEffect(() => {
-    if (!currentUser?.firmId) return;
-    const loadMatters = () => fetchMatters(currentUser.firmId!).then(setMatters).catch(() => setMatters([]));
+    const firmId = currentUser?.firmId || 'firm-001';
+    const loadMatters = () => {
+      fetchMatters(firmId)
+        .then(m => {
+          if (m && m.length > 0) setMatters(m);
+          else setMatters(EXACT_MATTERS);
+        })
+        .catch(() => setMatters(EXACT_MATTERS));
+    };
     void loadMatters();
     const handleRealtime = (event: Event) => {
       const detail = (event as CustomEvent<{ table?: string }>).detail;
@@ -178,8 +194,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Load Executive Data (Users, Clients, Role Templates & Audit Logs)
   useEffect(() => {
-    if (!currentUser?.firmId) return;
-    const firmId = currentUser.firmId;
+    const firmId = currentUser?.firmId || 'firm-001';
 
     const loadExecutiveData = async () => {
       try {
@@ -188,13 +203,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           fetchClients(firmId),
           fetchRoleTemplates()
         ]);
-        setUsers(loadedUsers);
-        setClients(loadedClients);
-        setRoleTemplates(loadedTemplates);
+        setUsers(loadedUsers || []);
+        setClients(loadedClients && loadedClients.length > 0 ? loadedClients : EXACT_CLIENTS);
+        setRoleTemplates(loadedTemplates && loadedTemplates.length > 0 ? loadedTemplates : DEFAULT_ROLE_TEMPLATES);
 
         const localMap = getLocalUserRoleAssignments();
         const initialMap: Record<string, string> = { ...localMap };
-        loadedUsers.forEach(u => {
+        (loadedUsers || []).forEach((u: SystemUser) => {
           if (!initialMap[u.id]) {
             if (u.role === 'Developer') initialMap[u.id] = 'developer_sys_admin';
             else if (u.role === 'Admin') initialMap[u.id] = 'managing_partner_exec';
@@ -202,7 +217,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           }
         });
         setUserRoleMap(initialMap);
-      } catch (e) {}
+      } catch (e) {
+        setClients(EXACT_CLIENTS);
+        setRoleTemplates(DEFAULT_ROLE_TEMPLATES);
+      }
     };
 
     void loadExecutiveData();

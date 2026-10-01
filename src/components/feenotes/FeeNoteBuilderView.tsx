@@ -270,6 +270,8 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
       payload.matter_id = initialNote?.matterId;
     }
 
+    let cloudDbError: string | null = null;
+
     try {
       const { data, error } = await supabase
         .from('fee_notes')
@@ -290,14 +292,16 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
               unit_rate: item.unitRate,
               claimed_amount: item.unitRate,
             })));
-          } catch (itemErr) {
+          } catch (itemErr: any) {
             console.warn('fee_note_items sync notice:', itemErr);
           }
         }
       } else if (error) {
+        cloudDbError = error.message || 'Supabase write rejected by database policy';
         console.warn('Remote fee_notes upsert notice:', error);
       }
-    } catch (dbErr) {
+    } catch (dbErr: any) {
+      cloudDbError = dbErr?.message || 'Unable to connect to Supabase cloud';
       console.warn('Database sync notice:', dbErr);
     }
 
@@ -328,7 +332,7 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
 
     const currentNotes = getFeeNotes();
     persistFeeNotes([savedNote, ...currentNotes.filter(n => n.billNumber !== documentRef && n.id !== savedNote.id)]);
-    return savedNote;
+    return { note: savedNote, cloudDbError };
   };
 
   const handleSaveDraft = async () => {
@@ -338,8 +342,12 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
     }
     setIsSaving(true);
     try {
-      await persistNoteToDatabase('draft');
-      triggerToast('success', 'Draft Fee Note saved to database successfully!');
+      const res = await persistNoteToDatabase('draft');
+      if (res.cloudDbError) {
+        triggerToast('error', `Saved to Local Firm Ledger. Supabase Cloud Error: ${res.cloudDbError}`);
+      } else {
+        triggerToast('success', 'Draft Fee Note saved to Supabase cloud and firm ledger!');
+      }
     } catch (err: any) {
       triggerToast('error', 'Failed to save draft: ' + (err?.message || 'Error occurred'));
     } finally {
@@ -354,8 +362,12 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
     }
     setIsSaving(true);
     try {
-      await persistNoteToDatabase('processed');
-      triggerToast('success', 'Fee Note saved to database successfully!');
+      const res = await persistNoteToDatabase('processed');
+      if (res.cloudDbError) {
+        triggerToast('error', `Saved to Local Firm Ledger. Supabase Cloud Error: ${res.cloudDbError}`);
+      } else {
+        triggerToast('success', 'Fee Note saved successfully to Supabase cloud and firm ledger!');
+      }
     } catch (err: any) {
       triggerToast('error', 'Failed to save: ' + (err?.message || 'Error occurred'));
     } finally {
@@ -369,8 +381,12 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
       return;
     }
     try {
-      await persistNoteToDatabase('processed');
-      triggerToast('success', 'Fee note saved to database as processed!');
+      const res = await persistNoteToDatabase('processed');
+      if (res.cloudDbError) {
+        triggerToast('error', `Saved to Local Firm Ledger. Supabase Cloud Error: ${res.cloudDbError}`);
+      } else {
+        triggerToast('success', 'Fee note saved to Supabase cloud and firm ledger!');
+      }
     } catch (e: any) {
       console.warn('Persist note non-fatal:', e);
     }
