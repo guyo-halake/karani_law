@@ -13,9 +13,6 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import {
-  EXACT_RECENTS_LOGS,
-  EXACT_FEE_NOTES,
-  ExactFeeNoteRecord,
   SystemUser,
   supabase
 } from '../../services/supabase';
@@ -37,49 +34,51 @@ export const RecentsDraftsDrawer: React.FC<RecentsDraftsDrawerProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'recents' | 'drafts'>('recents');
 
-  if (!isOpen) return null;
-
-  const currentUserId = currentUser?.id || 'usr-karani-001';
-  const currentUserName = currentUser?.fullName || 'Karani Victor';
-
   const [dbDrafts, setDbDrafts] = useState<any[]>([]);
   const [dbLogs, setDbLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchRealtimeData();
-    }
-  }, [isOpen]);
+  const currentUserId = currentUser?.id;
+  const currentUserName = currentUser?.fullName || 'your account';
 
   const fetchRealtimeData = async () => {
+    if (!currentUser?.firmId || !currentUserId) {
+      setDbDrafts([]);
+      setDbLogs([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [draftsRes, logsRes] = await Promise.all([
-        supabase.from('fee_notes').select('*').eq('status', 'draft').order('created_at', { ascending: false }),
-        supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(10)
+        supabase.from('fee_notes').select('*').eq('firm_id', currentUser.firmId).eq('generated_by_user_id', currentUserId).eq('status', 'draft').order('created_at', { ascending: false }),
+        supabase.from('activity_logs').select('*').eq('firm_id', currentUser.firmId).order('created_at', { ascending: false }).limit(10)
       ]);
-      
-      if (draftsRes.data) {
-        setDbDrafts(draftsRes.data);
-      }
-      if (logsRes.data) {
-        setDbLogs(logsRes.data);
-      }
+      setDbDrafts(draftsRes.data || []);
+      setDbLogs(logsRes.data || []);
     } catch (err) {
-      console.error('Error fetching data:', err);
+      setDbDrafts([]);
+      setDbLogs([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const userDrafts = dbDrafts.length > 0 
-    ? dbDrafts 
-    : EXACT_FEE_NOTES.filter(
-        fn => fn.status === 'draft' && (fn.generatedByUserId === currentUserId || fn.generatedByUser.includes(currentUserName))
-      );
-      
-  const displayLogs = dbLogs.length > 0 ? dbLogs : EXACT_RECENTS_LOGS;
+  useEffect(() => {
+    if (!isOpen) return;
+    void fetchRealtimeData();
+    const handleRealtime = (event: Event) => {
+      const detail = (event as CustomEvent<{ table?: string }>).detail;
+      if (detail?.table === 'fee_notes' || detail?.table === 'activity_logs') void fetchRealtimeData();
+    };
+    window.addEventListener('databaseRealtimeUpdate', handleRealtime);
+    return () => window.removeEventListener('databaseRealtimeUpdate', handleRealtime);
+  }, [isOpen, currentUser?.firmId, currentUserId]);
+
+  const userDrafts = dbDrafts;
+  const displayLogs = dbLogs;
+
+  if (!isOpen) return null;
 
   // Helper to render type icons for Recents tab
   const getRecentIcon = (type: string) => {
