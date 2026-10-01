@@ -1,7 +1,10 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import List, Optional
-from app.engine.remuneration_engine import calculate_bill_of_costs, ITEM_RATES
+try:
+    from app.engine.remuneration_engine import calculate_bill_of_costs, ITEM_RATES
+except ModuleNotFoundError:
+    from backend.app.engine.remuneration_engine import calculate_bill_of_costs, ITEM_RATES
 
 router = APIRouter(prefix="/api/v1/remuneration", tags=["Remuneration Engine"])
 
