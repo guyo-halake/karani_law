@@ -15,45 +15,88 @@ import {
   FileSpreadsheet,
   Eye
 } from 'lucide-react';
-import { EXACT_FEE_NOTES, ExactFeeNoteRecord, getFeeNotes, persistFeeNotes } from '../../services/supabase';
+import { ExactFeeNoteRecord, deleteFeeNote, fetchFeeNotesFromDatabase, updateFeeNoteStatus, getFeeNotes } from '../../services/supabase';
+import { getCurrentUserProfile } from '../../services/auth';
+import { SystemUser } from '../../services/supabase';
+import { hasPermission } from '../../services/rbac';
 
 interface FeeNotesListViewProps {
   onNavigateTab: (tab: string) => void;
   onNavigateToBuilder?: (note?: ExactFeeNoteRecord, isPreview?: boolean) => void;
+  currentUser?: SystemUser | null;
 }
 
 export const FeeNotesListView: React.FC<FeeNotesListViewProps> = ({
   onNavigateTab,
-  onNavigateToBuilder
+  onNavigateToBuilder,
+  currentUser,
 }) => {
   const [feeNotesList, setFeeNotesList] = useState<ExactFeeNoteRecord[]>(() => getFeeNotes());
+  const [errorMessage, setErrorMessage] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [, setPermissionTick] = useState(0);
+
+  const can = (code: string) => hasPermission(currentUser, code);
 
   useEffect(() => {
-    const handleUpdate = () => {
-      setFeeNotesList(getFeeNotes());
+    const loadFeeNotes = () => {
+      fetchFeeNotesFromDatabase(currentUser?.firmId).then(setFeeNotesList).catch(() => {
+        setFeeNotesList(getFeeNotes());
+      });
     };
-    window.addEventListener('feeNotesUpdated', handleUpdate);
-    window.addEventListener('storage', handleUpdate);
-    return () => {
-      window.removeEventListener('feeNotesUpdated', handleUpdate);
-      window.removeEventListener('storage', handleUpdate);
-    };
-  }, []);
+    loadFeeNotes();
 
-  const handleProcessFeeNote = (id: string, billNumber: string) => {
-    const updated = feeNotesList.map(fn => fn.id === id ? { ...fn, status: 'processed' as const } : fn);
-    persistFeeNotes(updated);
-    setFeeNotesList(updated);
-    alert(`✓ Fee Note "${billNumber}" marked as Processed!`);
+    const handleFeeNotesUpdate = (event: any) => {
+      if (event?.detail && Array.isArray(event.detail)) {
+        setFeeNotesList(event.detail);
+      } else {
+        setFeeNotesList(getFeeNotes());
+      }
+    };
+
+    const handleRealtimeUpdate = async (event: Event) => {
+      const detail = (event as CustomEvent<{ table?: string }>).detail;
+      if (detail?.table !== 'fee_notes') return;
+      loadFeeNotes();
+    };
+
+    const handlePermissions = () => {
+      setPermissionTick(t => t + 1);
+    };
+
+    window.addEventListener('feeNotesUpdated', handleFeeNotesUpdate);
+    window.addEventListener('databaseRealtimeUpdate', handleRealtimeUpdate);
+    window.addEventListener('permissionsUpdated', handlePermissions);
+    window.addEventListener('storage', handlePermissions);
+
+    return () => {
+      window.removeEventListener('feeNotesUpdated', handleFeeNotesUpdate);
+      window.removeEventListener('databaseRealtimeUpdate', handleRealtimeUpdate);
+      window.removeEventListener('permissionsUpdated', handlePermissions);
+      window.removeEventListener('storage', handlePermissions);
+    };
+  }, [currentUser?.firmId]);
+
+  const handleProcessFeeNote = async (id: string, billNumber: string) => {
+    if (!currentUser?.firmId) return;
+    try {
+      await updateFeeNoteStatus(currentUser.firmId, id, 'processed');
+      setFeeNotesList(prev => prev.map(fn => fn.id === id ? { ...fn, status: 'processed' as const } : fn));
+    } catch (error: any) {
+      setErrorMessage(error.message || `Unable to process ${billNumber}.`);
+    }
   };
 
-  const handleDeleteFeeNote = (id: string, billNumber: string) => {
+  const handleDeleteFeeNote = async (id: string, billNumber: string) => {
     if (confirm(`Are you sure you want to delete Fee Note "${billNumber}" from the database?`)) {
-      const updated = feeNotesList.filter(fn => fn.id !== id);
-      persistFeeNotes(updated);
-      setFeeNotesList(updated);
+      if (!currentUser?.firmId) return;
+      try {
+        await deleteFeeNote(currentUser.firmId, id);
+        setFeeNotesList(prev => prev.filter(fn => fn.id !== id));
+      } catch (error: any) {
+        setErrorMessage(error.message || `Unable to delete ${billNumber}.`);
+      }
     }
   };
 
@@ -66,7 +109,7 @@ export const FeeNotesListView: React.FC<FeeNotesListViewProps> = ({
   };
 
   const handleDownloadPDF = (fn: ExactFeeNoteRecord) => {
-    if (fn.pdfUrl) {
+    if (fn.pdfUrl && !fn.pdfUrl.startsWith('/vault/')) {
       const a = document.createElement('a');
       a.href = fn.pdfUrl;
       a.download = `${fn.billNumber}.pdf`;
@@ -74,7 +117,11 @@ export const FeeNotesListView: React.FC<FeeNotesListViewProps> = ({
       a.click();
       document.body.removeChild(a);
     } else {
-      alert("PDF not yet generated. Please open in builder to export.");
+      if (onNavigateToBuilder) {
+        onNavigateToBuilder(fn, true);
+      } else {
+        alert("Please open in BOC Builder to generate & print the PDF.");
+      }
     }
   };
 
@@ -107,12 +154,14 @@ export const FeeNotesListView: React.FC<FeeNotesListViewProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={() => onNavigateTab('boc')}
-          className="btn-black px-4 py-2 text-xs font-semibold flex items-center gap-1.5 shrink-0 shadow-sm cursor-pointer"
-        >
-          <Plus className="w-4 h-4" /> Create New Fee Note
-        </button>
+        {can('boc.view') && (
+          <button
+            onClick={() => onNavigateTab('boc')}
+            className="btn-black px-4 py-2 text-xs font-semibold flex items-center gap-1.5 shrink-0 shadow-sm cursor-pointer"
+          >
+            <Plus className="w-4 h-4" /> Create New Fee Note
+          </button>
+        )}
       </div>
 
       {/* Overview Metric Cards */}
@@ -238,46 +287,54 @@ export const FeeNotesListView: React.FC<FeeNotesListViewProps> = ({
                   <td className="px-5 py-3.5 text-right">
                     <div className="flex items-center justify-end gap-1.5">
                       {/* View PDF Icon */}
-                      <button
-                        onClick={() => handleViewPDF(fn)}
-                        className="p-1 rounded-lg border border-[var(--border-color)] text-[var(--text-muted)] hover:text-blue-500 hover:border-blue-500 transition-colors cursor-pointer"
-                        title="View PDF"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
+                      {can('feenotes.preview_bill') && (
+                        <button
+                          onClick={() => handleViewPDF(fn)}
+                          className="p-1 rounded-lg border border-[var(--border-color)] text-[var(--text-muted)] hover:text-blue-500 hover:border-blue-500 transition-colors cursor-pointer"
+                          title="View PDF"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                      )}
 
                       {/* Download PDF Icon */}
-                      <button
-                        onClick={() => handleDownloadPDF(fn)}
-                        className="p-1 rounded-lg border border-[var(--border-color)] text-[var(--text-muted)] hover:text-emerald-500 hover:border-emerald-500 transition-colors cursor-pointer"
-                        title="Download PDF"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                      </button>
+                      {can('feenotes.download_pdf') && (
+                        <button
+                          onClick={() => handleDownloadPDF(fn)}
+                          className="p-1 rounded-lg border border-[var(--border-color)] text-[var(--text-muted)] hover:text-emerald-500 hover:border-emerald-500 transition-colors cursor-pointer"
+                          title="Download PDF"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </button>
+                      )}
 
                       {/* Edit Icon */}
-                      <button
-                        onClick={() => {
-                          if (onNavigateToBuilder) {
-                            onNavigateToBuilder(fn, false);
-                          } else {
-                            onNavigateTab('boc');
-                          }
-                        }}
-                        className="p-1 rounded-lg border border-[var(--border-color)] text-slate-600 dark:text-slate-300 hover:text-blue-600 hover:border-blue-500 transition-colors cursor-pointer"
-                        title="Edit Fee Note"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
+                      {can('feenotes.edit') && (
+                        <button
+                          onClick={() => {
+                            if (onNavigateToBuilder) {
+                              onNavigateToBuilder(fn, false);
+                            } else {
+                              onNavigateTab('boc');
+                            }
+                          }}
+                          className="p-1 rounded-lg border border-[var(--border-color)] text-slate-600 dark:text-slate-300 hover:text-blue-600 hover:border-blue-500 transition-colors cursor-pointer"
+                          title="Edit Fee Note"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
 
                       {/* Delete Icon */}
-                      <button
-                        onClick={() => handleDeleteFeeNote(fn.id, fn.billNumber)}
-                        className="p-1 rounded-lg border border-[var(--border-color)] text-[var(--text-muted)] hover:text-red-500 hover:border-red-500 transition-colors cursor-pointer"
-                        title="Delete Fee Note"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {can('feenotes.delete') && (
+                        <button
+                          onClick={() => handleDeleteFeeNote(fn.id, fn.billNumber)}
+                          className="p-1 rounded-lg border border-[var(--border-color)] text-[var(--text-muted)] hover:text-red-500 hover:border-red-500 transition-colors cursor-pointer"
+                          title="Delete Fee Note"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
