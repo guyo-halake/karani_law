@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  EXACT_MATTERS,
   EXACT_CLIENTS,
   EXACT_FEE_NOTES,
   EXACT_VAULT_FILES,
@@ -9,6 +8,9 @@ import {
   ExactVaultFileRecord,
   ExactClientRecord
 } from '../../services/supabase';
+import { fetchMatterRelatedData, fetchMatters, createMatter, updateMatter, deleteMatter } from '../../services/data';
+import { SystemUser } from '../../services/supabase';
+import { hasPermission } from '../../services/rbac';
 import {
   Plus,
   Users,
@@ -30,16 +32,24 @@ import {
 
 interface MattersViewProps {
   onNavigateTab?: (tab: string) => void;
+  currentUser?: SystemUser | null;
 }
 
-export const MattersView: React.FC<MattersViewProps> = ({ onNavigateTab }) => {
-  const [mattersList, setMattersList] = useState<ExactMatterRecord[]>(EXACT_MATTERS);
+export const MattersView: React.FC<MattersViewProps> = ({ onNavigateTab, currentUser }) => {
+  const [mattersList, setMattersList] = useState<ExactMatterRecord[]>([]);
+  const [errorMessage, setErrorMessage] = useState('');
   const [search, setSearch] = useState('');
-  const [viewMode, setViewMode] = useState<'card' | 'table' | 'list'>('card');
+  const [viewMode, setViewMode] = useState<'card' | 'table' | 'list'>('list');
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [, setPermissionTick] = useState(0);
+
+  const can = (code: string) => hasPermission(currentUser, code);
 
   // Matter Detail Modal / Drawer State
   const [selectedMatter, setSelectedMatter] = useState<ExactMatterRecord | null>(null);
+  const [selectedClient, setSelectedClient] = useState<ExactClientRecord | null>(null);
+  const [selectedFeeNotes, setSelectedFeeNotes] = useState<ExactFeeNoteRecord[]>([]);
+  const [selectedDocuments, setSelectedDocuments] = useState<ExactVaultFileRecord[]>([]);
 
   // Edit Matter Modal State
   const [editingMatter, setEditingMatter] = useState<ExactMatterRecord | null>(null);
@@ -54,6 +64,50 @@ export const MattersView: React.FC<MattersViewProps> = ({ onNavigateTab }) => {
   const [newRespondent, setNewRespondent] = useState('');
   const [newClaimAmount, setNewClaimAmount] = useState<number>(0);
 
+  React.useEffect(() => {
+    const handlePermissions = () => {
+      setPermissionTick(t => t + 1);
+    };
+    window.addEventListener('permissionsUpdated', handlePermissions);
+    window.addEventListener('storage', handlePermissions);
+    return () => {
+      window.removeEventListener('permissionsUpdated', handlePermissions);
+      window.removeEventListener('storage', handlePermissions);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (!currentUser?.firmId) return;
+    const loadMatters = () => fetchMatters(currentUser.firmId!).then(setMattersList).catch(error => setErrorMessage(error.message || 'Unable to load matters.'));
+    void loadMatters();
+    const handleRealtime = (event: Event) => {
+      const detail = (event as CustomEvent<{ table?: string }>).detail;
+      if (detail?.table === 'matters') void loadMatters();
+    };
+    window.addEventListener('databaseRealtimeUpdate', handleRealtime);
+    return () => window.removeEventListener('databaseRealtimeUpdate', handleRealtime);
+  }, [currentUser?.firmId]);
+
+  React.useEffect(() => {
+    if (!currentUser?.firmId || !selectedMatter) return;
+    const loadRelated = () => fetchMatterRelatedData(currentUser.firmId!, selectedMatter.id).then(related => {
+      setSelectedClient(related.client);
+      setSelectedFeeNotes(related.feeNotes as ExactFeeNoteRecord[]);
+      setSelectedDocuments(related.documents as ExactVaultFileRecord[]);
+    }).catch(() => {
+      setSelectedClient(null);
+      setSelectedFeeNotes([]);
+      setSelectedDocuments([]);
+    });
+    void loadRelated();
+    const handleRealtime = (event: Event) => {
+      const detail = (event as CustomEvent<{ table?: string }>).detail;
+      if (['fee_notes', 'documents', 'matters'].includes(detail?.table || '')) void loadRelated();
+    };
+    window.addEventListener('databaseRealtimeUpdate', handleRealtime);
+    return () => window.removeEventListener('databaseRealtimeUpdate', handleRealtime);
+  }, [currentUser?.firmId, selectedMatter?.id]);
+
   const filtered = mattersList.filter(m =>
     m.title.toLowerCase().includes(search.toLowerCase()) ||
     m.caseNo.toLowerCase().includes(search.toLowerCase()) ||
@@ -62,21 +116,27 @@ export const MattersView: React.FC<MattersViewProps> = ({ onNavigateTab }) => {
     m.forum.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleUpdateMatter = (e: React.FormEvent) => {
+  const handleUpdateMatter = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingMatter) return;
 
-    setMattersList(prev => prev.map(m => m.id === editingMatter.id ? editingMatter : m));
+    if (!currentUser?.firmId) return;
+    try {
+      const savedMatter = await updateMatter(currentUser.firmId, editingMatter.id, editingMatter);
+      setMattersList(prev => prev.map(m => m.id === savedMatter.id ? savedMatter : m));
+    } catch (error: any) {
+      setErrorMessage(error.message || 'Unable to update matter.');
+      return;
+    }
     setEditingMatter(null);
-    alert(`✓ Matter "${editingMatter.title}" updated successfully!`);
   };
 
-  const handleCreateMatter = (e: React.FormEvent) => {
+  const handleCreateMatter = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
 
-    const newRecord: ExactMatterRecord = {
-      id: 'm-' + (mattersList.length + 1),
+    if (!currentUser?.firmId) return;
+    const newRecord: Partial<ExactMatterRecord> = {
       title: newTitle.trim(),
       caseNo: newCaseNo.trim() || 'HCCC Cause No. 2026',
       forum: newForum,
@@ -84,55 +144,38 @@ export const MattersView: React.FC<MattersViewProps> = ({ onNavigateTab }) => {
       applicantRole: 'Claimant',
       respondent: newRespondent.trim() || 'Respondent Entity',
       respondentRole: 'Respondent',
-      status: 'Taxation Ready',
-      statusClass: 'ready',
-      filedBy: 'Nyagah B. Kithinji & Co. Advocates',
       amount: newClaimAmount,
-      itemsCount: 12,
-      feeNoteLink: `BOC-2026-NEW-${mattersList.length + 1}`,
-      documentLink: `Document_Vault_${newTitle.slice(0, 15)}.xlsx`
     };
 
-    setMattersList([newRecord, ...mattersList]);
+    try {
+      const savedMatter = await createMatter(currentUser.firmId, newRecord);
+      setMattersList(prev => [savedMatter, ...prev]);
+    } catch (error: any) {
+      setErrorMessage(error.message || 'Unable to create matter.');
+      return;
+    }
     setShowNewMatterModal(false);
     setNewTitle('');
     setNewCaseNo('');
     setNewClaimAmount(0);
-    alert(`✓ Matter "${newRecord.title}" registered successfully in database!`);
   };
 
-  const handleDeleteMatter = (id: string, title: string) => {
+  const handleDeleteMatter = async (id: string, title: string) => {
     if (confirm(`Are you sure you want to delete matter "${title}"?`)) {
-      setMattersList(prev => prev.filter(m => m.id !== id));
+      if (!currentUser?.firmId) return;
+      try {
+        await deleteMatter(currentUser.firmId, id);
+        setMattersList(prev => prev.filter(m => m.id !== id));
+      } catch (error: any) {
+        setErrorMessage(error.message || 'Unable to delete matter.');
+      }
       setActiveMenuId(null);
     }
   };
 
   // Helper to find client details for selected matter
-  const getClientForMatter = (matter: ExactMatterRecord): ExactClientRecord => {
-    const found = EXACT_CLIENTS.find(c =>
-      matter.title.toLowerCase().includes(c.name.toLowerCase()) ||
-      c.mattersList.some(mName => matter.title.toLowerCase().includes(mName.toLowerCase()))
-    );
-    return found || EXACT_CLIENTS[0];
-  };
-
-  // Helper to find fee notes for selected matter
-  const getFeeNotesForMatter = (matter: ExactMatterRecord): ExactFeeNoteRecord[] => {
-    return EXACT_FEE_NOTES.filter(fn =>
-      fn.matterId === matter.id ||
-      fn.matterTitle.toLowerCase().includes(matter.title.toLowerCase()) ||
-      matter.title.toLowerCase().includes(fn.clientName.toLowerCase())
-    );
-  };
-
-  // Helper to find vault documents for selected matter
-  const getDocumentsForMatter = (matter: ExactMatterRecord): ExactVaultFileRecord[] => {
-    return EXACT_VAULT_FILES.filter(vf =>
-      vf.matter.toLowerCase().includes(matter.title.toLowerCase()) ||
-      matter.title.toLowerCase().includes(vf.client.toLowerCase())
-    );
-  };
+  const getFeeNotesForMatter = (_matter: ExactMatterRecord): ExactFeeNoteRecord[] => selectedFeeNotes;
+  const getDocumentsForMatter = (_matter: ExactMatterRecord): ExactVaultFileRecord[] => selectedDocuments;
 
   if (selectedMatter) {
     return (
@@ -354,18 +397,22 @@ export const MattersView: React.FC<MattersViewProps> = ({ onNavigateTab }) => {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2.5 shrink-0">
-          <button
-            onClick={() => setShowNewMatterModal(true)}
-            className="btn-gold px-4 py-2 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" /> New Matter / Case
-          </button>
-          <button
-            onClick={() => onNavigateTab ? onNavigateTab('clients') : null}
-            className="btn-navy px-4 py-2 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-          >
-            <Users className="w-4 h-4 text-amber-400" /> Clients Directory
-          </button>
+          {can('matters.create') && (
+            <button
+              onClick={() => setShowNewMatterModal(true)}
+              className="btn-gold px-4 py-2 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" /> New Matter / Case
+            </button>
+          )}
+          {can('clients.view') && (
+            <button
+              onClick={() => onNavigateTab ? onNavigateTab('clients') : null}
+              className="btn-navy px-4 py-2 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+            >
+              <Users className="w-4 h-4 text-amber-400" /> Clients Directory
+            </button>
+          )}
         </div>
       </div>
 
@@ -458,25 +505,29 @@ export const MattersView: React.FC<MattersViewProps> = ({ onNavigateTab }) => {
                         >
                           <Eye className="w-3.5 h-3.5 text-[var(--text-muted)]" /> View Details
                         </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingMatter(m);
-                            setActiveMenuId(null);
-                          }}
-                          className="w-full text-left px-3 py-1.5 text-[var(--text-main)] hover:bg-[var(--bg-subtle)] flex items-center gap-2 font-medium"
-                        >
-                          <Edit className="w-3.5 h-3.5 text-[var(--text-muted)]" /> Edit Matter
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteMatter(m.id, m.title);
-                          }}
-                          className="w-full text-left px-3 py-1.5 text-red-500 hover:bg-red-500/10 flex items-center gap-2 font-medium"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" /> Delete Matter
-                        </button>
+                        {can('matters.edit') && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingMatter(m);
+                              setActiveMenuId(null);
+                            }}
+                            className="w-full text-left px-3 py-1.5 text-[var(--text-main)] hover:bg-[var(--bg-subtle)] flex items-center gap-2 font-medium"
+                          >
+                            <Edit className="w-3.5 h-3.5 text-[var(--text-muted)]" /> Edit Matter
+                          </button>
+                        )}
+                        {can('matters.delete') && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteMatter(m.id, m.title);
+                            }}
+                            className="w-full text-left px-3 py-1.5 text-red-500 hover:bg-red-500/10 flex items-center gap-2 font-medium"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> Delete Matter
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
