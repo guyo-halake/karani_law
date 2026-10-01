@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   ShieldCheck, Activity, CheckCircle2, XCircle, AlertCircle, 
   Users, DollarSign, Calendar, FileText, Check, MessageSquare, 
@@ -44,86 +44,17 @@ export const ManagingPartnerGodMode: React.FC<ManagingPartnerGodModeProps> = ({
   const [timeRange, setTimeRange] = useState<'month' | 'quarter' | 'ytd' | 'all'>('ytd');
 
   // 2. Real-time Live Activity Feed State
-  const [activities, setActivities] = useState([
-    { id: '1', advocate: 'Adv. Wanjiku', action: 'is editing BOC-2026-007', time: 'Just now', type: 'edit', badgeColor: 'bg-emerald-500' },
-    { id: '2', advocate: 'Adv. Ochieng', action: 'sent a demand letter to Dhanya Construction', time: '12 mins ago', type: 'letter', badgeColor: 'bg-blue-500' },
-    { id: '3', advocate: 'Adv. Kamau', action: 'logged in from Mombasa IP (197.237.11.4)', time: '34 mins ago', type: 'login', badgeColor: 'bg-purple-500' },
-    { id: '4', advocate: 'Adv. Nyagah Kithinji', action: 'created fee note FN-2026-042 (KES 1,850,000)', time: '1 hour ago', type: 'feenote', badgeColor: 'bg-amber-500' },
-    { id: '5', advocate: 'Adv. Wanjiku', action: 'uploaded 14 court filings to Document Vault', time: '2 hours ago', type: 'vault', badgeColor: 'bg-teal-500' }
-  ]);
-
-  // Real-time ticker for activity feed
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActivities(prev => [
-        {
-          id: Date.now().toString(),
-          advocate: ['Adv. Wanjiku', 'Adv. Ochieng', 'Adv. Kamau', 'Adv. Nyagah Kithinji'][Math.floor(Math.random() * 4)],
-          action: [
-            'updated fee breakdown for Schedule 6 High Court cause',
-            'verified taxation court ruling outcome',
-            'exported client ledger report for Q3',
-            'added 5 new folio entries to BOC-2026-012'
-          ][Math.floor(Math.random() * 4)],
-          time: 'Just now',
-          type: 'live',
-          badgeColor: 'bg-emerald-500'
-        },
-        ...prev.slice(0, 5)
-      ]);
-    }, 15000);
-    return () => clearInterval(interval);
-  }, []);
+  const [activities] = useState<Array<{ id: string; advocate: string; action: string; time: string; type: string; badgeColor: string }>>([]);
 
   // 3. Approval Queue State
-  const [pendingBocs, setPendingBocs] = useState<PendingBoc[]>([
-    {
-      id: 'boc-007',
-      bocNumber: 'BOC-2026-007',
-      matterTitle: 'Dhanya Construction Ltd vs National Highways Authority',
-      clientName: 'Dhanya Construction Ltd',
-      advocateName: 'Adv. Wanjiku',
-      totalAmount: 1450000,
-      foliosCount: 40,
-      itemsCount: 18,
-      submittedAt: 'Today at 09:14 AM',
-      status: 'pending',
-      items: [
-        { itemNo: 1, description: 'Instructions to file Plaint in High Court Commercial Division', fee: 450000 },
-        { itemNo: 2, description: 'Drawing Plaint, Verifying Affidavit and List of Documents (40 Folios)', fee: 120000, folios: 40 },
-        { itemNo: 3, description: 'Attending Court for Interlocutory Injunction Application (3 Appearances)', fee: 180000 },
-        { itemNo: 4, description: 'Perusing Statement of Defence and Counterclaim (65 Folios)', fee: 95000 },
-        { itemNo: 5, description: 'Getting up fee for trial preparation', fee: 605000 }
-      ]
-    },
-    {
-      id: 'boc-012',
-      bocNumber: 'BOC-2026-012',
-      matterTitle: 'Mombasa Port Terminal Concession Arbitration',
-      clientName: 'Apex Maritime Kenya Ltd',
-      advocateName: 'Adv. Ochieng',
-      totalAmount: 890000,
-      foliosCount: 22,
-      itemsCount: 12,
-      submittedAt: 'Yesterday at 04:30 PM',
-      status: 'pending',
-      items: [
-        { itemNo: 1, description: 'Instructions to initiate Arbitration proceedings under KLR Rules', fee: 350000 },
-        { itemNo: 2, description: 'Drawing Statement of Claim (22 Folios)', fee: 66000, folios: 22 },
-        { itemNo: 3, description: 'Attending Preliminary Hearing before Sole Arbitrator', fee: 150000 },
-        { itemNo: 4, description: 'Preparing Written Submissions on Jurisdiction', fee: 324000 }
-      ]
-    }
-  ]);
+  const [pendingBocs] = useState<PendingBoc[]>([]);
 
   // Selected BOC for Review Modal
   const [selectedBoc, setSelectedBoc] = useState<PendingBoc | null>(null);
   const [returnNotesInput, setReturnNotesInput] = useState('Reduce folio count from 40 to 25 — Taxing Master will challenge this');
 
   const handleApproveBoc = (id: string) => {
-    setPendingBocs(prev => prev.map(b => b.id === id ? { ...b, status: 'approved' } : b));
-    if (selectedBoc?.id === id) setSelectedBoc(null);
-    alert(`✅ ${selectedBoc?.bocNumber || id} has been APPROVED and signed off for court filing!`);
+    onNavigateTab?.('managing_approvals');
   };
 
   const handleReturnBoc = (id: string) => {
@@ -131,78 +62,34 @@ export const ManagingPartnerGodMode: React.FC<ManagingPartnerGodModeProps> = ({
       alert('Please enter return notes for the advocate.');
       return;
     }
-    setPendingBocs(prev => prev.map(b => b.id === id ? { ...b, status: 'returned', returnNotes: returnNotesInput } : b));
-    if (selectedBoc?.id === id) setSelectedBoc(null);
-    alert(`❌ ${selectedBoc?.bocNumber || id} RETURNED to advocate with notes: "${returnNotesInput}"`);
+    onNavigateTab?.('managing_approvals');
   };
 
   // 4. Permission Dashboard State (Saved in LocalStorage)
-  const [advocatePermissions, setAdvocatePermissions] = useState<AdvocatePermission[]>(() => {
-    const saved = localStorage.getItem('GOD_MODE_ADVOCATE_PERMISSIONS');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
-    return [
-      { id: 'usr-1', name: 'Adv. Nyagah Kithinji', role: 'Managing Partner', email: 'kithinji@karanilaw.co.ke', canCreateFeeNotes: true, clientVisibility: 'all', canExportData: true, canDeleteMatter: true },
-      { id: 'usr-2', name: 'Adv. Wanjiku', role: 'Senior Partner', email: 'wanjiku@karanilaw.co.ke', canCreateFeeNotes: true, clientVisibility: 'all', canExportData: true, canDeleteMatter: false },
-      { id: 'usr-3', name: 'Adv. Ochieng', role: 'Associate Advocate', email: 'ochieng@karanilaw.co.ke', canCreateFeeNotes: true, clientVisibility: 'assigned', canExportData: false, canDeleteMatter: false },
-      { id: 'usr-4', name: 'Adv. Kamau', role: 'Junior Associate', email: 'kamau@karanilaw.co.ke', canCreateFeeNotes: false, clientVisibility: 'assigned', canExportData: false, canDeleteMatter: false }
-    ];
-  });
+  const [advocatePermissions] = useState<AdvocatePermission[]>([]);
 
   const updatePermission = (id: string, field: keyof AdvocatePermission, value: any) => {
-    setAdvocatePermissions(prev => {
-      const updated = prev.map(a => a.id === id ? { ...a, [field]: value } : a);
-      localStorage.setItem('GOD_MODE_ADVOCATE_PERMISSIONS', JSON.stringify(updated));
-      return updated;
-    });
+    onNavigateTab?.('managing_permissions');
   };
 
   // 5. Revenue Overview Data per Advocate
-  const revenueData = {
+  const revenueData: Record<'month' | 'quarter' | 'ytd' | 'all', {
+    totalBilled: number;
+    totalCollected: number;
+    totalOutstanding: number;
+    advocates: Array<{ name: string; billed: number; collected: number; outstanding: number }>;
+  }> = {
     month: {
-      totalBilled: 8400000,
-      totalCollected: 5800000,
-      totalOutstanding: 2600000,
-      advocates: [
-        { name: 'Adv. Nyagah Kithinji', billed: 4100000, collected: 3200000, outstanding: 900000 },
-        { name: 'Adv. Wanjiku', billed: 2600000, collected: 1800000, outstanding: 800000 },
-        { name: 'Adv. Ochieng', billed: 1100000, collected: 500000, outstanding: 600000 },
-        { name: 'Adv. Kamau', billed: 600000, collected: 300000, outstanding: 300000 }
-      ]
+      totalBilled: 0, totalCollected: 0, totalOutstanding: 0, advocates: []
     },
     quarter: {
-      totalBilled: 22100000,
-      totalCollected: 15400000,
-      totalOutstanding: 6700000,
-      advocates: [
-        { name: 'Adv. Nyagah Kithinji', billed: 10500000, collected: 8100000, outstanding: 2400000 },
-        { name: 'Adv. Wanjiku', billed: 7200000, collected: 4900000, outstanding: 2300000 },
-        { name: 'Adv. Ochieng', billed: 2800000, collected: 1500000, outstanding: 1300000 },
-        { name: 'Adv. Kamau', billed: 1600000, collected: 900000, outstanding: 700000 }
-      ]
+      totalBilled: 0, totalCollected: 0, totalOutstanding: 0, advocates: []
     },
     ytd: {
-      totalBilled: 38400000,
-      totalCollected: 26100000,
-      totalOutstanding: 12300000,
-      advocates: [
-        { name: 'Adv. Nyagah Kithinji', billed: 18000000, collected: 14100000, outstanding: 3900000 },
-        { name: 'Adv. Wanjiku', billed: 12000000, collected: 8400000, outstanding: 3600000 },
-        { name: 'Adv. Ochieng', billed: 5400000, collected: 2200000, outstanding: 3200000 },
-        { name: 'Adv. Kamau', billed: 3000000, collected: 1400000, outstanding: 1600000 }
-      ]
+      totalBilled: 0, totalCollected: 0, totalOutstanding: 0, advocates: []
     },
     all: {
-      totalBilled: 94200000,
-      totalCollected: 71500000,
-      totalOutstanding: 22700000,
-      advocates: [
-        { name: 'Adv. Nyagah Kithinji', billed: 44000000, collected: 36500000, outstanding: 7500000 },
-        { name: 'Adv. Wanjiku', billed: 29500000, collected: 21800000, outstanding: 7700000 },
-        { name: 'Adv. Ochieng', billed: 12800000, collected: 7900000, outstanding: 4900000 },
-        { name: 'Adv. Kamau', billed: 7900000, collected: 5300000, outstanding: 2600000 }
-      ]
+      totalBilled: 0, totalCollected: 0, totalOutstanding: 0, advocates: []
     }
   };
 
