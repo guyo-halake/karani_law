@@ -5,10 +5,24 @@ import {
   CheckCircle2, AlertCircle, Loader2 
 } from 'lucide-react';
 import { calculateLegalBill, BillCalculationResult } from '../../services/api';
-import { EXACT_FIRM_INFO, EXACT_FEE_NOTES, supabase, ExactFeeNoteRecord, saveFeeNotes, SystemUser } from '../../services/supabase';
-import { logSystemActivity } from '../../services/activityLogger';
+import { EXACT_FIRM_INFO, EXACT_FEE_NOTES, supabase, ExactFeeNoteRecord, SystemUser, persistFeeNotes, getFeeNotes } from '../../services/supabase';
+import { hasPermission } from '../../services/rbac';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+
+const normalizeScheduleKey = (val?: string): string => {
+  if (!val) return 'schedule_6_high_court';
+  const v = val.toLowerCase();
+  if (v.includes('1') || v.includes('conveyanc')) return 'schedule_1_conveyancing';
+  if (v.includes('2') || v.includes('securit') || v.includes('debenture') || v.includes('mortgage')) return 'schedule_2_securities';
+  if (v.includes('3') || v.includes('company') || v.includes('commercial agreement') || v.includes('incorporation')) return 'schedule_3_company';
+  if (v.includes('4') || v.includes('ip') || v.includes('intellectual') || v.includes('trademark') || v.includes('patent')) return 'schedule_4_ip';
+  if (v.includes('5') || v.includes('magistrate') || v.includes('subordinate')) return 'schedule_5_magistrate';
+  if (v.includes('6') || v.includes('high_court') || v.includes('high court') || v.includes('appeal') || v.includes('elc') || v.includes('elrc')) return 'schedule_6_high_court';
+  if (v.includes('7') || v.includes('arbitrat') || v.includes('tribunal') || v.includes('schedule_9')) return 'schedule_7_arbitration';
+  if (v.includes('8') || v.includes('general') || v.includes('schedule_11')) return 'schedule_8_general';
+  return 'schedule_6_high_court';
+};
 
 interface FeeNoteBuilderViewProps {
   initialNote?: ExactFeeNoteRecord | null;
@@ -24,20 +38,38 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
   currentUser,
 }) => {
   const [claimValue, setClaimValue] = useState<number | ''>(initialNote?.claimValue || '');
-  const [courtSchedule, setCourtSchedule] = useState<string>(initialNote?.courtSchedule || "schedule_6_high_court");
+  const [courtSchedule, setCourtSchedule] = useState<string>(() => normalizeScheduleKey(initialNote?.courtSchedule));
   const [isDefendant, setIsDefendant] = useState(false);
-  const [includeGettingUp, setIncludeGettingUp] = useState(true);
+  const [includeGettingUp, setIncludeGettingUp] = useState(false);
   const [disbursements, setDisbursements] = useState<number | ''>('');
+  const [, setPermissionTick] = useState(0);
+
+  const can = (code: string) => hasPermission(currentUser, code);
+
+  useEffect(() => {
+    const handlePermissions = () => {
+      setPermissionTick(t => t + 1);
+    };
+    window.addEventListener('permissionsUpdated', handlePermissions);
+    window.addEventListener('storage', handlePermissions);
+    return () => {
+      window.removeEventListener('permissionsUpdated', handlePermissions);
+      window.removeEventListener('storage', handlePermissions);
+    };
+  }, []);
 
   // Client Details
   const [clientName, setClientName] = useState(initialNote?.clientName || '');
   
   // Court & Parties Details (Dynamic Header)
-  const [forumName, setForumName] = useState(initialNote?.forumName || 'REPUBLIC OF KENYA\\nIN THE MATTER OF THE ARBITRATION ACT 1995');
-  const [matterTitle, setMatterTitle] = useState(initialNote?.matterTitle || 'IN THE MATTER OF AN ARBITRATION ON THE DISPUTE OVER THE CONTRACT...');
+  const [forumName, setForumName] = useState(() => {
+    const raw = initialNote?.forumName || 'REPUBLIC OF KENYA\nIN THE HIGH COURT OF KENYA';
+    return raw.replace(/\\n/g, '\n');
+  });
+  const [matterTitle, setMatterTitle] = useState(initialNote?.matterTitle || '');
   const [claimantName, setClaimantName] = useState(initialNote?.claimantName || initialNote?.clientName || '');
   const [respondentName, setRespondentName] = useState(initialNote?.respondentName || '');
-  const [judgeName, setJudgeName] = useState(initialNote?.judgeName || '[BEFORE ARCH. NEKOYE MASIBILI, MCIARB]');
+  const [judgeName, setJudgeName] = useState(initialNote?.judgeName || '');
   const [documentRef, setDocumentRef] = useState(() => {
     if (initialNote?.billNumber) return initialNote.billNumber;
     const yr = new Date().getFullYear().toString().slice(-2);
@@ -57,6 +89,38 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
 
   // PDF Preview State
   const [showPdfModal, setShowPdfModal] = useState(isPreview);
+
+  // Sync state whenever initialNote or isPreview changes (prevents stuck prefilled data on new builds)
+  useEffect(() => {
+    if (initialNote) {
+      setClaimValue(initialNote.claimValue || '');
+      setCourtSchedule(normalizeScheduleKey(initialNote.courtSchedule));
+      setClientName(initialNote.clientName || '');
+      setForumName((initialNote.forumName || 'REPUBLIC OF KENYA\nIN THE HIGH COURT OF KENYA').replace(/\\n/g, '\n'));
+      setMatterTitle(initialNote.matterTitle || '');
+      setClaimantName(initialNote.claimantName || initialNote.clientName || '');
+      setRespondentName(initialNote.respondentName || '');
+      setJudgeName(initialNote.judgeName || '');
+      setDocumentRef(initialNote.billNumber || `FN${new Date().getFullYear().toString().slice(-2)}${String(new Date().getMonth() + 1).padStart(2, '0')}001`);
+      setShowPdfModal(!!isPreview);
+    } else {
+      setClaimValue('');
+      setCourtSchedule('schedule_6_high_court');
+      setClientName('');
+      setForumName('REPUBLIC OF KENYA\nIN THE HIGH COURT OF KENYA');
+      setMatterTitle('');
+      setClaimantName('');
+      setRespondentName('');
+      setJudgeName('');
+      const yr = new Date().getFullYear().toString().slice(-2);
+      const mo = String(new Date().getMonth() + 1).padStart(2, '0');
+      const docNum = String(Math.floor(Math.random() * 900) + 100);
+      setDocumentRef(`FN${yr}${mo}${docNum}`);
+      setItems([]);
+      setExtraExpenses([]);
+      setShowPdfModal(false);
+    }
+  }, [initialNote, isPreview]);
 
   // Database Statutory Fees
   const [statutoryFees, setStatutoryFees] = useState<Array<{id: string, description: string, amount: number}>>([]);
@@ -176,15 +240,69 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
     }
   };
 
+  const isUuid = (str?: string | null) => !!str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
   // Unified Database & Storage Persistence Engine
   const persistNoteToDatabase = async (status: 'processed' | 'draft' = 'processed') => {
+    if (!currentUser?.firmId || !currentUser.id) {
+      throw new Error('An authenticated firm profile is required before saving a fee note.');
+    }
     const total = result?.grand_total || initialNote?.grandTotal || 0;
-    const noteId = initialNote?.id || `fn-${Date.now()}`;
-    
-    const existingIndex = EXACT_FEE_NOTES.findIndex(fn => fn.billNumber === documentRef || fn.id === noteId);
+    let savedDatabaseId = initialNote?.id;
 
-    const savedRecord: ExactFeeNoteRecord = {
-      id: noteId,
+    // Construct valid DB payload matching PostgreSQL schema
+    const payload: Record<string, any> = {
+      firm_id: currentUser.firmId,
+      bill_number: documentRef,
+      matter_title: matterTitle || initialNote?.matterTitle || "Bill of Costs",
+      client_name: claimantName || clientName || initialNote?.clientName || "Client",
+      court_schedule: courtSchedule || initialNote?.courtSchedule || "Schedule 6 — High Court / Court of Appeal",
+      claim_value: typeof claimValue === 'number' ? claimValue : (initialNote?.claimValue || 0),
+      instruction_fee: result?.instruction_fee || initialNote?.instructionFee || 0,
+      getting_up_fee: result?.getting_up_fee || initialNote?.gettingUpFee || 0,
+      grand_total: total,
+      status,
+      generated_by_user: currentUser.fullName,
+      generated_by_user_id: currentUser.id,
+    };
+
+    if (isUuid(initialNote?.matterId)) {
+      payload.matter_id = initialNote?.matterId;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('fee_notes')
+        .upsert(payload, { onConflict: 'bill_number' })
+        .select('*')
+        .single();
+
+      if (!error && data) {
+        savedDatabaseId = data.id;
+
+        if (items.length > 0) {
+          try {
+            await supabase.from('fee_note_items').delete().eq('fee_note_id', data.id);
+            await supabase.from('fee_note_items').insert(items.map((item, index) => ({
+              fee_note_id: data.id,
+              item_number: index + 1,
+              description: item.description,
+              unit_rate: item.unitRate,
+              claimed_amount: item.unitRate,
+            })));
+          } catch (itemErr) {
+            console.warn('fee_note_items sync notice:', itemErr);
+          }
+        }
+      } else if (error) {
+        console.warn('Remote fee_notes upsert notice:', error);
+      }
+    } catch (dbErr) {
+      console.warn('Database sync notice:', dbErr);
+    }
+
+    const savedNote: ExactFeeNoteRecord = {
+      id: savedDatabaseId || `fn-${Date.now()}`,
       billNumber: documentRef,
       matterId: initialNote?.matterId || "custom",
       matterTitle: matterTitle || initialNote?.matterTitle || "Bill of Costs",
@@ -199,6 +317,7 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
       gettingUpFee: result?.getting_up_fee || initialNote?.gettingUpFee || 0,
       grandTotal: total,
       status: status,
+      approvalStatus: status === 'processed' ? 'approved' : 'pending',
       generatedByUser: currentUser?.fullName || initialNote?.generatedByUser || 'Karani Victor',
       generatedByUserId: currentUser?.id || initialNote?.generatedByUserId || 'usr-karani-001',
       createdAt: initialNote?.createdAt || new Date().toLocaleString(),
@@ -207,38 +326,16 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
       excelData: initialNote?.excelData && initialNote.excelData.length > 0 ? initialNote.excelData : undefined
     };
 
-    if (existingIndex >= 0) {
-      EXACT_FEE_NOTES[existingIndex] = savedRecord;
-    } else {
-      EXACT_FEE_NOTES.unshift(savedRecord);
-    }
-    saveFeeNotes();
-    logSystemActivity(
-      currentUser?.fullName || 'Advocate',
-      `saved Bill of Costs ${documentRef} (Kshs ${(savedRecord.grandTotal || 0).toLocaleString()})`,
-      'feenote',
-      'bg-emerald-500'
-    );
-
-    try {
-      await supabase.from('fee_notes').upsert({
-        bill_number: documentRef,
-        court_schedule: savedRecord.courtSchedule,
-        claim_value: savedRecord.claimValue,
-        instruction_fee: savedRecord.instructionFee,
-        getting_up_fee: savedRecord.gettingUpFee,
-        grand_total: savedRecord.grandTotal,
-        status: status,
-        generated_by_user: savedRecord.generatedByUser
-      });
-    } catch (e) {
-      // LocalStorage already saved
-    }
-
-    return savedRecord;
+    const currentNotes = getFeeNotes();
+    persistFeeNotes([savedNote, ...currentNotes.filter(n => n.billNumber !== documentRef && n.id !== savedNote.id)]);
+    return savedNote;
   };
 
   const handleSaveDraft = async () => {
+    if (!can('boc.save_database')) {
+      triggerToast('error', 'Permission Denied: Your assigned role cannot save fee notes to the database.');
+      return;
+    }
     setIsSaving(true);
     try {
       await persistNoteToDatabase('draft');
@@ -251,6 +348,10 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
   };
 
   const handleSaveToDatabase = async () => {
+    if (!can('boc.save_database')) {
+      triggerToast('error', 'Permission Denied: Your assigned role cannot save fee notes to the database.');
+      return;
+    }
     setIsSaving(true);
     try {
       await persistNoteToDatabase('processed');
@@ -263,8 +364,16 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
   };
 
   const handlePrintAndExport = async () => {
-    await persistNoteToDatabase('processed');
-    triggerToast('success', 'Fee note saved to database as processed!');
+    if (!can('boc.export_pdf')) {
+      triggerToast('error', 'Permission Denied: Your assigned role cannot export or print PDF bills.');
+      return;
+    }
+    try {
+      await persistNoteToDatabase('processed');
+      triggerToast('success', 'Fee note saved to database as processed!');
+    } catch (e: any) {
+      console.warn('Persist note non-fatal:', e);
+    }
     setShowPdfModal(true);
   };
 
@@ -665,29 +774,28 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
         </div>
       )}
 
-      {/* Modern Title Banner */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 py-6 px-4 bg-white dark:bg-zinc-900 border-b border-[var(--border-color)] rounded-2xl shadow-sm mb-6">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2.5 bg-blue-50 dark:bg-blue-900/30 rounded-xl">
-              <Calculator className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-            </div>
-            <h1 className="font-brand font-extrabold text-3xl text-[var(--text-main)] tracking-tight">
-              Bill of Costs Builder
-            </h1>
-          </div>
-          <p className="text-sm text-[var(--text-muted)] font-sans max-w-2xl">
-            Draft, calculate, and export statutory fee notes in accordance with the Advocates (Remuneration) Order (Kenya Subsidiary Legislation LN 64/1962, ed. 2022).
-          </p>
-        </div>
+      {/* Minimalist Modern Title Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--border-color)]/60 mb-6">
+        <h1 className="font-brand font-black text-2xl sm:text-3xl text-[var(--text-main)] tracking-tight">
+          Bill of Costs Builder
+        </h1>
 
-        {/* View Fee Notes Navigation Button */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2.5">
           <button
+            type="button"
             onClick={() => onNavigateToTab ? onNavigateToTab('feenotes') : null}
-            className="btn-navy px-5 py-2.5 text-sm font-semibold flex items-center gap-2 shadow-md cursor-pointer rounded-xl"
+            className="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
           >
-            <FileText className="w-4 h-4" /> View Fee Notes
+            <FileText className="w-3.5 h-3.5" />
+            <span>View Fee Notes</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigateToTab ? onNavigateToTab('company_profile') : null}
+            className="px-4 py-2 text-xs font-semibold rounded-xl border border-[var(--border-color)] text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
+          >
+            <Scale className="w-3.5 h-3.5" />
+            <span>Change Signage/Stamp</span>
           </button>
         </div>
       </div>
@@ -703,12 +811,13 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
 
             {/* NEW: Court & Parties Information Card */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs border-b border-[var(--border-color)] pb-4 mb-4">
-              <div className="sm:col-span-2 font-semibold text-[var(--text-main)] mb-1">1. Court & Matter Information</div>
+              <div className="sm:col-span-2 font-bold text-sm text-[var(--text-main)] mb-2 uppercase tracking-wide">1. Court & Matter Information</div>
               <div className="sm:col-span-2">
                 <label className="block text-[var(--text-muted)] mb-1.5 font-semibold">Forum / Jurisdiction (e.g. Republic of Kenya, Arbitration Act)</label>
                 <textarea
-                  value={forumName}
+                  value={forumName.replace(/\\n/g, '\n')}
                   onChange={(e) => setForumName(e.target.value)}
+                  rows={2}
                   className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2.5 text-[var(--text-main)] font-sans focus:outline-none focus:border-[var(--text-main)] min-h-[60px]"
                 />
               </div>
@@ -717,6 +826,7 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
                 <textarea
                   value={matterTitle}
                   onChange={(e) => setMatterTitle(e.target.value)}
+                  rows={2}
                   className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2.5 text-[var(--text-main)] font-sans focus:outline-none focus:border-[var(--text-main)] min-h-[60px]"
                 />
               </div>
@@ -750,7 +860,7 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs border-b border-[var(--border-color)] pb-4 mb-4">
-              <div className="sm:col-span-2 font-semibold text-[var(--text-main)] mb-1">2. Document Reference & Dates</div>
+              <div className="sm:col-span-2 font-bold text-sm text-[var(--text-main)] mb-2 uppercase tracking-wide">2. Document Reference & Dates</div>
               <div className="sm:col-span-2">
                 <label className="block text-[var(--text-muted)] mb-1.5 font-semibold">Billed To (Client / Company) - <i>Optional if same as Claimant</i></label>
                 <input
@@ -781,7 +891,7 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div className="sm:col-span-2 font-semibold text-[var(--text-main)] mb-1">3. Calculation Parameters</div>
+              <div className="sm:col-span-2 font-bold text-sm text-[var(--text-main)] mb-2 uppercase tracking-wide">3. Calculation Parameters</div>
               <div className="sm:col-span-2">
                 <label className="block text-[var(--text-muted)] mb-1.5 font-semibold">
                   Advocates Remuneration Schedule Picker
@@ -789,16 +899,16 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
                 <select
                   value={courtSchedule}
                   onChange={(e) => setCourtSchedule(e.target.value)}
-                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2.5 text-[var(--text-main)] font-sans focus:outline-none focus:border-[var(--text-main)] transition-colors"
+                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2.5 text-[var(--text-main)] font-sans font-semibold focus:outline-none focus:border-[var(--text-main)] transition-colors cursor-pointer"
                 >
-                  <option value="">Please pick a schedule...</option>
+                  <option value="">Pick a schedule</option>
+                  <option value="schedule_6_high_court">Schedule 6 — High Court, Court of Appeal, ELC & ELRC Litigation</option>
+                  <option value="schedule_7_arbitration">Schedule 7 — Arbitral Proceedings & Commercial Arbitration</option>
+                  <option value="schedule_5_magistrate">Schedule 5 — Subordinate / Magistrate's Court Litigation</option>
                   <option value="schedule_1_conveyancing">Schedule 1 — Conveyancing (Sales, Purchases & Leases)</option>
                   <option value="schedule_2_securities">Schedule 2 — Debentures, Mortgages & Security Charges</option>
                   <option value="schedule_3_company">Schedule 3 — Commercial Agreements & Company Incorporation</option>
                   <option value="schedule_4_ip">Schedule 4 — Intellectual Property (Trademarks & Patents)</option>
-                  <option value="schedule_5_magistrate">Schedule 5 — Subordinate / Magistrate's Court Litigation</option>
-                  <option value="schedule_6_high_court">Schedule 6 — High Court, Court of Appeal, ELC & ELRC Litigation</option>
-                  <option value="schedule_7_arbitration">Schedule 7 — Arbitral Proceedings & Commercial Arbitration</option>
                   <option value="schedule_8_general">Schedule 8 — General & Non-Contentious Legal Business</option>
                 </select>
               </div>
@@ -817,8 +927,6 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
                   />
                 </div>
               </div>
-
-              {/* Disbursements removed from here, moved to its own card */}
 
               <div className="sm:col-span-2 space-y-2.5 pt-2 border-t border-[var(--border-color)]">
                 <label className="flex items-center gap-2.5 text-[var(--text-main)] cursor-pointer select-none">
@@ -846,12 +954,17 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
 
           {/* Itemized Work & Attendances Card (Smart Ledger) */}
           <div className="vercel-card p-6 space-y-4 relative">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border-color)] pb-3">
               <div>
-                <h3 className="font-brand font-bold text-xs text-[var(--text-main)] uppercase tracking-wider">
-                  Itemized Work & Attendances
-                </h3>
-                <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-brand font-bold text-xs text-[var(--text-main)] uppercase tracking-wider">
+                    Itemized Work & Attendances
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                    {items.length} {items.length === 1 ? 'item' : 'items'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-[var(--text-muted)] mt-0.5 font-sans">
                   Statutory Folio Charges & Attendances (LN 64/1962 ed. 2022)
                 </p>
               </div>
@@ -859,161 +972,279 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
               {/* Standard Statutory Fees Quick Dropdown */}
               <div className="relative group">
                 <button
-                  className="btn-outline px-3.5 py-1.5 text-xs font-semibold flex items-center gap-1.5"
+                  type="button"
+                  className="btn-outline px-3.5 py-1.5 text-xs font-semibold flex items-center gap-1.5 cursor-pointer rounded-xl"
                 >
                   <Plus className="w-3.5 h-3.5" /> Standard Statutory Fees
                 </button>
-                <div className="absolute right-0 mt-1 w-64 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all z-10 max-h-60 overflow-y-auto">
+                <div className="absolute right-0 mt-1 w-72 bg-white dark:bg-zinc-900 border border-[var(--border-color)] rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all z-20 max-h-64 overflow-y-auto p-1">
                   {statutoryFees.length === 0 ? (
-                    <div className="p-3 text-xs text-gray-500 text-center">Not in database. Add them below.</div>
+                    <div className="p-3 text-xs text-slate-400 text-center">No statutory presets in database.</div>
                   ) : (
                     statutoryFees.map(fee => (
                       <button 
                         key={fee.id}
+                        type="button"
                         onClick={() => handleQuickAddStatutory(fee.description, fee.amount)}
-                        className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-zinc-700 flex justify-between border-b border-gray-100 dark:border-zinc-700 last:border-0"
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-lg flex justify-between items-center transition-colors cursor-pointer"
                       >
-                        <span className="font-sans truncate">{fee.description}</span>
-                        <span className="font-brand font-semibold">Kshs {fee.amount.toLocaleString()}</span>
+                        <span className="font-sans truncate text-slate-800 dark:text-zinc-200">{fee.description}</span>
+                        <span className="font-mono font-bold text-blue-600 shrink-0 ml-2">KES {fee.amount.toLocaleString()}</span>
                       </button>
                     ))
                   )}
-                  <div className="p-2 border-t border-gray-200 dark:border-zinc-700">
-                    <button onClick={() => setShowStatutoryForm(!showStatutoryForm)} className="text-xs text-blue-500 font-semibold w-full text-center py-1 hover:underline">
-                      + Add to Database
+                  <div className="p-1 border-t border-[var(--border-color)] mt-1">
+                    <button 
+                      type="button"
+                      onClick={() => setShowStatutoryForm(!showStatutoryForm)} 
+                      className="text-xs text-blue-600 hover:text-blue-700 font-semibold w-full text-center py-1.5 cursor-pointer"
+                    >
+                      + Add New Preset to Database
                     </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Form to add to DB */}
-            {showStatutoryForm && (
-              <form onSubmit={handleAddStatutory} className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 flex gap-2 items-center">
-                <input required type="text" placeholder="Description (e.g. Demand Letter)" value={newStatDesc} onChange={e => setNewStatDesc(e.target.value)} className="flex-1 text-xs px-2 py-1.5 rounded border focus:outline-none bg-white dark:bg-zinc-800 border-gray-300 dark:border-zinc-600"/>
-                <input required type="number" placeholder="Value (Kshs)" value={newStatVal} onChange={e => setNewStatVal(e.target.value === '' ? '' : Number(e.target.value))} className="w-24 text-xs px-2 py-1.5 rounded border focus:outline-none bg-white dark:bg-zinc-800 border-gray-300 dark:border-zinc-600 font-mono"/>
-                <button type="submit" className="bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-blue-700">Save to DB</button>
-              </form>
-            )}
-
-            {/* Active Ledger Items List */}
-            <div className="space-y-2 text-xs pt-2">
-              {items.map((it, idx) => (
-                <div key={idx} className="flex items-center gap-2 bg-[var(--bg-subtle)] p-2 rounded-lg border border-[var(--border-color)] animate-fade-in group">
-                  <input
-                    type="text"
-                    value={it.description}
-                    onChange={(e) => updateItemRow(idx, 'description', e.target.value)}
-                    className="flex-1 bg-transparent border-none text-[var(--text-main)] focus:outline-none px-2 font-sans text-[13px]"
-                  />
-                  <div className="relative">
-                    <span className="absolute left-2 top-1.5 text-gray-400 font-brand">Kshs</span>
-                    <input
-                      type="number"
-                      value={it.unitRate}
-                      onChange={(e) => updateItemRow(idx, 'unitRate', parseFloat(e.target.value) || 0)}
-                      className="w-28 bg-transparent border-none text-[var(--text-main)] font-brand font-semibold text-right focus:outline-none px-2 py-1"
-                    />
-                  </div>
-                  <button onClick={() => removeItemRow(idx)} className="p-1 text-[var(--text-muted)] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+            {/* Quick Statutory Preset Chips */}
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider mr-1">Quick Add:</span>
+              {[
+                { label: 'Demand Letter', amount: 1500 },
+                { label: 'Drawing Plaint / Claim', amount: 5000 },
+                { label: 'Court Appearance', amount: 10000 },
+                { label: 'Perusing Pleadings (Folio)', amount: 2500 },
+                { label: 'Drawing Bill of Costs', amount: 3500 },
+              ].map((preset, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleQuickAddStatutory(preset.label, preset.amount)}
+                  className="px-2.5 py-1 rounded-lg bg-[var(--bg-subtle)] hover:bg-blue-50 dark:hover:bg-blue-950/40 text-slate-700 dark:text-zinc-300 hover:text-blue-600 border border-[var(--border-color)] transition-colors cursor-pointer font-medium"
+                >
+                  + {preset.label} <span className="text-slate-400 font-mono">({preset.amount.toLocaleString()})</span>
+                </button>
               ))}
             </div>
 
-            {/* Smart Ledger Entry Row */}
-            <form onSubmit={handleCreateNewItem} className="flex items-center gap-2 p-2 border border-[var(--border-color)] rounded-lg bg-white dark:bg-zinc-900 shadow-sm focus-within:ring-2 focus-within:ring-black dark:focus-within:ring-white transition-all">
+            {/* Form to add preset to DB */}
+            {showStatutoryForm && (
+              <form onSubmit={handleAddStatutory} className="p-3 bg-blue-50/70 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-900/50 flex flex-col sm:flex-row gap-2 items-center">
+                <input required type="text" placeholder="Preset Description (e.g. Notice to Produce)" value={newStatDesc} onChange={e => setNewStatDesc(e.target.value)} className="w-full sm:flex-1 text-xs px-3 py-2 rounded-lg border border-[var(--border-color)] bg-white dark:bg-zinc-800 text-slate-900 dark:text-white focus:outline-none"/>
+                <input required type="number" placeholder="Value (KES)" value={newStatVal} onChange={e => setNewStatVal(e.target.value === '' ? '' : Number(e.target.value))} className="w-full sm:w-32 text-xs px-3 py-2 rounded-lg border border-[var(--border-color)] bg-white dark:bg-zinc-800 text-slate-900 dark:text-white focus:outline-none font-mono"/>
+                <button type="submit" className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-semibold hover:bg-blue-700 cursor-pointer shrink-0">Save Preset</button>
+              </form>
+            )}
+
+            {/* Active Ledger Items Table */}
+            {items.length === 0 ? (
+              <div className="text-center py-6 px-4 bg-[var(--bg-subtle)] rounded-xl border border-dashed border-[var(--border-color)] text-xs text-slate-400 font-sans">
+                No custom itemized work added yet. Type below or use quick statutory chips above.
+              </div>
+            ) : (
+              <div className="border border-[var(--border-color)] rounded-xl overflow-hidden bg-[var(--bg-main)]">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[var(--bg-subtle)] text-[10px] font-mono uppercase text-slate-400 border-b border-[var(--border-color)]">
+                    <tr>
+                      <th className="py-2 px-3 w-12 text-center">#</th>
+                      <th className="py-2 px-3">Particulars of Work Rendered</th>
+                      <th className="py-2 px-3 text-right w-36">Statutory Fee (KES)</th>
+                      <th className="py-2 px-3 text-right w-16">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border-color)]">
+                    {items.map((it, idx) => (
+                      <tr key={idx} className="hover:bg-[var(--bg-subtle)]/40 transition-colors group">
+                        <td className="py-2 px-3 font-mono font-bold text-slate-400 text-center">
+                          {idx + 1}
+                        </td>
+                        <td className="py-2 px-3">
+                          <input
+                            type="text"
+                            value={it.description}
+                            onChange={(e) => updateItemRow(idx, 'description', e.target.value)}
+                            className="w-full bg-transparent border-none text-slate-900 dark:text-white focus:outline-none font-sans text-xs"
+                          />
+                        </td>
+                        <td className="py-2 px-3 text-right">
+                          <input
+                            type="number"
+                            value={it.unitRate}
+                            onChange={(e) => updateItemRow(idx, 'unitRate', parseFloat(e.target.value) || 0)}
+                            className="w-full bg-transparent border-none text-slate-900 dark:text-white font-mono font-bold text-right focus:outline-none text-xs"
+                          />
+                        </td>
+                        <td className="py-2 px-3 text-right">
+                          <button 
+                            type="button"
+                            onClick={() => removeItemRow(idx)} 
+                            className="p-1 text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
+                            title="Remove work item"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Smart Ledger Entry Form */}
+            <form onSubmit={handleCreateNewItem} className="flex flex-col sm:flex-row items-center gap-2 p-2.5 border border-[var(--border-color)] rounded-xl bg-[var(--bg-subtle)] shadow-xs">
               <input
                 type="text"
-                placeholder="Describe the work done..."
+                placeholder="Describe the work done (e.g. Attendance at High Court Commercial Division)..."
                 value={newItemDesc}
                 onChange={e => setNewItemDesc(e.target.value)}
-                className="flex-1 bg-transparent border-none text-[var(--text-main)] focus:outline-none px-2 font-sans text-[13px]"
+                className="w-full sm:flex-1 bg-white dark:bg-zinc-800 border border-[var(--border-color)] rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none font-sans"
               />
-              <div className="relative border-l border-[var(--border-color)] pl-2">
-                <span className="absolute left-4 top-1.5 text-gray-400 font-brand text-xs">Kshs</span>
+              <div className="relative w-full sm:w-36">
+                <span className="absolute left-2.5 top-2 text-[10px] font-mono font-bold text-slate-400">KES</span>
                 <input
                   type="number"
                   placeholder="Amount"
                   value={newItemVal}
                   onChange={e => setNewItemVal(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-28 bg-transparent border-none text-[var(--text-main)] font-brand font-semibold text-right focus:outline-none px-2 py-1 placeholder:font-sans placeholder:font-normal placeholder:text-xs"
+                  className="w-full bg-white dark:bg-zinc-800 border border-[var(--border-color)] rounded-lg pl-10 pr-3 py-2 text-xs text-slate-900 dark:text-white font-mono font-bold text-right focus:outline-none"
                 />
               </div>
-              <button type="submit" className="bg-black dark:bg-white text-white dark:text-black p-1.5 rounded hover:opacity-80 transition-opacity">
-                <Plus className="w-4 h-4" />
+              <button 
+                type="submit" 
+                className="w-full sm:w-auto bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-black dark:hover:bg-slate-100 transition-colors cursor-pointer shrink-0 shadow-xs"
+              >
+                <Plus className="w-4 h-4" /> Add Item
               </button>
             </form>
           </div>
 
           {/* Extra Expenses (Disbursements) Card */}
           <div className="vercel-card p-6 space-y-4 relative">
-            <h3 className="font-brand font-bold text-xs text-[var(--text-main)] uppercase tracking-wider">
-              Third-Party & Extra Expenses
-            </h3>
-            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
-              Add out-of-pocket expenses paid on behalf of the client (Filing fees, Arbitrator, Courier, etc.)
-            </p>
-
-            {/* Active Expenses List */}
-            <div className="space-y-2 text-xs pt-2">
-              {extraExpenses.map((exp, idx) => (
-                <div key={`exp-${idx}`} className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/10 p-2 rounded-lg border border-emerald-100 dark:border-emerald-800/30 animate-fade-in group">
-                  <input
-                    type="text"
-                    value={exp.description}
-                    onChange={(e) => updateExpRow(idx, 'description', e.target.value)}
-                    className="flex-1 bg-transparent border-none text-emerald-900 dark:text-emerald-100 focus:outline-none px-2 font-sans text-[13px]"
-                  />
-                  <div className="relative">
-                    <span className="absolute left-2 top-1.5 text-emerald-400 font-brand">Kshs</span>
-                    <input
-                      type="number"
-                      value={exp.unitRate}
-                      onChange={(e) => updateExpRow(idx, 'unitRate', parseFloat(e.target.value) || 0)}
-                      className="w-28 bg-transparent border-none text-emerald-900 dark:text-emerald-100 font-brand font-semibold text-right focus:outline-none px-2 py-1"
-                    />
-                  </div>
-                  <button onClick={() => removeExpRow(idx)} className="p-1 text-emerald-400 hover:text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border-color)] pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-brand font-bold text-xs text-[var(--text-main)] uppercase tracking-wider">
+                    Third-Party & Extra Expenses (Disbursements)
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    {extraExpenses.length} {extraExpenses.length === 1 ? 'expense' : 'expenses'}
+                  </span>
                 </div>
+                <p className="text-[11px] text-[var(--text-muted)] mt-0.5 font-sans">
+                  Add out-of-pocket expenses paid on behalf of the client (Filing fees, Arbitrator, Courier, etc.)
+                </p>
+              </div>
+
+              {extraExpenses.length > 0 && (
+                <div className="font-mono text-xs text-emerald-600 dark:text-emerald-400 font-bold">
+                  Total: KES {extraExpenses.reduce((sum, e) => sum + e.unitRate, 0).toLocaleString()}
+                </div>
+              )}
+            </div>
+
+            {/* Quick Disbursement Chips */}
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider mr-1">Disbursements:</span>
+              {[
+                { label: 'Court Filing Fees', amount: 5000 },
+                { label: 'Process Server Service', amount: 3500 },
+                { label: 'Arbitrator / Tribunal Fees', amount: 50000 },
+                { label: 'Courier & Special Postage', amount: 1500 },
+                { label: 'Certified Copies of Ruling', amount: 2000 },
+              ].map((preset, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setExtraExpenses([...extraExpenses, { description: preset.label, unitRate: preset.amount }])}
+                  className="px-2.5 py-1 rounded-lg bg-[var(--bg-subtle)] hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-slate-700 dark:text-zinc-300 hover:text-emerald-600 border border-[var(--border-color)] transition-colors cursor-pointer font-medium"
+                >
+                  + {preset.label} <span className="text-slate-400 font-mono">({preset.amount.toLocaleString()})</span>
+                </button>
               ))}
             </div>
 
+            {/* Active Expenses List */}
+            {extraExpenses.length === 0 ? (
+              <div className="text-center py-6 px-4 bg-[var(--bg-subtle)] rounded-xl border border-dashed border-[var(--border-color)] text-xs text-slate-400 font-sans">
+                No third-party disbursements added yet.
+              </div>
+            ) : (
+              <div className="border border-[var(--border-color)] rounded-xl overflow-hidden bg-[var(--bg-main)]">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[var(--bg-subtle)] text-[10px] font-mono uppercase text-slate-400 border-b border-[var(--border-color)]">
+                    <tr>
+                      <th className="py-2 px-3 w-12 text-center">#</th>
+                      <th className="py-2 px-3">Expense Particulars</th>
+                      <th className="py-2 px-3 text-right w-36">Amount Paid (KES)</th>
+                      <th className="py-2 px-3 text-right w-16">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border-color)]">
+                    {extraExpenses.map((exp, idx) => (
+                      <tr key={`exp-${idx}`} className="hover:bg-[var(--bg-subtle)]/40 transition-colors group">
+                        <td className="py-2 px-3 font-mono font-bold text-slate-400 text-center">
+                          {idx + 1}
+                        </td>
+                        <td className="py-2 px-3">
+                          <input
+                            type="text"
+                            value={exp.description}
+                            onChange={(e) => updateExpRow(idx, 'description', e.target.value)}
+                            className="w-full bg-transparent border-none text-slate-900 dark:text-white focus:outline-none font-sans text-xs"
+                          />
+                        </td>
+                        <td className="py-2 px-3 text-right">
+                          <input
+                            type="number"
+                            value={exp.unitRate}
+                            onChange={(e) => updateExpRow(idx, 'unitRate', parseFloat(e.target.value) || 0)}
+                            className="w-full bg-transparent border-none text-emerald-600 dark:text-emerald-400 font-mono font-bold text-right focus:outline-none text-xs"
+                          />
+                        </td>
+                        <td className="py-2 px-3 text-right">
+                          <button 
+                            type="button"
+                            onClick={() => removeExpRow(idx)} 
+                            className="p-1 text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
+                            title="Remove expense"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
             {/* Smart Expense Entry Row */}
-            <form onSubmit={handleCreateNewExp} className="flex items-center gap-2 p-2 border border-emerald-200 dark:border-emerald-800 rounded-lg bg-white dark:bg-zinc-900 shadow-sm focus-within:ring-2 focus-within:ring-emerald-500 transition-all">
+            <form onSubmit={handleCreateNewExp} className="flex flex-col sm:flex-row items-center gap-2 p-2.5 border border-emerald-200 dark:border-emerald-900/40 rounded-xl bg-emerald-50/30 dark:bg-emerald-950/20 shadow-xs">
               <input
                 type="text"
-                placeholder="Expense description..."
+                placeholder="Expense description (e.g. Court filing receipt #9048)..."
                 value={newExpDesc}
                 onChange={e => setNewExpDesc(e.target.value)}
-                className="flex-1 bg-transparent border-none text-[var(--text-main)] focus:outline-none px-2 font-sans text-[13px]"
+                className="w-full sm:flex-1 bg-white dark:bg-zinc-800 border border-[var(--border-color)] rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none font-sans"
               />
-              <div className="relative border-l border-emerald-200 dark:border-emerald-800 pl-2">
-                <span className="absolute left-4 top-1.5 text-emerald-400 font-brand text-xs">Kshs</span>
+              <div className="relative w-full sm:w-36">
+                <span className="absolute left-2.5 top-2 text-[10px] font-mono font-bold text-emerald-600">KES</span>
                 <input
                   type="number"
                   placeholder="Amount"
                   value={newExpVal}
                   onChange={e => setNewExpVal(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-28 bg-transparent border-none text-[var(--text-main)] font-brand font-semibold text-right focus:outline-none px-2 py-1 placeholder:font-sans placeholder:font-normal placeholder:text-xs"
+                  className="w-full bg-white dark:bg-zinc-800 border border-[var(--border-color)] rounded-lg pl-10 pr-3 py-2 text-xs text-slate-900 dark:text-white font-mono font-bold text-right focus:outline-none"
                 />
               </div>
-              <button type="submit" className="bg-emerald-500 text-white p-1.5 rounded hover:bg-emerald-600 transition-colors">
-                <Plus className="w-4 h-4" />
+              <button 
+                type="submit" 
+                className="w-full sm:w-auto bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-emerald-700 transition-colors cursor-pointer shrink-0 shadow-xs"
+              >
+                <Plus className="w-4 h-4" /> Add Expense
               </button>
             </form>
-            
-            {extraExpenses.length > 0 && (
-              <div className="mt-4 pt-3 border-t border-gray-100 dark:border-zinc-800 flex justify-between items-center text-xs">
-                <span className="font-semibold text-gray-500 uppercase font-sans">Total Extra Expenses</span>
-                <span className="font-brand font-bold text-emerald-600 dark:text-emerald-400 text-sm">
-                  Kshs {extraExpenses.reduce((sum, e) => sum + e.unitRate, 0).toLocaleString()}
-                </span>
-              </div>
-            )}
           </div>
         </div>
 
@@ -1217,7 +1448,7 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
       )}
 
       {/* Interactive PDF Viewer Modal (Full Screen & Responsive) */}
-      {showPdfModal && (result || (initialNote?.excelData && initialNote.excelData.length > 0)) && (
+      {showPdfModal && (
         <div className="fixed inset-0 bg-slate-200/90 backdrop-blur-md z-[100] flex flex-col items-center overflow-y-auto print:bg-white print:block print:static print:inset-auto">
           <style>{`
             @media print {
