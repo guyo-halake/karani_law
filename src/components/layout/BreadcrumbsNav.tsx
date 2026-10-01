@@ -54,7 +54,10 @@ export const TAB_CONFIG: Record<string, { label: string; icon: React.FC<{ classN
   admin_notifications: { label: 'Notifications Dispatch', icon: Bell },
   admin_ticketing: { label: 'Helpdesk Ticketing', icon: HelpCircle },
   admin_database: { label: 'Supabase DB Health', icon: Database },
-  admin_server: { label: 'Server & Infra Control', icon: Power }
+  admin_server: { label: 'Server & Infra Control', icon: Power },
+  
+  // MANAGING PARTNER
+  managing_hub: { label: 'Executive Hub', icon: ShieldCheck }
 };
 
 export const BreadcrumbsNav: React.FC<BreadcrumbsNavProps> = ({
