@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  EXACT_CLIENTS,
   ExactClientRecord
 } from '../../services/supabase';
+import { createClient, deleteClient, fetchClients } from '../../services/data';
+import { SystemUser } from '../../services/supabase';
+import { sendEmail } from '../../services/email';
+import { hasPermission } from '../../services/rbac';
 import {
   UserPlus,
   Search,
@@ -17,19 +20,17 @@ import {
   Send
 } from 'lucide-react';
 
-export const ClientsView: React.FC = () => {
-  const [clientsList, setClientsList] = useState<ExactClientRecord[]>(() => {
-    try {
-      const saved = localStorage.getItem('EXACT_CLIENTS_LIST');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {}
-    return EXACT_CLIENTS;
-  });
+interface ClientsViewProps {
+  currentUser?: SystemUser | null;
+}
 
+export const ClientsView: React.FC<ClientsViewProps> = ({ currentUser }) => {
+  const [clientsList, setClientsList] = useState<ExactClientRecord[]>([]);
+  const [errorMessage, setErrorMessage] = useState('');
   const [search, setSearch] = useState('');
+  const [, setPermissionTick] = useState(0);
+
+  const can = (code: string) => hasPermission(currentUser, code);
   
   // Registration Modal State
   const [showNewClientModal, setShowNewClientModal] = useState(false);
@@ -47,12 +48,29 @@ export const ClientsView: React.FC = () => {
   const [emailBody, setEmailBody] = useState('');
   const [isSending, setIsSending] = useState(false);
 
-  const persistClients = (list: ExactClientRecord[]) => {
-    setClientsList(list);
-    try {
-      localStorage.setItem('EXACT_CLIENTS_LIST', JSON.stringify(list));
-    } catch (e) {}
-  };
+  useEffect(() => {
+    const handlePermissions = () => {
+      setPermissionTick(t => t + 1);
+    };
+    window.addEventListener('permissionsUpdated', handlePermissions);
+    window.addEventListener('storage', handlePermissions);
+    return () => {
+      window.removeEventListener('permissionsUpdated', handlePermissions);
+      window.removeEventListener('storage', handlePermissions);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser?.firmId) return;
+    const loadClients = () => fetchClients(currentUser.firmId!).then(setClientsList).catch(error => setErrorMessage(error.message || 'Unable to load clients.'));
+    void loadClients();
+    const handleRealtime = (event: Event) => {
+      const detail = (event as CustomEvent<{ table?: string }>).detail;
+      if (detail?.table === 'clients') void loadClients();
+    };
+    window.addEventListener('databaseRealtimeUpdate', handleRealtime);
+    return () => window.removeEventListener('databaseRealtimeUpdate', handleRealtime);
+  }, [currentUser?.firmId]);
 
   const filtered = clientsList.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -62,38 +80,42 @@ export const ClientsView: React.FC = () => {
     (c.category && c.category.toLowerCase().includes(search.toLowerCase()))
   );
 
-  const handleRegisterClient = (e: React.FormEvent) => {
+  const handleRegisterClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
 
-    const newRecord: ExactClientRecord = {
-      id: 'c-' + Date.now(),
-      name: newName.trim(),
-      company: newCompany.trim() || newName.trim(),
-      category: newCategory,
-      email: newEmail.trim() || 'client@firm.co.ke',
-      phone: newPhonePrimary.trim() || '+254 700 000 000',
-      phonePrimary: newPhonePrimary.trim() || '+254 700 000 000',
-      phoneSecondary: newPhoneSecondary.trim() || '+254 20 000 0000',
-      matters: 1,
-      mattersList: ['Commercial Case Filing']
-    };
-
-    const updated = [newRecord, ...clientsList];
-    persistClients(updated);
+    if (!currentUser?.firmId) return;
+    try {
+      const newRecord = await createClient(currentUser.firmId, {
+        name: newName.trim(),
+        company: newCompany.trim() || newName.trim(),
+        category: newCategory as ExactClientRecord['category'],
+        email: newEmail.trim(),
+        phonePrimary: newPhonePrimary.trim(),
+        phoneSecondary: newPhoneSecondary.trim(),
+      });
+      setClientsList(prev => [newRecord, ...prev]);
+    } catch (error: any) {
+      setErrorMessage(error.message || 'Unable to create client.');
+      return;
+    }
     setShowNewClientModal(false);
     setNewName('');
     setNewCompany('');
     setNewEmail('');
     setNewPhonePrimary('');
     setNewPhoneSecondary('');
-    alert(`✓ Client "${newRecord.name}" registered successfully!`);
   };
 
-  const handleDeleteClient = (id: string, name: string) => {
+  const handleDeleteClient = async (id: string, name: string) => {
     if (confirm(`Are you sure you want to delete client "${name}" from the database?`)) {
-      const updated = clientsList.filter(c => c.id !== id);
-      persistClients(updated);
+      if (!currentUser?.firmId) return;
+      try {
+        await deleteClient(currentUser.firmId, id);
+        setClientsList(prev => prev.filter(c => c.id !== id));
+      } catch (error: any) {
+        setErrorMessage(error.message || 'Unable to delete client.');
+      }
     }
   };
 
@@ -104,14 +126,23 @@ export const ClientsView: React.FC = () => {
     setShowEmailModal(true);
   };
 
-  const handleSendEmail = (e: React.FormEvent) => {
+  const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!emailClient?.email) return;
     setIsSending(true);
-    setTimeout(() => {
+    try {
+      await sendEmail({
+        to: [emailClient.email],
+        subject: emailSubject,
+        body: emailBody,
+        category: 'firm_to_client',
+      });
       setIsSending(false);
       setShowEmailModal(false);
-      alert(`✓ Email sent successfully to ${emailClient?.email}!`);
-    }, 800);
+    } catch (error: any) {
+      setErrorMessage(error.message || 'Unable to send email.');
+      setIsSending(false);
+    }
   };
 
   const handleWhatsApp = (phone: string, name: string) => {
@@ -133,12 +164,14 @@ export const ClientsView: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => setShowNewClientModal(true)}
-          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-colors shadow-sm shadow-blue-500/20 cursor-pointer shrink-0"
-        >
-          <UserPlus className="w-4 h-4" /> Add New Client
-        </button>
+        {can('clients.create') && (
+          <button
+            onClick={() => setShowNewClientModal(true)}
+            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-colors shadow-sm shadow-blue-500/20 cursor-pointer shrink-0"
+          >
+            <UserPlus className="w-4 h-4" /> Add New Client
+          </button>
+        )}
       </div>
 
       {/* Search Input Bar */}
@@ -223,34 +256,40 @@ export const ClientsView: React.FC = () => {
                   </a>
 
                   {/* Email Action */}
-                  <button
-                    onClick={() => handleOpenEmail(c)}
-                    className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
-                    title={`Email ${c.name}`}
-                  >
-                    <Mail className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Email</span>
-                  </button>
+                  {can('clients.email') && (
+                    <button
+                      onClick={() => handleOpenEmail(c)}
+                      className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                      title={`Email ${c.name}`}
+                    >
+                      <Mail className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Email</span>
+                    </button>
+                  )}
 
                   {/* WhatsApp Action */}
-                  <button
-                    onClick={() => handleWhatsApp(c.phonePrimary, c.name)}
-                    className="p-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer border border-emerald-500/20"
-                    title="Send WhatsApp Message"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5" />
-                    <span>WhatsApp</span>
-                  </button>
+                  {can('clients.whatsapp') && (
+                    <button
+                      onClick={() => handleWhatsApp(c.phonePrimary, c.name)}
+                      className="p-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer border border-emerald-500/20"
+                      title="Send WhatsApp Message"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span>WhatsApp</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Delete Action */}
-                <button
-                  onClick={() => handleDeleteClient(c.id, c.name)}
-                  className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors cursor-pointer"
-                  title="Delete Client"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {can('clients.delete') && (
+                  <button
+                    onClick={() => handleDeleteClient(c.id, c.name)}
+                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors cursor-pointer"
+                    title="Delete Client"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
           );
