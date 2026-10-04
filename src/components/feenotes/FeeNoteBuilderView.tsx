@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Calculator, Scale, Plus, Trash2, Printer, FileText, ListFilter, X, Check, 
   MessageCircle, Mail, Save, Download, Share2, Send, ChevronRight, 
-  CheckCircle2, AlertCircle, Loader2 
+  CheckCircle2, AlertCircle, Loader2, Sparkles 
 } from 'lucide-react';
 import { calculateLegalBill, BillCalculationResult } from '../../services/api';
 import { EXACT_FIRM_INFO, EXACT_FEE_NOTES, supabase, ExactFeeNoteRecord, SystemUser, persistFeeNotes, getFeeNotes } from '../../services/supabase';
@@ -121,6 +121,45 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
       setShowPdfModal(false);
     }
   }, [initialNote, isPreview]);
+
+  // Keyboard Shortcuts Engine for High-Volume Advocates
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isCmdOrCtrl = e.ctrlKey || e.metaKey;
+
+      if (isCmdOrCtrl && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        setClaimValue('');
+        setCourtSchedule('schedule_6_high_court');
+        setClientName('');
+        setForumName('REPUBLIC OF KENYA\nIN THE HIGH COURT OF KENYA');
+        setMatterTitle('');
+        setClaimantName('');
+        setRespondentName('');
+        setJudgeName('');
+        const yr = new Date().getFullYear().toString().slice(-2);
+        const mo = String(new Date().getMonth() + 1).padStart(2, '0');
+        const docNum = String(Math.floor(Math.random() * 900) + 100);
+        setDocumentRef(`FN${yr}${mo}${docNum}`);
+        setItems([]);
+        setExtraExpenses([]);
+        triggerToast('success', 'Keyboard Shortcut (Ctrl+N): Reset to new Fee Note draft.');
+      } else if (isCmdOrCtrl && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSaveDraft();
+      } else if (isCmdOrCtrl && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        handlePrintPDF();
+      } else if (e.key === 'Escape') {
+        setShowPdfModal(false);
+        setShowStatutoryForm(false);
+        setShareMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [items, extraExpenses, claimValue, courtSchedule, clientName, forumName, matterTitle, claimantName, respondentName, judgeName, documentRef]);
 
   // Database Statutory Fees
   const [statutoryFees, setStatutoryFees] = useState<Array<{id: string, description: string, amount: number}>>([]);
@@ -790,11 +829,28 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
         </div>
       )}
 
-      {/* Minimalist Modern Title Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--border-color)]/60 mb-6">
-        <h1 className="font-brand font-black text-2xl sm:text-3xl text-[var(--text-main)] tracking-tight">
-          Bill of Costs Builder
-        </h1>
+      {/* Minimalist Modern Title Header with Keyboard Shortcuts Bar */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[var(--border-color)]/60 mb-6">
+        <div>
+          <h1 className="font-brand font-black text-2xl sm:text-3xl text-[var(--text-main)] tracking-tight">
+            Bill of Costs Studio
+          </h1>
+          <p className="text-xs text-[var(--text-muted)] font-mono mt-0.5">
+            50/50 Split-Screen Live Builder & Vector PDF Preview Engine
+          </p>
+        </div>
+
+        {/* Keyboard Shortcuts Legend Bar */}
+        <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3 py-1.5 shadow-xs">
+          <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Shortcuts:</span>
+          <span className="px-1.5 py-0.5 bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded font-bold">Ctrl+N</span> <span className="text-slate-500">New</span>
+          <span className="text-slate-300 dark:text-zinc-700">•</span>
+          <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded font-bold">Ctrl+S</span> <span className="text-slate-500">Save</span>
+          <span className="text-slate-300 dark:text-zinc-700">•</span>
+          <span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-700 dark:text-blue-400 rounded font-bold">Ctrl+P</span> <span className="text-slate-500">Print</span>
+          <span className="text-slate-300 dark:text-zinc-700">•</span>
+          <span className="px-1.5 py-0.5 bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded font-bold">Esc</span> <span className="text-slate-500">Close</span>
+        </div>
 
         <div className="flex items-center gap-2.5">
           <button
@@ -816,16 +872,18 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Scale Parameters & Itemized Work Container */}
-        <div className="lg:col-span-2 space-y-6">
+      {/* 50/50 SPLIT-SCREEN STUDIO GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        
+        {/* LEFT COLUMN (50%): Form Inputs & Itemized Line Builder */}
+        <div className="space-y-6">
           {/* Scale Parameters Card */}
           <div className="vercel-card p-6 space-y-4">
             <h3 className="font-brand font-bold text-xs text-[var(--text-main)] uppercase tracking-wider flex items-center gap-2">
               <Scale className="w-4 h-4 text-[var(--text-main)]" /> Prescribed Scale & Parameters
             </h3>
 
-            {/* NEW: Court & Parties Information Card */}
+            {/* Court & Parties Information */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs border-b border-[var(--border-color)] pb-4 mb-4">
               <div className="sm:col-span-2 font-bold text-sm text-[var(--text-main)] mb-2 uppercase tracking-wide">1. Court & Matter Information</div>
               <div className="sm:col-span-2">
@@ -968,7 +1026,7 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
             </div>
           </div>
 
-          {/* Itemized Work & Attendances Card (Smart Ledger) */}
+          {/* Itemized Work & Attendances Card */}
           <div className="vercel-card p-6 space-y-4 relative">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border-color)] pb-3">
               <div>
@@ -1043,7 +1101,6 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
               ))}
             </div>
 
-            {/* Form to add preset to DB */}
             {showStatutoryForm && (
               <form onSubmit={handleAddStatutory} className="p-3 bg-blue-50/70 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-900/50 flex flex-col sm:flex-row gap-2 items-center">
                 <input required type="text" placeholder="Preset Description (e.g. Notice to Produce)" value={newStatDesc} onChange={e => setNewStatDesc(e.target.value)} className="w-full sm:flex-1 text-xs px-3 py-2 rounded-lg border border-[var(--border-color)] bg-white dark:bg-zinc-800 text-slate-900 dark:text-white focus:outline-none"/>
@@ -1107,11 +1164,11 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
               </div>
             )}
 
-            {/* Smart Ledger Entry Form */}
+            {/* Entry Form */}
             <form onSubmit={handleCreateNewItem} className="flex flex-col sm:flex-row items-center gap-2 p-2.5 border border-[var(--border-color)] rounded-xl bg-[var(--bg-subtle)] shadow-xs">
               <input
                 type="text"
-                placeholder="Describe the work done (e.g. Attendance at High Court Commercial Division)..."
+                placeholder="Describe the work done..."
                 value={newItemDesc}
                 onChange={e => setNewItemDesc(e.target.value)}
                 className="w-full sm:flex-1 bg-white dark:bg-zinc-800 border border-[var(--border-color)] rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none font-sans"
@@ -1135,7 +1192,7 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
             </form>
           </div>
 
-          {/* Extra Expenses (Disbursements) Card */}
+          {/* Extra Expenses Card */}
           <div className="vercel-card p-6 space-y-4 relative">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border-color)] pb-3">
               <div>
@@ -1147,9 +1204,6 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
                     {extraExpenses.length} {extraExpenses.length === 1 ? 'expense' : 'expenses'}
                   </span>
                 </div>
-                <p className="text-[11px] text-[var(--text-muted)] mt-0.5 font-sans">
-                  Add out-of-pocket expenses paid on behalf of the client (Filing fees, Arbitrator, Courier, etc.)
-                </p>
               </div>
 
               {extraExpenses.length > 0 && (
@@ -1239,7 +1293,7 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
             <form onSubmit={handleCreateNewExp} className="flex flex-col sm:flex-row items-center gap-2 p-2.5 border border-emerald-200 dark:border-emerald-900/40 rounded-xl bg-emerald-50/30 dark:bg-emerald-950/20 shadow-xs">
               <input
                 type="text"
-                placeholder="Expense description (e.g. Court filing receipt #9048)..."
+                placeholder="Expense description..."
                 value={newExpDesc}
                 onChange={e => setNewExpDesc(e.target.value)}
                 className="w-full sm:flex-1 bg-white dark:bg-zinc-800 border border-[var(--border-color)] rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none font-sans"
@@ -1264,73 +1318,184 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
           </div>
         </div>
 
-        {/* Live Real-Time Side Preview Card (Updates LIVE as Advocate edits) */}
-        <div className="lg:col-span-1">
+        {/* RIGHT COLUMN (50%): Sticky Real-Time Live Vector Document Preview */}
+        <div className="space-y-6 lg:sticky lg:top-6">
           {!courtSchedule ? (
-            <div className="vercel-card p-6 text-center space-y-3">
-              <Calculator className="w-8 h-8 text-[var(--text-muted)] mx-auto opacity-50" />
+            <div className="vercel-card p-8 text-center space-y-3">
+              <Calculator className="w-10 h-10 text-[var(--text-muted)] mx-auto opacity-40" />
               <p className="text-xs text-[var(--text-muted)] font-medium">
-                Please pick an Advocates Remuneration Order Schedule above to begin calculation.
+                Please select an Advocates Remuneration Order Schedule on the left to begin live calculation.
               </p>
             </div>
           ) : result && (
-            <div className="vercel-card p-6 space-y-5 sticky top-20">
-              <div className="border-b border-[var(--border-color)] pb-3">
-                <span className="font-brand font-bold text-xs text-[var(--text-main)] uppercase tracking-wider block">
-                  Live Fee Note Preview
-                </span>
-                <p className="text-[11px] text-[var(--text-muted)] mt-0.5 font-mono">{result.formula}</p>
+            <div className="space-y-6">
+              {/* Financial Breakdown Summary Card */}
+              <div className="vercel-card p-6 space-y-4">
+                <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
+                  <div>
+                    <span className="font-brand font-bold text-xs text-[var(--text-main)] uppercase tracking-wider block">
+                      Live Financial Summary
+                    </span>
+                    <p className="text-[10px] text-[var(--text-muted)] mt-0.5 font-mono">{result.formula}</p>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                    REAL-TIME UPDATED
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                  <div className="p-2.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
+                    <span className="text-[10px] text-[var(--text-muted)] font-sans block">Instruction Fee</span>
+                    <span className="text-[var(--text-main)] font-bold">Kshs {result.instruction_fee.toLocaleString()}</span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
+                    <span className="text-[10px] text-[var(--text-muted)] font-sans block">Getting-Up Fee</span>
+                    <span className="text-[var(--text-main)] font-bold">Kshs {result.getting_up_fee.toLocaleString()}</span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
+                    <span className="text-[10px] text-[var(--text-muted)] font-sans block">Itemized Work ({items.length})</span>
+                    <span className="text-[var(--text-main)] font-bold">Kshs {result.items_total.toLocaleString()}</span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
+                    <span className="text-[10px] text-[var(--text-muted)] font-sans block">VAT (16%)</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">Kshs {result.vat_amount.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)] flex justify-between items-center">
+                  <span className="text-xs text-[var(--text-muted)] font-sans font-medium">Out-of-Pocket Disbursements</span>
+                  <span className="text-xs text-[var(--text-main)] font-mono font-bold">Kshs {result.disbursements.toLocaleString()}</span>
+                </div>
+
+                <div className="pt-2 border-t border-[var(--border-color)] flex justify-between items-end">
+                  <div>
+                    <span className="font-bold text-[10px] text-[var(--text-muted)] uppercase tracking-wider block font-sans">Grand Total Amount Due</span>
+                    <p className="text-2xl font-extrabold text-[var(--text-main)] font-mono tracking-tight mt-0.5">
+                      Kshs {result.grand_total.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+
+                  {/* Actions: Save (Ctrl+S) & Print (Ctrl+P) */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveDraft}
+                      disabled={isSaving}
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold border border-[var(--border-color)] bg-white dark:bg-zinc-800 text-slate-800 dark:text-white hover:bg-slate-50 dark:hover:bg-zinc-700 transition-colors cursor-pointer shadow-xs"
+                      title="Save Draft (Ctrl+S)"
+                    >
+                      {isSaving ? 'Saving...' : 'Save Draft'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handlePrintAndExport}
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-black dark:hover:bg-slate-100 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+                      title="Print / Export PDF (Ctrl+P)"
+                    >
+                      <Printer className="w-3.5 h-3.5" /> Print / Export
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-3 text-xs font-mono">
-                <div className="flex justify-between items-center p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
-                  <span className="text-[11px] text-[var(--text-muted)] font-sans">Instruction Fee</span>
-                  <span className="text-[var(--text-main)] font-bold">Kshs {result.instruction_fee.toLocaleString()}</span>
+              {/* LIVE REAL-TIME PDF DOCUMENT SHEET PREVIEW */}
+              <div className="vercel-card p-6 bg-white text-black font-sans text-[11px] shadow-2xl rounded-2xl border border-slate-300 space-y-4 max-h-[70vh] overflow-y-auto">
+                <div className="flex items-center justify-between border-b pb-2 text-[10px] font-mono text-slate-500 uppercase tracking-wider">
+                  <span className="flex items-center gap-1 font-bold text-slate-800"><Sparkles className="w-3 h-3 text-emerald-600" /> Live Render Preview</span>
+                  <span>Document Ref: {documentRef}</span>
                 </div>
 
-                <div className="flex justify-between items-center p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
-                  <span className="text-[11px] text-[var(--text-muted)] font-sans">Getting-Up Fee</span>
-                  <span className="text-[var(--text-main)] font-bold">Kshs {result.getting_up_fee.toLocaleString()}</span>
+                {/* Letterhead */}
+                <div className="flex justify-between items-start border-b-2 border-black pb-3">
+                  <div>
+                    <h2 className="font-bold text-sm uppercase tracking-tight font-brand text-black">{EXACT_FIRM_INFO.name}</h2>
+                    <span className="text-[8px] font-bold text-slate-600 block uppercase tracking-widest font-brand">ADVOCATES OF THE HIGH COURT OF KENYA</span>
+                  </div>
+                  <div className="text-right text-[9px] text-black leading-tight">
+                    <p>{EXACT_FIRM_INFO.poBox}</p>
+                    <p>{EXACT_FIRM_INFO.phone}</p>
+                    <p>{EXACT_FIRM_INFO.email}</p>
+                  </div>
                 </div>
 
-                <div className="flex justify-between items-center p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
-                  <span className="text-[11px] text-[var(--text-muted)] font-sans">Itemized Work Total</span>
-                  <span className="text-[var(--text-main)] font-bold">Kshs {result.items_total.toLocaleString()}</span>
+                {/* Forum Caption */}
+                <div className="text-center font-bold text-[10px] space-y-0.5">
+                  <p className="uppercase">{forumName || 'REPUBLIC OF KENYA'}</p>
+                  {matterTitle && <p className="text-slate-700 italic font-normal text-[9px]">{matterTitle}</p>}
                 </div>
 
-                <div className="flex justify-between items-center p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
-                  <span className="text-[11px] text-[var(--text-muted)] font-sans">VAT (16%)</span>
-                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">Kshs {result.vat_amount.toLocaleString()}</span>
+                {/* Parties Caption */}
+                <div className="border p-2 bg-slate-50 text-[10px] font-mono space-y-1">
+                  <div className="flex justify-between">
+                    <span className="font-bold">{claimantName || 'CLAIMANT / PLAINTIFF'}</span>
+                    <span className="text-slate-500">CLAIMANT</span>
+                  </div>
+                  <div className="text-center text-[9px] text-slate-400">VERSUS</div>
+                  <div className="flex justify-between">
+                    <span className="font-bold">{respondentName || 'RESPONDENT / DEFENDANT'}</span>
+                    <span className="text-slate-500">RESPONDENT</span>
+                  </div>
                 </div>
 
-                <div className="flex justify-between items-center p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
-                  <span className="text-[11px] text-[var(--text-muted)] font-sans">Disbursements</span>
-                  <span className="text-[var(--text-main)] font-bold">Kshs {result.disbursements.toLocaleString()}</span>
+                {/* Bill Title */}
+                <div className="text-center font-bold text-[11px] uppercase tracking-wide border-y py-1 bg-slate-100">
+                  STATEMENT OF ADVOCATE'S BILL OF COSTS
                 </div>
-              </div>
 
-              <div className="pt-3 border-t border-[var(--border-color)] space-y-1">
-                <span className="font-bold text-[11px] text-[var(--text-muted)] uppercase tracking-wider block font-sans">Grand Total</span>
-                <p className="text-2xl font-extrabold text-[var(--text-main)] font-mono tracking-tight">
-                  Kshs {result.grand_total.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-
-              {/* Action Buttons: Save Draft & Print/Export Bill */}
-              <div className="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button
-                  onClick={handleSaveDraft}
-                  disabled={isSaving}
-                  className="btn-outline w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5"
-                >
-                  {isSaving ? 'Saving...' : 'Save Draft'}
-                </button>
-                <button
-                  onClick={handlePrintAndExport}
-                  className="btn-black w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm"
-                >
-                  <Printer className="w-3.5 h-3.5" /> Print / Export
-                </button>
+                {/* Particulars Table Live View */}
+                <table className="w-full text-left border-collapse text-[10px] border border-black">
+                  <thead className="bg-slate-200 font-bold uppercase text-[9px]">
+                    <tr>
+                      <th className="p-1.5 border-r border-black w-8 text-center">#</th>
+                      <th className="p-1.5 border-r border-black">Particulars of Legal Work</th>
+                      <th className="p-1.5 text-right w-24">Amount (KES)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-300 font-mono text-[9.5px]">
+                    <tr>
+                      <td className="p-1.5 border-r border-black text-center font-bold">1</td>
+                      <td className="p-1.5 border-r border-black font-sans">
+                        <strong className="block font-bold">Instruction Fee ({courtSchedule.replace(/_/g, ' ')})</strong>
+                        <span className="text-[8.5px] text-slate-600 block">Subject Value: KES {(Number(claimValue) || 0).toLocaleString()}</span>
+                      </td>
+                      <td className="p-1.5 text-right font-bold">Kshs {result.instruction_fee.toLocaleString()}</td>
+                    </tr>
+                    {result.getting_up_fee > 0 && (
+                      <tr>
+                        <td className="p-1.5 border-r border-black text-center font-bold">2</td>
+                        <td className="p-1.5 border-r border-black font-sans">
+                          <strong className="block font-bold">Getting-up Fee (33.33% / 1/3)</strong>
+                        </td>
+                        <td className="p-1.5 text-right font-bold">Kshs {result.getting_up_fee.toLocaleString()}</td>
+                      </tr>
+                    )}
+                    {items.map((it, idx) => (
+                      <tr key={idx}>
+                        <td className="p-1.5 border-r border-black text-center">{idx + 3}</td>
+                        <td className="p-1.5 border-r border-black font-sans">{it.description}</td>
+                        <td className="p-1.5 text-right">Kshs {(it.unitRate || 0).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                    {extraExpenses.map((exp, idx) => (
+                      <tr key={`exp-${idx}`}>
+                        <td className="p-1.5 border-r border-black text-center">{items.length + 3 + idx}</td>
+                        <td className="p-1.5 border-r border-black font-sans font-bold">{exp.description} (Disbursement)</td>
+                        <td className="p-1.5 text-right">Kshs {exp.unitRate.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                    <tr className="font-bold bg-slate-100 border-t border-black">
+                      <td colSpan={2} className="p-1.5 text-right font-sans uppercase text-[9px]">Subtotal Legal Fees & VAT (16%):</td>
+                      <td className="p-1.5 text-right font-mono">Kshs {(result.taxable_subtotal + result.vat_amount).toLocaleString()}</td>
+                    </tr>
+                    <tr className="font-extrabold bg-slate-900 text-white text-[11px]">
+                      <td colSpan={2} className="p-2 text-right font-sans uppercase">GRAND TOTAL DUE:</td>
+                      <td className="p-2 text-right font-mono">Kshs {result.grand_total.toLocaleString('en-KE', { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
