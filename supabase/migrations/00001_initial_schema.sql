@@ -1,4 +1,4 @@
--- LexFlow / Karani Law Platform: Comprehensive Database Schema Migration
+﻿-- LexFlow / Karani Law Platform: Comprehensive Database Schema Migration
 -- Includes Clients (with dual phones & company), Matters (with Fee Note & Document links),
 -- Fee Notes / Bills of Costs (processed & draft with user tracking), Messages (WhatsApp/Email/Internal),
 -- Notifications, Activity/Recents Audit Logs, and Storage Vault.
@@ -17,6 +17,12 @@ CREATE TABLE IF NOT EXISTS public.firms (
     kra_pin VARCHAR(100),
     bank_details TEXT,
     logo_url TEXT,
+    managing_partner_name VARCHAR(255) DEFAULT 'Nyagah B. Kithinji',
+    managing_partner_email VARCHAR(255) DEFAULT 'info@nbkco-advocates.com',
+    managing_partner_phone VARCHAR(100) DEFAULT '+254 722 000 111',
+    managing_partner_lsk VARCHAR(100) DEFAULT 'P.105/1992',
+    company_email VARCHAR(255) DEFAULT 'info@nbkco-advocates.com',
+    company_phone VARCHAR(100) DEFAULT '+254 (0)20 271 8890 / +254 722 000 111',
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -206,7 +212,11 @@ ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
 
 -- INITIAL SEED DATA
-INSERT INTO public.firms (id, name, firm_reg_no, email, phone, address, po_box, kra_pin, bank_details)
+INSERT INTO public.firms (
+    id, name, firm_reg_no, email, phone, address, po_box, kra_pin, bank_details,
+    managing_partner_name, managing_partner_email, managing_partner_phone, managing_partner_lsk,
+    company_email, company_phone
+)
 VALUES (
     'a0000000-0000-0000-0000-000000000001',
     'Nyagah B. Kithinji & Co. Advocates',
@@ -216,8 +226,28 @@ VALUES (
     'Suite 4B, Mbaruk Road, Off Muchai Drive, Golf Course Estate',
     'P.O. Box 1992-00100, Nairobi',
     'P051123456Z',
-    'KCB Bank Kenya Ltd | Kilimani Branch | A/C No: 1104889922 | Swift: KCBLKENX'
-) ON CONFLICT DO NOTHING;
+    'KCB Bank Kenya Ltd | Kilimani Branch | A/C No: 1104889922 | Swift: KCBLKENX',
+    'Nyagah B. Kithinji',
+    'info@nbkco-advocates.com',
+    '+254 722 000 111',
+    'P.105/1992',
+    'info@nbkco-advocates.com',
+    '+254 (0)20 271 8890 / +254 722 000 111'
+) ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    firm_reg_no = EXCLUDED.firm_reg_no,
+    email = EXCLUDED.email,
+    phone = EXCLUDED.phone,
+    address = EXCLUDED.address,
+    po_box = EXCLUDED.po_box,
+    kra_pin = EXCLUDED.kra_pin,
+    bank_details = EXCLUDED.bank_details,
+    managing_partner_name = EXCLUDED.managing_partner_name,
+    managing_partner_email = EXCLUDED.managing_partner_email,
+    managing_partner_phone = EXCLUDED.managing_partner_phone,
+    managing_partner_lsk = EXCLUDED.managing_partner_lsk,
+    company_email = EXCLUDED.company_email,
+    company_phone = EXCLUDED.company_phone;
 
 INSERT INTO public.users (id, firm_id, full_name, email, lsk_no, role)
 VALUES 
