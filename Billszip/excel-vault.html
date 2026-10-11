@@ -1,70 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Real-Time Legal Vault & Storage — Billszip</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
-<style>
-  .vault-card {
-    background: var(--card-bg);
-    border: var(--glass-border);
-    border-radius: var(--radius-md);
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: var(--shadow-sm);
-  }
-  .audit-badge-true {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 3px 8px;
-    border-radius: var(--radius-pill);
-    background: rgba(16, 185, 129, 0.12);
-    color: var(--accent-emerald);
-    font-size: 11px;
-    font-weight: 700;
-  }
-  .upload-dropzone {
-    border: 2px dashed var(--accent-gold);
-    border-radius: var(--radius-md);
-    padding: 24px;
-    text-align: center;
-    background: rgba(225, 161, 64, 0.04);
-    cursor: pointer;
-    margin-bottom: 20px;
-    transition: background 0.2s;
-  }
-  .upload-dropzone:hover {
-    background: rgba(225, 161, 64, 0.08);
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Real-Time Legal Vault & Storage — Billszip</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .vault-card {
+      background: var(--card-bg);
+      border: var(--glass-border);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .audit-badge-true {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: var(--radius-pill);
+      background: rgba(16, 185, 129, 0.12);
+      color: var(--accent-emerald);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .upload-dropzone {
+      border: 2px dashed var(--accent-gold);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      text-align: center;
+      background: rgba(225, 161, 64, 0.04);
+      cursor: pointer;
+      margin-bottom: 20px;
+      transition: background 0.2s;
+    }
+
+    .upload-dropzone:hover {
+      background: rgba(225, 161, 64, 0.08);
+    }
+  </style>
 </head>
+
 <body>
 
-<div class="app" id="app"></div>
+  <div class="app" id="app"></div>
 
-<script src="data.js"></script>
-<script src="remuneration.js"></script>
-<script src="shell.js"></script>
-<script>
-  renderShell({
-    page: "vault",
-    title: "Real-Time Legal Vault & Supabase Storage",
-    searchPlaceholder: "Search vault files by case, client, or tag...",
-    primaryAction: { href: "#", label: "+ Upload Excel/PDF File", onclick: "triggerUpload()" }
-  });
+  <script src="data.js"></script>
+  <script src="remuneration.js"></script>
+  <script src="shell.js"></script>
+  <script>
+    renderShell({
+      page: "vault",
+      title: "Real-Time Legal Vault & Supabase Storage",
+      searchPlaceholder: "Search vault files by case, client, or tag...",
+      primaryAction: { href: "#", label: "+ Upload Excel/PDF File", onclick: "triggerUpload()" }
+    });
 
-  const data = window.APP_DATA;
-  const rem = window.REMUNERATION;
-  const content = document.getElementById("pageContent");
+    const data = window.APP_DATA;
+    const rem = window.REMUNERATION;
+    const content = document.getElementById("pageContent");
 
-  let localDocs = [...data.documents];
+    let localDocs = [...data.documents];
 
-  function renderVaultUI() {
-    content.innerHTML = `
+    function renderVaultUI() {
+      content.innerHTML = `
       <!-- Top Information & Real-Time Sync Banner -->
       <div class="vault-card" style="border-left: 4px solid var(--accent-gold);">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
@@ -147,35 +154,36 @@
         </div>
       </div>
     `;
-  }
-
-  window.triggerUpload = function() {
-    document.getElementById("vaultFileInput").click();
-  };
-
-  window.handleVaultUpload = function(e) {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const newDoc = {
-        id: "d" + (localDocs.length + 1),
-        name: file.name,
-        size: Math.round(file.size / 1024) + " KB",
-        version: 1,
-        tags: ["taxation", "uploaded"],
-        updated: new Date().toISOString().split("T")[0]
-      };
-      localDocs.unshift(newDoc);
-      renderVaultUI();
-      alert(`File "${file.name}" uploaded successfully to encrypted Supabase storage vault!`);
     }
-  };
 
-  window.auditAllFiles = function() {
-    alert("Executing Truth Audit across legal vault...\n\nAll stored Excel workbooks (.xlsx) match system Advocates Remuneration Order scale math!");
-  };
+    window.triggerUpload = function () {
+      document.getElementById("vaultFileInput").click();
+    };
 
-  renderVaultUI();
-</script>
+    window.handleVaultUpload = function (e) {
+      if (e.target.files && e.target.files[0]) {
+        const file = e.target.files[0];
+        const newDoc = {
+          id: "d" + (localDocs.length + 1),
+          name: file.name,
+          size: Math.round(file.size / 1024) + " KB",
+          version: 1,
+          tags: ["taxation", "uploaded"],
+          updated: new Date().toISOString().split("T")[0]
+        };
+        localDocs.unshift(newDoc);
+        renderVaultUI();
+        alert(`File "${file.name}" uploaded successfully to encrypted Supabase storage vault!`);
+      }
+    };
+
+    window.auditAllFiles = function () {
+      alert("Executing Truth Audit across legal vault...\n\nAll stored Excel workbooks (.xlsx) match system Advocates Remuneration Order scale math!");
+    };
+
+    renderVaultUI();
+  </script>
 
 </body>
+
 </html>
