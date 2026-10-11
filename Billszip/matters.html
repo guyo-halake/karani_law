@@ -1,66 +1,130 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Legal Matters Directory — Billszip</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Legal Matters Directory — Billszip</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .modal-dialog-box {
+      max-width: 480px;
+      background: var(--dropdown-bg);
+      border: var(--glass-border);
+      padding: 24px;
+      border-radius: var(--radius-md);
+      margin: 60px auto;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  </style>
 </head>
+
 <body>
 
-<div class="app" id="app"></div>
+  <div class="app" id="app"></div>
 
-<script src="data.js"></script>
-<script src="remuneration.js"></script>
-<script src="shell.js"></script>
-<script>
-  renderShell({
-    page: "matters",
-    title: "Legal Matters Directory",
-    searchPlaceholder: "Search cause title, reference no, or client...",
-    primaryAction: { href: "bill-of-costs-builder.html", label: "+ New Bill of Costs" }
-  });
+  <!-- Modal: Register New Matter -->
+  <div class="modal-backdrop" id="matterModal" style="display:none;" onclick="if(event.target===this) closeMatterModal()">
+    <div class="modal-dialog-box">
+      <h3 style="font-family:var(--font-brand); font-size:16px; color:var(--ink-primary); margin-bottom:14px; display:flex; align-items:center; gap:8px;">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--accent-gold)" stroke-width="2"><path d="M4 7a2 2 0 0 1 2-2h3l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/><line x1="12" y1="10" x2="12" y2="16"/><line x1="9" y1="13" x2="15" y2="13"/></svg>
+        Register New Legal Matter
+      </h3>
+      
+      <div id="matterErrorMsg" style="display:none; color:var(--accent-rose); font-size:11.5px; margin-bottom:10px; font-weight:600;"></div>
 
-  const data = window.APP_DATA;
-  const rem = window.REMUNERATION;
-  const content = document.getElementById("pageContent");
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div class="form-group" style="grid-column: span 2;">
+          <label>Cause Title</label>
+          <input type="text" class="form-control" id="newMatterTitle" placeholder="e.g. Seyani v Green Hills Limited">
+        </div>
 
-  let activeFilter = "all";
-  let query = "";
+        <div class="form-group">
+          <label>Cause Reference No</label>
+          <input type="text" class="form-control" id="newMatterCauseNo" placeholder="e.g. HCCC E104/2025">
+        </div>
 
-  function render() {
-    let mattersList = [...data.matters];
+        <div class="form-group">
+          <label>Select Client</label>
+          <select class="form-control" id="newMatterClientSelect"></select>
+        </div>
 
-    if (activeFilter === "arbitration") {
-      mattersList = mattersList.filter(m => m.forum.toLowerCase().includes("arbitration"));
-    } else if (activeFilter === "taxation") {
-      mattersList = mattersList.filter(m => m.status.toLowerCase().includes("taxation"));
-    } else if (activeFilter === "closed") {
-      mattersList = mattersList.filter(m => m.status.toLowerCase() === "closed");
-    } else if (activeFilter === "active") {
-      mattersList = mattersList.filter(m => m.status.toLowerCase() !== "closed");
-    }
+        <div class="form-group">
+          <label>Court Forum / Schedule</label>
+          <select class="form-control" id="newMatterForum">
+            <option value="High Court Commercial (Schedule 6)">High Court Commercial (Schedule 6)</option>
+            <option value="Environment & Land Court (Schedule 6)">Environment & Land Court (Schedule 6)</option>
+            <option value="Subordinate Magistrate Court (Schedule 5)">Subordinate Magistrate Court (Schedule 5)</option>
+            <option value="Commercial Arbitration">Commercial Arbitration</option>
+          </select>
+        </div>
 
-    if (query.trim()) {
-      const q = query.trim().toLowerCase();
-      mattersList = mattersList.filter(m =>
-        m.title.toLowerCase().includes(q) ||
-        m.causeNo.toLowerCase().includes(q)
-      );
-    }
+        <div class="form-group">
+          <label>Subject / Claim Value (Kshs)</label>
+          <input type="number" class="form-control num" id="newMatterClaimValue" placeholder="e.g. 500000">
+        </div>
+      </div>
 
-    const filters = [
-      { id: "all", label: "All Matters" },
-      { id: "active", label: "Active Litigation" },
-      { id: "arbitration", label: "In Arbitration" },
-      { id: "taxation", label: "Pending Taxation" },
-      { id: "closed", label: "Closed" }
-    ];
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:18px;">
+        <button class="btn-pill secondary" onclick="closeMatterModal()">Cancel</button>
+        <button class="btn-pill primary" onclick="submitNewMatter()">Save & Register Matter</button>
+      </div>
+    </div>
+  </div>
 
-    content.innerHTML = `
-      <!-- Filters Row -->
+  <script src="data.js"></script>
+  <script src="remuneration.js"></script>
+  <script src="shell.js"></script>
+  <script>
+    renderShell({
+      page: "matters",
+      title: "Legal Matters Directory",
+      searchPlaceholder: "Search cause title, reference no, or client...",
+      primaryAction: { href: "bill-of-costs-builder.html", label: "+ New Bill of Costs" }
+    });
+
+    const data = window.APP_DATA;
+    const rem = window.REMUNERATION;
+    const content = document.getElementById("pageContent");
+
+    let activeFilter = "all";
+    let query = "";
+
+    function render() {
+      let mattersList = [...data.matters];
+
+      if (activeFilter === "arbitration") {
+        mattersList = mattersList.filter(m => m.forum.toLowerCase().includes("arbitration"));
+      } else if (activeFilter === "taxation") {
+        mattersList = mattersList.filter(m => m.status.toLowerCase().includes("taxation"));
+      } else if (activeFilter === "closed") {
+        mattersList = mattersList.filter(m => m.status.toLowerCase() === "closed");
+      } else if (activeFilter === "active") {
+        mattersList = mattersList.filter(m => m.status.toLowerCase() !== "closed");
+      }
+
+      if (query.trim()) {
+        const q = query.trim().toLowerCase();
+        mattersList = mattersList.filter(m =>
+          m.title.toLowerCase().includes(q) ||
+          m.causeNo.toLowerCase().includes(q)
+        );
+      }
+
+      const filters = [
+        { id: "all", label: "All Matters" },
+        { id: "active", label: "Active Litigation" },
+        { id: "arbitration", label: "In Arbitration" },
+        { id: "taxation", label: "Pending Taxation" },
+        { id: "closed", label: "Closed" }
+      ];
+
+      content.innerHTML = `
+      <!-- Filters Row & Add Matter Action -->
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
         <div style="display:flex; gap:6px; flex-wrap:wrap;">
           ${filters.map(f => `
@@ -69,6 +133,7 @@
             </button>
           `).join("")}
         </div>
+        <button class="btn-pill primary" onclick="openMatterModal()">+ Register New Matter</button>
       </div>
 
       <!-- Matters Data Table -->
@@ -86,8 +151,8 @@
           </thead>
           <tbody>
             ${mattersList.map(m => {
-              const clientObj = data.clients.find(c => c.id === m.clientId) || { id: "c1", name: "Client" };
-              return `
+        const clientObj = data.clients.find(c => c.id === m.clientId) || { id: "c1", name: "Client" };
+        return `
                 <tr>
                   <td>
                     <div class="primary-cell" style="color: var(--ink-primary); font-weight:700;">${m.title}</div>
@@ -119,7 +184,7 @@
                   </td>
                 </tr>
               `;
-            }).join("")}
+      }).join("")}
           </tbody>
         </table>
         <div class="table-footer">
@@ -127,23 +192,64 @@
         </div>
       </div>
     `;
-  }
+    }
 
-  window.setFilter = function(filterId) {
-    activeFilter = filterId;
-    render();
-  };
+    window.openMatterModal = function() {
+      const select = document.getElementById("newMatterClientSelect");
+      select.innerHTML = data.clients.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
+      document.getElementById("matterModal").style.display = "flex";
+    };
 
-  render();
+    window.closeMatterModal = function() {
+      document.getElementById("matterModal").style.display = "none";
+    };
 
-  const topSearch = document.getElementById("topSearch");
-  if (topSearch) {
-    topSearch.addEventListener("input", (e) => {
-      query = e.target.value;
+    window.submitNewMatter = function() {
+      const title = document.getElementById("newMatterTitle").value;
+      const causeNo = document.getElementById("newMatterCauseNo").value;
+      const clientId = document.getElementById("newMatterClientSelect").value;
+      const forum = document.getElementById("newMatterForum").value;
+      const claimValue = Number(document.getElementById("newMatterClaimValue").value) || 0;
+      const errBox = document.getElementById("matterErrorMsg");
+
+      if (!title || !causeNo) {
+        errBox.innerText = "Error: Please enter the Cause Title and Cause Reference No.";
+        errBox.style.display = "block";
+        return;
+      }
+
+      data.matters.unshift({
+        id: "m" + Date.now(),
+        clientId,
+        title,
+        causeNo,
+        forum,
+        claimValue,
+        status: "Active"
+      });
+
+      closeMatterModal();
       render();
-    });
-  }
-</script>
+      alert(`Success: Matter "${title}" registered in legal database!`);
+    };
+
+    window.setFilter = function (filterId) {
+      activeFilter = filterId;
+      render();
+    };
+
+    render();
+
+    const topSearch = document.getElementById("topSearch");
+    if (topSearch) {
+      topSearch.addEventListener("input", (e) => {
+        query = e.target.value;
+        render();
+      });
+    }
+  </script>
+  <script src="tour.js"></script>
 
 </body>
+
 </html>
