@@ -1,86 +1,96 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kenyan Advocates Remuneration Order Guide (LN 64/1962 ed. 2022)</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
-<style>
-  .guide-wrapper {
-    max-width: 1040px;
-    margin: 0 auto 40px;
-  }
-  .guide-card {
-    background: var(--card-bg);
-    border: var(--glass-border);
-    border-radius: var(--radius-md);
-    padding: 24px 28px;
-    margin-bottom: 24px;
-    box-shadow: var(--shadow-sm);
-  }
-  .statute-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border-radius: var(--radius-pill);
-    background: rgba(245, 158, 11, 0.12);
-    color: var(--accent-gold);
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 10px;
-  }
-  .scale-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 16px 0;
-    font-size: 12.5px;
-  }
-  .scale-table th {
-    background: rgba(0,0,0,0.03);
-    padding: 10px 14px;
-    text-align: left;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: var(--ink-muted);
-    border-bottom: 2px solid var(--ink-primary);
-  }
-  .scale-table td {
-    padding: 10px 14px;
-    border-bottom: var(--glass-border);
-    color: var(--ink-secondary);
-  }
-  .scale-table td.num {
-    font-family: var(--font-mono);
-    font-weight: 600;
-    color: var(--ink-primary);
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kenyan Advocates Remuneration Order Guide (LN 64/1962 ed. 2022)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .guide-wrapper {
+      max-width: 1040px;
+      margin: 0 auto 40px;
+    }
+
+    .guide-card {
+      background: var(--card-bg);
+      border: var(--glass-border);
+      border-radius: var(--radius-md);
+      padding: 24px 28px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .statute-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      background: rgba(245, 158, 11, 0.12);
+      color: var(--accent-gold);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+
+    .scale-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 12.5px;
+    }
+
+    .scale-table th {
+      background: rgba(0, 0, 0, 0.03);
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+      border-bottom: 2px solid var(--ink-primary);
+    }
+
+    .scale-table td {
+      padding: 10px 14px;
+      border-bottom: var(--glass-border);
+      color: var(--ink-secondary);
+    }
+
+    .scale-table td.num {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: var(--ink-primary);
+    }
+  </style>
 </head>
+
 <body>
 
-<div class="app" id="app"></div>
+  <div class="app" id="app"></div>
 
-<script src="data.js"></script>
-<script src="remuneration.js"></script>
-<script src="shell.js"></script>
-<script>
-  renderShell({
-    page: "guide",
-    title: "Advocates Remuneration Order Statutory Guide",
-    searchPlaceholder: "Search statutory rules, schedules, or tariffs...",
-    primaryAction: { href: "bill-of-costs-builder.html", label: "+ Open Scale Builder" }
-  });
+  <script src="data.js"></script>
+  <script src="remuneration.js"></script>
+  <script src="shell.js"></script>
+  <script>
+    renderShell({
+      page: "guide",
+      title: "Advocates Remuneration Order Statutory Guide",
+      searchPlaceholder: "Search statutory rules, schedules, or tariffs...",
+      primaryAction: { href: "bill-of-costs-builder.html", label: "+ Open Scale Builder" }
+    });
 
-  const rem = window.REMUNERATION;
-  const content = document.getElementById("pageContent");
+    const rem = window.REMUNERATION;
+    const content = document.getElementById("pageContent");
 
-  content.innerHTML = `
+    content.innerHTML = `
     <div class="guide-wrapper">
       <!-- Statutory Citation Header Card -->
       <div class="guide-card" style="border-left: 4px solid var(--accent-gold);">
@@ -203,7 +213,8 @@
       </div>
     </div>
   `;
-</script>
+  </script>
 
 </body>
+
 </html>
