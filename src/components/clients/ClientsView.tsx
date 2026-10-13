@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  ExactClientRecord
-} from '../../services/supabase';
+import { ExactClientRecord } from '../../services/supabase';
 import { createClient, deleteClient, fetchClients } from '../../services/data';
 import { SystemUser } from '../../services/supabase';
 import { sendEmail } from '../../services/email';
@@ -16,26 +14,43 @@ import {
   Trash2,
   Building2,
   Briefcase,
-  CheckCircle2,
-  Send
+  MoreVertical,
+  Eye,
+  FileText,
+  Plus,
+  Receipt,
+  Scale,
+  Calendar,
+  AlertTriangle
 } from 'lucide-react';
 
 interface ClientsViewProps {
+  onNavigateTab?: (tab: string, targetUserId?: string) => void;
+  onNavigateToBuilder?: (initialNote?: any, isPreview?: boolean) => void;
   currentUser?: SystemUser | null;
 }
 
-export const ClientsView: React.FC<ClientsViewProps> = ({ currentUser }) => {
+export const ClientsView: React.FC<ClientsViewProps> = ({
+  onNavigateTab,
+  onNavigateToBuilder,
+  currentUser
+}) => {
   const [clientsList, setClientsList] = useState<ExactClientRecord[]>([]);
   const [errorMessage, setErrorMessage] = useState('');
   const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [, setPermissionTick] = useState(0);
 
-  const can = (code: string) => hasPermission(currentUser, code);
-  
+  // Client 360° Financial Dossier Drawer State
+  const [selectedDossierClient, setSelectedDossierClient] = useState<ExactClientRecord | null>(null);
+
   // Registration Modal State
   const [showNewClientModal, setShowNewClientModal] = useState(false);
   const [newName, setNewName] = useState('');
   const [newCompany, setNewCompany] = useState('');
+  const [newKraPin, setNewKraPin] = useState('');
+  const [newAddress, setNewAddress] = useState('');
   const [newCategory, setNewCategory] = useState('Corporate or Institutional');
   const [newEmail, setNewEmail] = useState('');
   const [newPhonePrimary, setNewPhonePrimary] = useState('');
@@ -47,6 +62,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ currentUser }) => {
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
   const [isSending, setIsSending] = useState(false);
+
+  const can = (code: string) => hasPermission(currentUser, code);
 
   useEffect(() => {
     const handlePermissions = () => {
@@ -62,29 +79,56 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ currentUser }) => {
 
   useEffect(() => {
     if (!currentUser?.firmId) return;
-    const loadClients = () => fetchClients(currentUser.firmId!).then(setClientsList).catch(error => setErrorMessage(error.message || 'Unable to load clients.'));
+    const loadClients = () =>
+      fetchClients(currentUser.firmId!)
+        .then(setClientsList)
+        .catch(error => setErrorMessage(error.message || 'Unable to load clients.'));
     void loadClients();
     const handleRealtime = (event: Event) => {
       const detail = (event as CustomEvent<{ table?: string }>).detail;
       if (detail?.table === 'clients') void loadClients();
     };
+    const handleClientsUpdated = (event: any) => {
+      if (event?.detail && Array.isArray(event.detail)) {
+        setClientsList(event.detail);
+      } else {
+        void loadClients();
+      }
+    };
     window.addEventListener('databaseRealtimeUpdate', handleRealtime);
-    return () => window.removeEventListener('databaseRealtimeUpdate', handleRealtime);
+    window.addEventListener('clientsUpdated', handleClientsUpdated);
+    window.addEventListener('storage', loadClients);
+    return () => {
+      window.removeEventListener('databaseRealtimeUpdate', handleRealtime);
+      window.removeEventListener('clientsUpdated', handleClientsUpdated);
+      window.removeEventListener('storage', loadClients);
+    };
   }, [currentUser?.firmId]);
 
-  const filtered = clientsList.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    (c.company && c.company.toLowerCase().includes(search.toLowerCase())) ||
-    (c.email && c.email.toLowerCase().includes(search.toLowerCase())) ||
-    (c.phonePrimary && c.phonePrimary.toLowerCase().includes(search.toLowerCase())) ||
-    (c.category && c.category.toLowerCase().includes(search.toLowerCase()))
-  );
+  // Debounced search & category filtering
+  const filtered = clientsList.filter(c => {
+    const query = search.toLowerCase();
+    const matchesQuery =
+      c.name.toLowerCase().includes(query) ||
+      (c.company && c.company.toLowerCase().includes(query)) ||
+      (c.kraPin && c.kraPin.toLowerCase().includes(query)) ||
+      (c.email && c.email.toLowerCase().includes(query)) ||
+      (c.phonePrimary && c.phonePrimary.toLowerCase().includes(query));
+
+    if (!matchesQuery) return false;
+    if (selectedCategory === 'all') return true;
+    if (selectedCategory === 'corporate') return c.category.includes('Corporate') || c.category.includes('Institutional');
+    if (selectedCategory === 'individual') return c.category.includes('Individual');
+    if (selectedCategory === 'financial') return c.category.includes('Financial') || c.category.includes('Bank');
+    if (selectedCategory === 'government') return c.category.includes('Government') || c.category.includes('State');
+    return true;
+  });
 
   const handleRegisterClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
-
     if (!currentUser?.firmId) return;
+
     try {
       const newRecord = await createClient(currentUser.firmId, {
         name: newName.trim(),
@@ -93,36 +137,56 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ currentUser }) => {
         email: newEmail.trim(),
         phonePrimary: newPhonePrimary.trim(),
         phoneSecondary: newPhoneSecondary.trim(),
+        kraPin: newKraPin.trim().toUpperCase(),
+        address: newAddress.trim(),
       });
       setClientsList(prev => [newRecord, ...prev]);
     } catch (error: any) {
-      setErrorMessage(error.message || 'Unable to create client.');
+      setErrorMessage(error.message || 'Unable to register client.');
       return;
     }
+
     setShowNewClientModal(false);
     setNewName('');
     setNewCompany('');
+    setNewKraPin('');
+    setNewAddress('');
     setNewEmail('');
     setNewPhonePrimary('');
     setNewPhoneSecondary('');
   };
 
-  const handleDeleteClient = async (id: string, name: string) => {
-    if (confirm(`Are you sure you want to delete client "${name}" from the database?`)) {
-      if (!currentUser?.firmId) return;
-      try {
-        await deleteClient(currentUser.firmId, id);
-        setClientsList(prev => prev.filter(c => c.id !== id));
-      } catch (error: any) {
-        setErrorMessage(error.message || 'Unable to delete client.');
+  const handleDeleteClient = async (client: ExactClientRecord) => {
+    setActiveMenuId(null);
+    const activeCauses = client.activeMattersCount ?? client.matters ?? 0;
+    if (activeCauses > 0) {
+      const proceed = confirm(
+        `WARNING: Client "${client.name}" has ${activeCauses} active matter(s) registered in the court docket.\n\nDeleting this client record may orphan active litigation records.\n\nAre you sure you want to permanently delete this client?`
+      );
+      if (!proceed) return;
+    } else {
+      if (!confirm(`Are you sure you want to delete client "${client.name}" from the database?`)) {
+        return;
       }
+    }
+
+    if (!currentUser?.firmId) return;
+    try {
+      await deleteClient(currentUser.firmId, client.id);
+      setClientsList(prev => prev.filter(c => c.id !== client.id));
+      if (selectedDossierClient?.id === client.id) {
+        setSelectedDossierClient(null);
+      }
+    } catch (error: any) {
+      setErrorMessage(error.message || 'Unable to delete client.');
     }
   };
 
   const handleOpenEmail = (client: ExactClientRecord) => {
+    setActiveMenuId(null);
     setEmailClient(client);
-    setEmailSubject(`Nyagah B. Kithinji & Co. Advocates - Legal Correspondence`);
-    setEmailBody(`Dear ${client.name},\n\nPlease find attached the official correspondence and statement from Nyagah B. Kithinji & Co. Advocates.\n\nKindly acknowledge receipt.\n\nYours faithfully,\nNyagah B. Kithinji & Co. Advocates`);
+    setEmailSubject(`Nyagah B. Kithinji & Co. Advocates - Legal Statement of Account`);
+    setEmailBody(`Dear ${client.name},\n\nPlease find attached the official legal correspondence, statement of account, and fee note records from Nyagah B. Kithinji & Co. Advocates.\n\nKindly acknowledge receipt at your earliest convenience.\n\nYours faithfully,\nNyagah B. Kithinji & Co. Advocates\nHigh Court of Kenya`);
     setShowEmailModal(true);
   };
 
@@ -146,171 +210,422 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ currentUser }) => {
   };
 
   const handleWhatsApp = (phone: string, name: string) => {
+    setActiveMenuId(null);
     const cleanPhone = phone.replace(/[^\d]/g, '');
-    const message = encodeURIComponent(`Hello ${name}, this is Nyagah B. Kithinji & Co. Advocates.`);
+    const message = encodeURIComponent(`Hello ${name}, this is Nyagah B. Kithinji & Co. Advocates regarding your legal matter.`);
     window.open(`https://wa.me/${cleanPhone}?text=${message}`, '_blank');
   };
 
+  const handleNewBillForClient = (client: ExactClientRecord) => {
+    if (onNavigateToBuilder) {
+      onNavigateToBuilder({
+        clientName: client.name,
+        matterTitle: `Matter: ${client.name}`,
+        claimValue: 0,
+        courtSchedule: 'schedule_6_high_court',
+      }, false);
+    } else if (onNavigateTab) {
+      onNavigateTab('boc');
+    }
+  };
+
   return (
-    <div className="space-y-6 pb-12">
-      {/* Title & Action Bar */}
+    <div className="space-y-6 pb-12 w-full">
+      {/* Title & Action Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2 border-b border-[var(--border-color)]/60 pb-5">
         <div>
           <h1 className="font-brand font-extrabold text-2xl sm:text-3xl text-slate-900 dark:text-white tracking-tight">
-            My Clients Directory
+            Clients Directory
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-1 font-sans">
-            Client Portfolio & Direct Contacts ({clientsList.length} Registered)
+            Registered Firm Clients & E-TIMS Tax Accounts ({clientsList.length} Active Records)
           </p>
         </div>
 
         {can('clients.create') && (
           <button
             onClick={() => setShowNewClientModal(true)}
-            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-colors shadow-sm shadow-blue-500/20 cursor-pointer shrink-0"
+            className="px-4 py-2.5 bg-slate-900 hover:bg-black dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs cursor-pointer shrink-0"
           >
-            <UserPlus className="w-4 h-4" /> Add New Client
+            <UserPlus className="w-4 h-4" />
+            <span>Add Client</span>
           </button>
         )}
       </div>
 
-      {/* Search Input Bar */}
-      <div className="relative w-full max-w-md">
-        <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by client name, company, email, phone..."
-          className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-[var(--text-main)] focus:outline-none focus:border-blue-500 transition-colors"
-        />
+      {/* Filter Chips & Search Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        {/* Category Filter Pills */}
+        <div className="inline-flex p-1 rounded-xl bg-slate-200/70 dark:bg-zinc-800 border border-[var(--border-color)]/50 shrink-0 overflow-x-auto">
+          {[
+            { id: 'all', label: 'All Clients', count: clientsList.length },
+            { id: 'corporate', label: 'Corporate & Institutional' },
+            { id: 'individual', label: 'Individual' },
+            { id: 'financial', label: 'Financial Institutions' },
+          ].map(tab => {
+            const isActive = selectedCategory === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setSelectedCategory(tab.id)}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                  isActive
+                    ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                {tab.label} {tab.count !== undefined ? `(${tab.count})` : ''}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Real-time Search Input */}
+        <div className="relative w-full md:w-80">
+          <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search name, company, KRA PIN, email..."
+            className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl pl-9 pr-3.5 py-2 text-xs text-[var(--text-main)] placeholder:text-slate-400 focus:outline-none focus:border-slate-400 transition-colors"
+          />
+        </div>
       </div>
 
-      {/* Clean Client Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {filtered.map((c: ExactClientRecord) => {
-          const initials = c.name
-            .split(' ')
-            .filter(Boolean)
-            .map(n => n[0])
-            .slice(0, 2)
-            .join('')
-            .toUpperCase();
+      {errorMessage && (
+        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 text-xs flex items-center justify-between">
+          <span>{errorMessage}</span>
+          <button onClick={() => setErrorMessage('')} className="cursor-pointer font-bold">&times;</button>
+        </div>
+      )}
 
-          return (
-            <div
-              key={c.id}
-              className="modulix-card p-5 flex flex-col justify-between hover:border-blue-500 transition-all group"
-            >
-              {/* Header: Avatar, Name & Category */}
-              <div className="space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-11 h-11 rounded-xl bg-slate-900 text-white font-mono font-bold text-sm flex items-center justify-center shrink-0 shadow-xs uppercase">
-                      {initials}
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="font-bold text-sm text-slate-900 dark:text-white truncate" title={c.name}>
-                        {c.name}
-                      </h3>
-                      <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1">
-                        <Building2 className="w-3 h-3 shrink-0" />
-                        <span>{c.company || c.name}</span>
-                      </p>
-                    </div>
-                  </div>
+      {/* EXECUTIVE FULL-WIDTH LINE / TABLE VIEW (Clean line format with consistent h-[42px] geometry) */}
+      <div className="modulix-card p-0 overflow-hidden border border-[var(--border-color)] bg-white dark:bg-zinc-900 shadow-xs w-full">
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-[var(--border-color)] text-[11px] font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider bg-[var(--bg-subtle)] h-[42px]">
+                <th className="py-3.5 px-4 min-w-[220px]">Client / Organization</th>
+                <th className="py-3.5 px-4 min-w-[140px] font-mono">KRA PIN / Tax</th>
+                <th className="py-3.5 px-4 min-w-[150px]">Category</th>
+                <th className="py-3.5 px-4 min-w-[200px]">Direct Contact</th>
+                <th className="py-3.5 px-4 font-mono text-center min-w-[100px]">Active Causes</th>
+                <th className="py-3.5 px-4 font-mono text-right min-w-[140px]">Total Billed</th>
+                <th className="py-3.5 px-4 text-right min-w-[200px]">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--border-color)]/60 font-sans">
+              {filtered.map((client) => {
+                const initials = client.name
+                  .split(' ')
+                  .filter(Boolean)
+                  .map(n => n[0])
+                  .slice(0, 2)
+                  .join('')
+                  .toUpperCase();
 
-                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 shrink-0">
-                    {c.category}
+                const isMenuOpen = activeMenuId === client.id;
+                const activeCauses = client.activeMattersCount ?? client.matters ?? 0;
+                const totalBilled = client.totalBilledAmount ?? 0;
+
+                return (
+                  <tr
+                    key={client.id}
+                    onClick={() => setSelectedDossierClient(client)}
+                    className="hover:bg-slate-50/80 dark:hover:bg-zinc-800/40 transition-colors cursor-pointer group"
+                  >
+                    {/* 1. Client & Organization */}
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-bold text-xs flex items-center justify-center shrink-0 border border-[var(--border-color)] uppercase shadow-2xs">
+                          {initials}
+                        </div>
+                        <div className="min-w-0">
+                          <span className="font-semibold text-slate-900 dark:text-white block truncate leading-snug group-hover:text-blue-600 transition-colors">
+                            {client.name}
+                          </span>
+                          <span className="text-[11px] text-slate-500 dark:text-zinc-400 block truncate font-sans">
+                            {client.company || client.name} &bull; <span className="font-mono text-[10px] text-slate-400">{client.code}</span>
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* 2. KRA PIN */}
+                    <td className="py-3.5 px-4 font-mono text-xs">
+                      {client.kraPin ? (
+                        <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 border border-[var(--border-color)] font-bold text-[11px]">
+                          {client.kraPin}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 text-[11px] italic">Not on file</span>
+                      )}
+                    </td>
+
+                    {/* 3. Category */}
+                    <td className="py-3.5 px-4">
+                      <span className={`inline-block px-2.5 py-0.5 rounded-lg text-xs font-semibold ${
+                        client.category.includes('Corporate') || client.category.includes('Institutional')
+                          ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200/80 dark:border-blue-800'
+                          : client.category.includes('Individual')
+                          ? 'bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300 border border-[var(--border-color)]'
+                          : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800'
+                      }`}>
+                        {client.category}
+                      </span>
+                    </td>
+
+                    {/* 4. Direct Contact */}
+                    <td className="py-3.5 px-4 text-xs font-mono">
+                      <div className="text-slate-800 dark:text-zinc-200 truncate flex items-center gap-1.5 leading-snug">
+                        <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span className="truncate">{client.email || '—'}</span>
+                      </div>
+                      <div className="text-slate-500 dark:text-zinc-400 text-[11px] mt-0.5 flex items-center gap-1.5 leading-tight">
+                        <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span>{client.phonePrimary || client.phone || '—'}</span>
+                      </div>
+                    </td>
+
+                    {/* 5. Active Causes */}
+                    <td className="py-3.5 px-4 font-mono font-bold text-center text-slate-900 dark:text-white">
+                      {activeCauses}
+                    </td>
+
+                    {/* 6. Total Billed */}
+                    <td className="py-3.5 px-4 font-mono font-bold text-right text-emerald-600 dark:text-emerald-400">
+                      KES {totalBilled.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
+                    </td>
+
+                    {/* 7. Unified Actions */}
+                    <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-2">
+                        {/* Dossier button */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDossierClient(client)}
+                          className="px-3 py-1.5 text-xs font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+                          title="View 360° Client Financial Dossier"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Dossier</span>
+                        </button>
+
+                        {/* New Bill CTA */}
+                        {can('boc.create') && (
+                          <button
+                            type="button"
+                            onClick={() => handleNewBillForClient(client)}
+                            className="px-3 py-1.5 text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-black dark:hover:bg-slate-100 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+                            title="Draft New Bill of Costs for this Client"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>New Bill</span>
+                          </button>
+                        )}
+
+                        {/* Dropdown Menu */}
+                        <div className="relative inline-block text-left">
+                          <button
+                            type="button"
+                            onClick={() => setActiveMenuId(isMenuOpen ? null : client.id)}
+                            className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
+                            title="More actions"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+
+                          {isMenuOpen && (
+                            <div className="absolute right-0 mt-1 w-48 rounded-xl bg-white dark:bg-zinc-900 border border-[var(--border-color)] shadow-xl py-1 z-30 font-sans text-left">
+                              {can('clients.email') && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEmail(client)}
+                                  className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Mail className="w-3.5 h-3.5 text-blue-500" />
+                                  <span>Email Statement</span>
+                                </button>
+                              )}
+                              {can('clients.whatsapp') && client.phonePrimary && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleWhatsApp(client.phonePrimary, client.name)}
+                                  className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2 cursor-pointer"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5 text-emerald-500" />
+                                  <span>WhatsApp Message</span>
+                                </button>
+                              )}
+                              {can('clients.delete') && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteClient(client)}
+                                  className="w-full px-3 py-2 text-left text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer border-t border-[var(--border-color)]/60"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                  <span>Delete Client</span>
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {filtered.length === 0 && (
+          <div className="p-12 text-center">
+            <p className="text-slate-400 text-sm">No clients found matching "{search}"</p>
+          </div>
+        )}
+      </div>
+
+      {/* CLIENT FINANCIAL DOSSIER (360° Slide-over Drawer / Modal) */}
+      {selectedDossierClient && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-[var(--bg-main)] border border-[var(--border-color)] rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden text-xs">
+            {/* Header */}
+            <div className="p-5 border-b border-[var(--border-color)] flex items-start justify-between bg-[var(--bg-subtle)]/50">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-sm flex items-center justify-center font-mono">
+                  {selectedDossierClient.name.slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="font-brand font-bold text-base text-slate-900 dark:text-white">
+                    {selectedDossierClient.name}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    {selectedDossierClient.company || selectedDossierClient.name} &bull; PIN: {selectedDossierClient.kraPin || 'Pending'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedDossierClient(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+              {/* Financial Snapshot KPI Tiles */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
+                  <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-zinc-400 block font-mono">
+                    Total Billed
                   </span>
+                  <p className="text-base font-extrabold text-emerald-600 dark:text-emerald-400 font-mono mt-1">
+                    KES {(selectedDossierClient.totalBilledAmount ?? 0).toLocaleString('en-KE', { minimumFractionDigits: 2 })}
+                  </p>
                 </div>
 
-                {/* Contact Information */}
-                <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-800 space-y-1.5 text-xs">
-                  <div className="flex items-center gap-2 text-slate-600 dark:text-zinc-300 font-mono truncate">
-                    <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span className="truncate">{c.email}</span>
+                <div className="p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
+                  <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-zinc-400 block font-mono">
+                    Active Causes
+                  </span>
+                  <p className="text-base font-extrabold text-slate-900 dark:text-white font-mono mt-1">
+                    {selectedDossierClient.activeMattersCount ?? selectedDossierClient.matters ?? 0} Matters
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
+                  <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-zinc-400 block font-mono">
+                    Taxation Status
+                  </span>
+                  <p className="text-base font-extrabold text-blue-600 dark:text-blue-400 font-mono mt-1">
+                    Good Standing
+                  </p>
+                </div>
+              </div>
+
+              {/* Client Profile Details */}
+              <div className="p-4 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)] space-y-2">
+                <div className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5 mb-2">
+                  <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Contact & Registration Profile</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-mono">Official Email</span>
+                    <span className="font-medium text-slate-800 dark:text-zinc-200 font-mono">{selectedDossierClient.email || 'Not provided'}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-slate-600 dark:text-zinc-300 font-mono">
-                    <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>{c.phonePrimary}</span>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-mono">Telephone</span>
+                    <span className="font-medium text-slate-800 dark:text-zinc-200 font-mono">{selectedDossierClient.phonePrimary || selectedDossierClient.phone || 'Not provided'}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-slate-500 dark:text-zinc-400 text-[11px]">
-                    <Briefcase className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>{c.matters || 1} Active Matter(s)</span>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-mono">Category</span>
+                    <span className="font-medium text-slate-800 dark:text-zinc-200">{selectedDossierClient.category}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-mono">Client Code</span>
+                    <span className="font-mono text-slate-800 dark:text-zinc-200 font-bold">{selectedDossierClient.code}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Action Buttons Row */}
-              <div className="pt-4 mt-4 border-t border-slate-200/60 dark:border-zinc-800 flex items-center justify-between gap-2">
+              {/* Action Toolbar inside Dossier */}
+              <div className="pt-2 flex items-center justify-between border-t border-[var(--border-color)]">
                 <div className="flex items-center gap-2">
-                  {/* Call Action */}
-                  <a
-                    href={`tel:${c.phonePrimary}`}
-                    className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
-                    title={`Call ${c.name}`}
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEmail(selectedDossierClient)}
+                    className="px-3 py-1.5 rounded-xl border border-[var(--border-color)] hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
                   >
-                    <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Call</span>
-                  </a>
-
-                  {/* Email Action */}
-                  {can('clients.email') && (
+                    <Mail className="w-3.5 h-3.5 text-blue-500" />
+                    <span>Send Statement</span>
+                  </button>
+                  {selectedDossierClient.phonePrimary && (
                     <button
-                      onClick={() => handleOpenEmail(c)}
-                      className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
-                      title={`Email ${c.name}`}
+                      type="button"
+                      onClick={() => handleWhatsApp(selectedDossierClient.phonePrimary, selectedDossierClient.name)}
+                      className="px-3 py-1.5 rounded-xl border border-[var(--border-color)] hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
                     >
-                      <Mail className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Email</span>
-                    </button>
-                  )}
-
-                  {/* WhatsApp Action */}
-                  {can('clients.whatsapp') && (
-                    <button
-                      onClick={() => handleWhatsApp(c.phonePrimary, c.name)}
-                      className="p-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer border border-emerald-500/20"
-                      title="Send WhatsApp Message"
-                    >
-                      <MessageCircle className="w-3.5 h-3.5" />
+                      <MessageCircle className="w-3.5 h-3.5 text-emerald-500" />
                       <span>WhatsApp</span>
                     </button>
                   )}
                 </div>
 
-                {/* Delete Action */}
-                {can('clients.delete') && (
+                {can('boc.create') && (
                   <button
-                    onClick={() => handleDeleteClient(c.id, c.name)}
-                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors cursor-pointer"
-                    title="Delete Client"
+                    type="button"
+                    onClick={() => {
+                      setSelectedDossierClient(null);
+                      handleNewBillForClient(selectedDossierClient);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold text-xs hover:bg-black dark:hover:bg-slate-100 transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Draft Bill of Costs</span>
                   </button>
                 )}
               </div>
             </div>
-          );
-        })}
-      </div>
-
-      {filtered.length === 0 && (
-        <div className="p-12 text-center modulix-card">
-          <p className="text-slate-400 text-sm">No clients found matching "{search}"</p>
+          </div>
         </div>
       )}
 
       {/* REGISTER NEW CLIENT MODAL */}
       {showNewClientModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-[var(--bg-main)] border border-[var(--border-color)] rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl text-xs">
+          <div className="bg-[var(--bg-main)] border border-[var(--border-color)] rounded-2xl p-6 max-w-lg w-full space-y-4 shadow-2xl text-xs">
             <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
               <h3 className="font-brand font-bold text-sm text-[var(--text-main)] flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-blue-600" /> Register New Law Firm Client
+                <UserPlus className="w-5 h-5 text-slate-800 dark:text-zinc-200" /> Register Client Account
               </h3>
               <button
+                type="button"
                 onClick={() => setShowNewClientModal(false)}
                 className="text-slate-400 hover:text-slate-600 cursor-pointer"
               >
@@ -321,84 +636,114 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ currentUser }) => {
             <form onSubmit={handleRegisterClient} className="space-y-3.5">
               <div>
                 <label className="block text-[var(--text-main)] font-semibold mb-1">
-                  Client Name / Individual
+                  Client Name / Authorized Contact Person
                 </label>
                 <input
                   type="text"
                   required
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  placeholder="e.g. Seyani Brothers & Co."
-                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[var(--text-main)] font-semibold mb-1">
-                  Company / Organization Name
-                </label>
-                <input
-                  type="text"
-                  value={newCompany}
-                  onChange={(e) => setNewCompany(e.target.value)}
-                  placeholder="e.g. Seyani Brothers Limited"
-                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[var(--text-main)] font-semibold mb-1">
-                  Category
-                </label>
-                <select
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
-                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] focus:outline-none focus:border-blue-500"
-                >
-                  <option value="Corporate or Institutional">Corporate or Institutional</option>
-                  <option value="Individual Client">Individual Client</option>
-                  <option value="Family Trust / Estate">Family Trust / Estate</option>
-                  <option value="Government Entity">Government Entity</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[var(--text-main)] font-semibold mb-1">
-                  Official Email
-                </label>
-                <input
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="client@company.co.ke"
-                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-mono focus:outline-none focus:border-blue-500"
+                  placeholder="e.g. Seyani Brothers & Co. (K) Limited"
+                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] focus:outline-none focus:border-slate-400"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[var(--text-main)] font-semibold mb-1">
-                    Primary Phone
+                    Company / Entity Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newCompany}
+                    onChange={(e) => setNewCompany(e.target.value)}
+                    placeholder="e.g. Seyani Brothers Ltd"
+                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] focus:outline-none focus:border-slate-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[var(--text-main)] font-semibold mb-1">
+                    KRA PIN (E-TIMS Fiscal ID)
+                  </label>
+                  <input
+                    type="text"
+                    value={newKraPin}
+                    onChange={(e) => setNewKraPin(e.target.value)}
+                    placeholder="e.g. P051234567Z"
+                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-mono uppercase focus:outline-none focus:border-slate-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[var(--text-main)] font-semibold mb-1">
+                    Client Category
+                  </label>
+                  <select
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] focus:outline-none focus:border-slate-400 cursor-pointer"
+                  >
+                    <option value="Corporate or Institutional">Corporate or Institutional</option>
+                    <option value="Individual Client">Individual Client</option>
+                    <option value="Financial Institution">Financial Institution / Bank</option>
+                    <option value="Government Entity">Government Entity / Parastatal</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[var(--text-main)] font-semibold mb-1">
+                    Physical Office / County
+                  </label>
+                  <input
+                    type="text"
+                    value={newAddress}
+                    onChange={(e) => setNewAddress(e.target.value)}
+                    placeholder="e.g. Upper Hill, Nairobi"
+                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] focus:outline-none focus:border-slate-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[var(--text-main)] font-semibold mb-1">
+                  Official Billing Email
+                </label>
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="legal@seyani.co.ke"
+                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-mono focus:outline-none focus:border-slate-400"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[var(--text-main)] font-semibold mb-1">
+                    Primary Telephone
                   </label>
                   <input
                     type="text"
                     value={newPhonePrimary}
                     onChange={(e) => setNewPhonePrimary(e.target.value)}
                     placeholder="+254 700 000 000"
-                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-mono focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-mono focus:outline-none focus:border-slate-400"
                   />
                 </div>
 
                 <div>
                   <label className="block text-[var(--text-main)] font-semibold mb-1">
-                    Secondary Phone
+                    Secondary Telephone
                   </label>
                   <input
                     type="text"
                     value={newPhoneSecondary}
                     onChange={(e) => setNewPhoneSecondary(e.target.value)}
                     placeholder="+254 20 000 0000"
-                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-mono focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-mono focus:outline-none focus:border-slate-400"
                   />
                 </div>
               </div>
@@ -413,7 +758,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ currentUser }) => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-slate-900 hover:bg-black dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
                 >
                   Save Client
                 </button>
@@ -429,9 +774,10 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ currentUser }) => {
           <div className="bg-[var(--bg-main)] border border-[var(--border-color)] rounded-2xl p-6 max-w-lg w-full space-y-4 shadow-2xl text-xs">
             <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
               <h3 className="font-brand font-bold text-sm text-[var(--text-main)]">
-                Compose Email to {emailClient.name}
+                Compose Legal Statement to {emailClient.name}
               </h3>
               <button
+                type="button"
                 onClick={() => setShowEmailModal(false)}
                 className="text-slate-400 hover:text-slate-600 cursor-pointer"
               >
@@ -448,33 +794,33 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ currentUser }) => {
                   type="email"
                   value={emailClient.email}
                   readOnly
-                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 font-mono text-[var(--text-main)] opacity-80"
+                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-mono opacity-80"
                 />
               </div>
 
               <div>
                 <label className="block text-[var(--text-main)] font-semibold mb-1">
-                  Subject
+                  Subject Line
                 </label>
                 <input
                   type="text"
                   required
                   value={emailSubject}
                   onChange={(e) => setEmailSubject(e.target.value)}
-                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-medium focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] focus:outline-none focus:border-slate-400"
                 />
               </div>
 
               <div>
                 <label className="block text-[var(--text-main)] font-semibold mb-1">
-                  Message Body
+                  Correspondence Body
                 </label>
                 <textarea
-                  rows={5}
                   required
+                  rows={6}
                   value={emailBody}
                   onChange={(e) => setEmailBody(e.target.value)}
-                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl p-3 text-[var(--text-main)] font-sans leading-relaxed focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-sans focus:outline-none focus:border-slate-400"
                 />
               </div>
 
@@ -489,9 +835,9 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ currentUser }) => {
                 <button
                   type="submit"
                   disabled={isSending}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-slate-900 hover:bg-black dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
                 >
-                  <Send className="w-3.5 h-3.5" /> {isSending ? 'Sending...' : 'Send Email'}
+                  {isSending ? 'Transmitting...' : 'Send Statement'}
                 </button>
               </div>
             </form>
@@ -501,5 +847,3 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ currentUser }) => {
     </div>
   );
 };
-
-export default ClientsView;
