@@ -1,6 +1,4 @@
-import React, { useEffect, useState } from 'react';
-import { ExactClientRecord, SystemUser } from '../../services/supabase';
-import { fetchClients, fetchFirmUsers, fetchMessages, FirmMessage, sendMessage } from '../../services/data';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Search,
   Send,
@@ -8,265 +6,517 @@ import {
   Paperclip,
   Users,
   Building2,
-  MessageSquareOff
+  Trash2,
+  FileText,
+  Download,
+  Scale,
+  Briefcase,
+  Check,
+  CheckCheck,
+  RotateCw,
+  Plus,
+  Smile,
+  ShieldCheck,
+  X
 } from 'lucide-react';
+import { SystemUser, getFeeNotes, getMatters, ExactFeeNoteRecord, ExactMatterRecord } from '../../services/supabase';
+import { fetchFirmUsers } from '../../services/data';
+
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  recipientId: string;
+  recipientName: string;
+  text: string;
+  channel: string;
+  attachmentUrl?: string;
+  attachmentName?: string;
+  attachmentType?: string;
+  matterRef?: string;
+  createdAt: string;
+}
 
 interface MessagesViewProps {
   currentUser?: SystemUser | null;
 }
 
 export const MessagesView: React.FC<MessagesViewProps> = ({ currentUser }) => {
-  const [activeTab, setActiveTab] = useState<'clients' | 'internal'>('clients');
-  const [selectedId, setSelectedId] = useState<string>('');
-  const [clients, setClients] = useState<ExactClientRecord[]>([]);
-  const [users, setUsers] = useState<SystemUser[]>([]);
+  const [colleagues, setColleagues] = useState<SystemUser[]>([]);
+  const [selectedColleague, setSelectedColleague] = useState<SystemUser | null>(null);
   const [search, setSearch] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messageInput, setMessageInput] = useState('');
-  const [activeMessages, setActiveMessages] = useState<FirmMessage[]>([]);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [attachment, setAttachment] = useState<{ url: string; name: string; type: string } | null>(null);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
 
-  useEffect(() => {
-    if (!currentUser?.firmId) return;
-    Promise.all([fetchClients(currentUser.firmId), fetchFirmUsers(currentUser.firmId)])
-      .then(([loadedClients, loadedUsers]) => {
-        setClients(loadedClients);
-        setUsers(loadedUsers);
-        setSelectedId(loadedClients[0]?.id || loadedUsers[0]?.id || '');
-      })
-      .catch(error => setErrorMessage(error.message || 'Unable to load contacts.'));
-  }, [currentUser?.firmId]);
-
-  useEffect(() => {
-    if (!currentUser?.firmId || !currentUser.id || !selectedId) return;
-    const loadMessages = () => fetchMessages(currentUser.firmId!, currentUser.id, selectedId).then(setActiveMessages).catch(error => setErrorMessage(error.message || 'Unable to load messages.'));
-    void loadMessages();
-    const handleRealtime = (event: Event) => {
-      const detail = (event as CustomEvent<{ table?: string }>).detail;
-      if (detail?.table === 'messages') void loadMessages();
-    };
-    window.addEventListener('databaseRealtimeUpdate', handleRealtime);
-    return () => window.removeEventListener('databaseRealtimeUpdate', handleRealtime);
-  }, [currentUser?.firmId, currentUser?.id, selectedId]);
-
-  // Filter clients and internal users by search
-  const filteredClients = clients.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.email.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const filteredInternal = users.filter(u =>
-    u.fullName.toLowerCase().includes(search.toLowerCase()) ||
-    u.workEmail.toLowerCase().includes(search.toLowerCase()) ||
-    u.position.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const activeContact = activeTab === 'clients'
-    ? clients.find(c => c.id === selectedId) || { id: '', name: 'Select a client', email: '' }
-    : users.find(u => u.id === selectedId) || { id: '', fullName: 'Select a colleague', workEmail: '', position: '' } as SystemUser;
-
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!messageInput.trim()) return;
-
-    if (!currentUser?.firmId || !currentUser.id || !selectedId) return;
+  // Available Matters & Fee Notes for Direct Attachment
+  const [feeNotes] = useState<ExactFeeNoteRecord[]>(() => getFeeNotes());
+  const [matters] = useState<ExactMatterRecord[]>(() => {
     try {
-      const recipientName = 'name' in activeContact ? activeContact.name : activeContact.fullName;
-      const savedMessage = await sendMessage(currentUser.firmId, currentUser, selectedId, recipientName, messageInput.trim());
-      setActiveMessages(prev => [...prev, savedMessage]);
-      setMessageInput('');
-    } catch (error: any) {
-      setErrorMessage(error.message || 'Unable to send message.');
+      const saved = localStorage.getItem('EXACT_MATTERS');
+      return saved ? JSON.parse(saved) : getMatters();
+    } catch (e) {
+      return getMatters();
     }
+  });
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Load colleagues on mount
+  useEffect(() => {
+    let isMounted = true;
+    fetchFirmUsers(currentUser?.firmId || 'firm-001').then(users => {
+      if (isMounted) {
+        // Exclude current user from colleague list
+        const others = users.filter(u => u.id !== currentUser?.id && u.workEmail?.toLowerCase() !== currentUser?.workEmail?.toLowerCase());
+        setColleagues(others);
+        if (others.length > 0 && !selectedColleague) {
+          setSelectedColleague(others[0]);
+        }
+      }
+    });
+    return () => { isMounted = false; };
+  }, [currentUser]);
+
+  // Load conversation messages between currentUser and selectedColleague
+  const loadConversation = async () => {
+    if (!currentUser || !selectedColleague) return;
+    try {
+      const res = await fetch(`/api/v1/messages?user1=${encodeURIComponent(currentUser.id)}&user2=${encodeURIComponent(selectedColleague.id)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.messages)) {
+          setMessages(data.messages);
+        }
+      }
+    } catch (e) {}
   };
 
+  // Poll conversation every 3 seconds for real-time responsiveness
+  useEffect(() => {
+    loadConversation();
+    const interval = setInterval(loadConversation, 3000);
+    return () => clearInterval(interval);
+  }, [currentUser, selectedColleague]);
+
+  // Scroll to bottom when messages update
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Send message handler
+  const handleSend = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!currentUser || !selectedColleague) return;
+    if (!messageInput.trim() && !attachment) return;
+
+    setIsSending(true);
+    const newMsgPayload = {
+      senderId: currentUser.id,
+      senderName: currentUser.fullName,
+      recipientId: selectedColleague.id,
+      recipientName: selectedColleague.fullName,
+      text: messageInput.trim(),
+      channel: 'internal',
+      attachmentUrl: attachment?.url,
+      attachmentName: attachment?.name,
+      attachmentType: attachment?.type,
+    };
+
+    try {
+      const res = await fetch('/api/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newMsgPayload)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.message) {
+          setMessages(prev => [...prev, data.message]);
+        }
+        setMessageInput('');
+        setAttachment(null);
+      }
+    } catch (err) {}
+    setIsSending(false);
+  };
+
+  // File upload handler
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/api/v1/messages/upload', {
+        method: 'POST',
+        body: formData
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAttachment({
+          url: data.url,
+          name: data.fileName,
+          type: data.fileType
+        });
+      }
+    } catch (e) {}
+    setIsUploading(false);
+    e.target.value = '';
+    setShowAttachMenu(false);
+  };
+
+  // Delete message handler
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      const res = await fetch(`/api/v1/messages/${encodeURIComponent(messageId)}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        setMessages(prev => prev.filter(m => m.id !== messageId));
+      }
+    } catch (e) {}
+  };
+
+  // Filter colleagues
+  const filteredColleagues = colleagues.filter(c =>
+    c.fullName.toLowerCase().includes(search.toLowerCase()) ||
+    (c.position || '').toLowerCase().includes(search.toLowerCase()) ||
+    (c.role || '').toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
-    <div className="space-y-4 h-[calc(100vh-140px)] min-h-[550px] flex flex-col">
-      {/* Title Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2 border-b border-[var(--border-color)]/50 pb-3 shrink-0">
-        <div>
-          <h1 className="font-brand font-extrabold text-2xl text-[var(--text-main)] tracking-tight">
-            Messages & Communications
-          </h1>
-          <p className="text-xs text-[var(--text-muted)] mt-0.5">
-            Client Messaging & Internal Law Firm Advocates Directory
-          </p>
-        </div>
-
-        {/* Tab Navigation Controls: Clients vs Internal */}
-        <div className="flex items-center gap-1.5 bg-[var(--bg-subtle)] p-1 rounded-xl border border-[var(--border-color)] text-xs shrink-0">
-          <button
-            onClick={() => {
-              setActiveTab('clients');
-              setSelectedId(clients[0]?.id || '');
-            }}
-            className={`px-3.5 py-1.5 rounded-lg font-semibold flex items-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'clients'
-                ? 'bg-[var(--bg-card)] text-[var(--text-main)] shadow-xs border border-[var(--border-color)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-            }`}
-          >
-            <Building2 className="w-3.5 h-3.5" />
-            Clients
-            <span className="px-1.5 py-0.2 rounded-full bg-[var(--border-color)] font-mono text-[10px]">
-              {clients.length}
-            </span>
-          </button>
-
-          <button
-            onClick={() => {
-              setActiveTab('internal');
-              setSelectedId(users[0]?.id || '');
-            }}
-            className={`px-3.5 py-1.5 rounded-lg font-semibold flex items-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'internal'
-                ? 'bg-[var(--bg-card)] text-[var(--text-main)] shadow-xs border border-[var(--border-color)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            Internal Lawyers
-            <span className="px-1.5 py-0.2 rounded-full bg-[var(--border-color)] font-mono text-[10px]">
-              {users.length}
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* Full Screen Grid Layout */}
-      <div className="vercel-card flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-3 text-xs">
+    <div className="h-[calc(100vh-140px)] min-h-[580px] rounded-2xl border border-[var(--border-color)] bg-white dark:bg-zinc-900 shadow-xs flex overflow-hidden animate-fadeIn text-xs">
+      
+      {/* LEFT SIDEBAR: COLLEAGUES ROSTER */}
+      <div className="w-72 sm:w-80 border-r border-[var(--border-color)] flex flex-col bg-slate-50/50 dark:bg-zinc-900/60 shrink-0">
         
-        {/* Left Directory Sidebar */}
-        <div className="border-r border-[var(--border-color)] bg-[var(--bg-subtle)]/50 flex flex-col h-full min-w-0">
-          <div className="p-3 border-b border-[var(--border-color)]">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[var(--text-muted)]" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={activeTab === 'clients' ? "Search clients..." : "Search advocates..."}
-                className="w-full bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl pl-9 pr-3 py-1.5 text-xs text-[var(--text-main)] focus:outline-none"
-              />
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto divide-y divide-[var(--border-color)]">
-            {activeTab === 'clients' ? (
-              filteredClients.map((c) => (
-                <div
-                  key={c.id}
-                  onClick={() => setSelectedId(c.id)}
-                  className={`p-3.5 cursor-pointer transition-colors flex items-center gap-3 ${
-                    selectedId === c.id ? 'bg-[var(--bg-card)] font-semibold border-l-4 border-l-black dark:border-l-white' : 'hover:bg-[var(--bg-card)]/50'
-                  }`}
-                >
-                  <div className="w-8 h-8 rounded-full bg-black text-white dark:bg-white dark:text-black flex items-center justify-center font-bold text-xs shrink-0">
-                    <User className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <strong className="text-[var(--text-main)] truncate block">{c.name}</strong>
-                    <span className="text-[10.5px] text-[var(--text-muted)] truncate block">{c.email}</span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              filteredInternal.map((u) => (
-                <div
-                  key={u.id}
-                  onClick={() => setSelectedId(u.id)}
-                  className={`p-3.5 cursor-pointer transition-colors flex items-center gap-3 ${
-                    selectedId === u.id ? 'bg-[var(--bg-card)] font-semibold border-l-4 border-l-black dark:border-l-white' : 'hover:bg-[var(--bg-card)]/50'
-                  }`}
-                >
-                  <div className="w-8 h-8 rounded-full bg-emerald-700 text-white flex items-center justify-center font-bold text-xs shrink-0 font-mono">
-                    {u.fullName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <strong className="text-[var(--text-main)] truncate block">{u.fullName}</strong>
-                      <span className="text-[9.5px] font-mono px-1.5 py-0.2 rounded bg-[var(--border-color)] text-[var(--text-muted)]">
-                        {u.role}
-                      </span>
-                    </div>
-                    <span className="text-[10.5px] text-[var(--text-muted)] truncate block">{u.position}</span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Right Active Messaging Area */}
-        <div className="md:col-span-2 flex flex-col h-full bg-[var(--bg-card)]">
-          {/* Active Contact Header */}
-          <div className="p-3.5 border-b border-[var(--border-color)] flex items-center justify-between">
+        {/* Roster Header */}
+        <div className="p-4 border-b border-[var(--border-color)] space-y-3">
+          <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-bold text-sm text-[var(--text-main)]">
-                {'name' in activeContact ? activeContact.name : activeContact.fullName}
-              </h3>
-              <p className="text-[10.5px] text-[var(--text-muted)] font-mono">
-                {'email' in activeContact ? activeContact.email : (activeContact as SystemUser).workEmail}
+              <h2 className="font-brand font-bold text-sm text-slate-900 dark:text-white">
+                Staff Chambers Chat
+              </h2>
+              <p className="text-[11px] text-slate-500">
+                Peer-to-Peer Real-Time Legal Communication
               </p>
             </div>
-            <span className="px-2.5 py-0.5 rounded-full bg-[var(--bg-subtle)] border border-[var(--border-color)] text-[10.5px] font-mono font-semibold">
-              {activeTab === 'clients' ? 'Client Contact' : (activeContact as SystemUser).position}
+            <span className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 font-mono text-[10px] font-bold">
+              LIVE
             </span>
           </div>
 
-          {/* Conversation Window */}
-          <div className="flex-1 p-6 overflow-y-auto flex flex-col items-center justify-center space-y-4">
-            {activeMessages.length === 0 ? (
-              <div className="text-center space-y-2 max-w-sm">
-                <div className="w-12 h-12 mx-auto rounded-2xl bg-[var(--bg-subtle)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-muted)]">
-                  <MessageSquareOff className="w-6 h-6" />
+          {/* Search Colleague */}
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search advocates & staff..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-[var(--border-color)] bg-white dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none"
+            />
+          </div>
+        </div>
+
+        {/* Colleagues List */}
+        <div className="flex-1 overflow-y-auto divide-y divide-[var(--border-color)]/50">
+          {filteredColleagues.length === 0 ? (
+            <div className="p-6 text-center text-slate-400">
+              No colleagues found matching "{search}".
+            </div>
+          ) : (
+            filteredColleagues.map(colleague => {
+              const isSelected = selectedColleague?.id === colleague.id;
+              return (
+                <button
+                  key={colleague.id}
+                  onClick={() => setSelectedColleague(colleague)}
+                  className={`w-full p-3.5 text-left flex items-start gap-3 transition-colors cursor-pointer ${
+                    isSelected
+                      ? 'bg-white dark:bg-zinc-800/90 border-l-4 border-blue-600 dark:border-blue-500 shadow-xs'
+                      : 'hover:bg-slate-100/70 dark:hover:bg-zinc-800/40'
+                  }`}
+                >
+                  {/* Avatar Initials with Online Presence Dot */}
+                  <div className="relative shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center font-bold text-xs uppercase shadow-xs">
+                      {colleague.fullName.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                    </div>
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 absolute -bottom-0.5 -right-0.5 border-2 border-white dark:border-zinc-900" />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-slate-900 dark:text-white truncate text-xs">
+                        {colleague.fullName}
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                      {colleague.position || colleague.role || 'Advocate'}
+                    </p>
+
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="text-[9.5px] font-mono px-1.5 py-0.2 rounded bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300">
+                        {colleague.role || 'Staff'}
+                      </span>
+                      {colleague.lskNo && (
+                        <span className="text-[9.5px] font-mono text-slate-400 truncate">
+                          {colleague.lskNo}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+      </div>
+
+      {/* RIGHT MAIN PANEL: ACTIVE CHAT THREAD */}
+      {selectedColleague ? (
+        <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-zinc-900">
+          
+          {/* Active Colleague Header */}
+          <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between bg-slate-50/40 dark:bg-zinc-900/40 shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center font-bold text-xs uppercase shadow-xs">
+                {selectedColleague.fullName.split(' ').map(n => n[0]).slice(0, 2).join('')}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-slate-900 dark:text-white text-xs">
+                    {selectedColleague.fullName}
+                  </h3>
+                  <span className="text-[9.5px] font-mono px-2 py-0.2 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40 flex items-center gap-1 font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Available in Chambers
+                  </span>
                 </div>
-                <h4 className="font-brand font-bold text-sm text-[var(--text-main)]">No messages available.</h4>
-                <p className="text-xs text-[var(--text-muted)]">
-                  There are no past messages with this {'name' in activeContact ? 'client' : 'advocate'}. Send a message below to start communicating.
+                <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                  {selectedColleague.workEmail} &middot; {selectedColleague.position || 'Advocate'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={loadConversation}
+                className="p-2 rounded-xl border border-[var(--border-color)] hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-500 cursor-pointer transition-colors"
+                title="Refresh Thread"
+              >
+                <RotateCw className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Messages Stream */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+            {messages.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400 space-y-2">
+                <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-500">
+                  <Users className="w-6 h-6" />
+                </div>
+                <div className="font-semibold text-slate-700 dark:text-zinc-300 text-xs">
+                  Start a direct conversation with {selectedColleague.fullName}
+                </div>
+                <p className="text-[11px] max-w-sm">
+                  Send legal briefs, consult on High Court taxation, or attach case files and Fee Notes directly into this thread.
                 </p>
               </div>
             ) : (
-              <div className="w-full space-y-3 self-stretch my-auto">
-                {activeMessages.map((m, idx) => (
-                  <div key={idx} className="flex flex-col items-end">
-                    <span className="text-[10px] text-[var(--text-muted)] mb-1 font-mono">{m.senderId === currentUser?.id ? 'You' : m.senderName} • {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    <div className="p-3 rounded-2xl bg-black text-white dark:bg-white dark:text-black text-xs leading-relaxed max-w-md rounded-tr-none">
-                      {m.text}
+              messages.map(msg => {
+                const isMine = msg.senderId === currentUser?.id || msg.senderName === currentUser?.fullName;
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex flex-col group ${isMine ? 'items-end' : 'items-start'}`}
+                  >
+                    <div className="flex items-center gap-1.5 mb-1 px-1 text-[10px] text-slate-400 font-mono">
+                      <span>{msg.senderName}</span>
+                      <span>&middot;</span>
+                      <span>{msg.createdAt}</span>
+                      {isMine && (
+                        <button
+                          onClick={() => handleDeleteMessage(msg.id)}
+                          className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-opacity ml-1 cursor-pointer"
+                          title="Delete message"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Speech Bubble */}
+                    <div
+                      className={`max-w-md p-3 rounded-2xl text-xs space-y-2 shadow-xs ${
+                        isMine
+                          ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-tr-xs'
+                          : 'bg-slate-100 dark:bg-zinc-800 text-slate-900 dark:text-white rounded-tl-xs border border-[var(--border-color)]/60'
+                      }`}
+                    >
+                      {/* Text Content */}
+                      {msg.text && (
+                        <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                      )}
+
+                      {/* Document / File Attachment */}
+                      {msg.attachmentUrl && (
+                        <div className={`p-2.5 rounded-xl border flex items-center justify-between gap-3 text-xs ${
+                          isMine
+                            ? 'bg-slate-800 dark:bg-slate-100 border-slate-700 dark:border-slate-200'
+                            : 'bg-white dark:bg-zinc-900 border-[var(--border-color)]'
+                        }`}>
+                          <div className="flex items-center gap-2 truncate">
+                            <FileText className="w-4 h-4 shrink-0 text-blue-500" />
+                            <span className="truncate font-medium">{msg.attachmentName || 'Legal Document'}</span>
+                          </div>
+                          <a
+                            href={msg.attachmentUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shrink-0 flex items-center gap-1 text-[10px] font-semibold"
+                          >
+                            <Download className="w-3 h-3" />
+                            <span>Open</span>
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Fee Note / Matter Reference Tag */}
+                      {msg.matterRef && (
+                        <div className={`p-2 rounded-lg font-mono text-[10.5px] border flex items-center gap-1.5 ${
+                          isMine
+                            ? 'bg-slate-800/80 dark:bg-slate-200/60 border-slate-700 text-emerald-300 dark:text-emerald-700'
+                            : 'bg-slate-50 dark:bg-zinc-900/60 border-[var(--border-color)] text-emerald-600 dark:text-emerald-400'
+                        }`}>
+                          <Scale className="w-3 h-3" />
+                          <span>Linked Case File: {msg.matterRef}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                ))}
-              </div>
+                );
+              })
             )}
+            <div ref={messagesEndRef} />
           </div>
 
-          {/* Message Input Bar */}
-          <form onSubmit={handleSend} className="p-3 border-t border-[var(--border-color)] flex items-center gap-2">
-            <button
-              type="button"
-              className="p-2 rounded-xl border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-subtle)] cursor-pointer"
-              title="Attach File"
-            >
-              <Paperclip className="w-4 h-4" />
-            </button>
-            <input
-              type="text"
-              value={messageInput}
-              onChange={(e) => setMessageInput(e.target.value)}
-              placeholder={`Type message to ${'name' in activeContact ? activeContact.name : activeContact.fullName}...`}
-              className="flex-1 bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-xs text-[var(--text-main)] focus:outline-none"
-            />
-            <button
-              type="submit"
-              className="btn-black px-4 py-2 text-xs font-semibold flex items-center gap-1.5 shadow-xs shrink-0 cursor-pointer"
-            >
-              <Send className="w-3.5 h-3.5" /> Send
-            </button>
-          </form>
-        </div>
+          {/* Active Attachment Pill before sending */}
+          {attachment && (
+            <div className="px-4 py-2 bg-blue-50 dark:bg-blue-950/30 border-t border-blue-200 dark:border-blue-800 flex items-center justify-between text-xs text-blue-900 dark:text-blue-300">
+              <div className="flex items-center gap-2 truncate">
+                <FileText className="w-4 h-4 text-blue-600" />
+                <span className="truncate font-semibold">{attachment.name}</span>
+              </div>
+              <button
+                onClick={() => setAttachment(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
-      </div>
+          {/* Hidden File Input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            className="hidden"
+            accept=".pdf,.doc,.docx,.xlsx,.png,.jpg,.jpeg"
+          />
+
+          {/* Chat Composer */}
+          <div className="p-3.5 border-t border-[var(--border-color)] bg-slate-50/50 dark:bg-zinc-900/50 relative">
+            
+            {/* Quick Attach Dropdown */}
+            {showAttachMenu && (
+              <div className="absolute bottom-full left-4 mb-2 w-72 rounded-xl bg-white dark:bg-zinc-900 border border-[var(--border-color)] shadow-xl p-2 space-y-1 z-30">
+                <div className="px-2 py-1 text-[10px] font-mono font-bold uppercase text-slate-400">
+                  Attach Case Record
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-left text-xs transition-colors"
+                >
+                  <Paperclip className="w-4 h-4 text-blue-500" />
+                  <span>Upload File from Computer (PDF, Doc)</span>
+                </button>
+
+                {feeNotes.length > 0 && (
+                  <div className="pt-1 border-t border-[var(--border-color)]">
+                    <div className="px-2 py-1 text-[9.5px] font-mono uppercase text-slate-400">
+                      Share Active Fee Note
+                    </div>
+                    {feeNotes.slice(0, 3).map(fn => (
+                      <button
+                        key={fn.id}
+                        type="button"
+                        onClick={() => {
+                          setMessageInput(`Regarding Fee Note ${fn.billNumber} (${fn.clientName}) — Total: KES ${fn.grandTotal.toLocaleString()}`);
+                          setShowAttachMenu(false);
+                        }}
+                        className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-left text-[11px] truncate"
+                      >
+                        <span className="font-mono font-bold text-blue-600 truncate">{fn.billNumber}</span>
+                        <span className="text-slate-400 text-[10px]">KES {fn.grandTotal.toLocaleString()}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <form onSubmit={handleSend} className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAttachMenu(!showAttachMenu)}
+                className="p-2.5 rounded-xl border border-[var(--border-color)] bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+                title="Attach Document or Case File"
+              >
+                <Paperclip className="w-4 h-4" />
+              </button>
+
+              <input
+                type="text"
+                placeholder={`Message ${selectedColleague.fullName}...`}
+                value={messageInput}
+                onChange={e => setMessageInput(e.target.value)}
+                className="flex-1 p-2.5 rounded-xl border border-[var(--border-color)] bg-white dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none"
+              />
+
+              <button
+                type="submit"
+                disabled={isSending || (!messageInput.trim() && !attachment)}
+                className="px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-semibold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs disabled:opacity-40"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Send</span>
+              </button>
+            </form>
+          </div>
+
+        </div>
+      ) : (
+        <div className="flex-1 flex items-center justify-center p-8 text-slate-400 text-center">
+          Select an advocate or staff member to view conversation.
+        </div>
+      )}
+
     </div>
   );
 };
-
-export default MessagesView;
