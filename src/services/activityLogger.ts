@@ -73,21 +73,51 @@ export const getActivityLogs = (): ActivityLogItem[] => {
         return parsed;
       }
     }
-  } catch (e) {}
+  } catch (e) { }
   localStorage.setItem('SYSTEM_ACTIVITY_LOGS', JSON.stringify(INITIAL_LOGS));
   return INITIAL_LOGS;
 };
 
 export const logSystemActivity = (
   advocateName: string,
-  action: string,
-  type: ActivityLogItem['type'] = 'feenote',
-  badgeColor: string = 'bg-emerald-500'
+  arg2: string,
+  arg3?: ActivityLogItem['type'] | string,
+  arg4?: ActivityLogItem['type'] | string,
+  arg5?: string
 ) => {
+  let role: string | undefined = undefined;
+  let action: string = arg2;
+  let type: ActivityLogItem['type'] = 'feenote';
+  let badgeColor = 'bg-emerald-500';
+
+  if (typeof arg3 === 'string' && (arg4 !== undefined || arg5 !== undefined) && !arg3.startsWith('bg-')) {
+    // Called with (advocateName, advocateRole, action, type, badgeColor)
+    role = arg2;
+    action = arg3;
+    if (arg4 && ['feenote', 'approval', 'return', 'permission', 'login', 'letter', 'vault', 'profile', 'settings'].includes(arg4)) {
+      type = arg4 as ActivityLogItem['type'];
+    }
+    if (arg5) badgeColor = arg5;
+  } else {
+    // Called with (advocateName, action, type/badgeColor, badgeColor)
+    action = arg2;
+    if (arg3) {
+      if (arg3.startsWith('bg-')) {
+        badgeColor = arg3;
+      } else if (['feenote', 'approval', 'return', 'permission', 'login', 'letter', 'vault', 'profile', 'settings'].includes(arg3)) {
+        type = arg3 as ActivityLogItem['type'];
+      }
+    }
+    if (arg4 && typeof arg4 === 'string') {
+      badgeColor = arg4;
+    }
+  }
+
   const currentLogs = getActivityLogs();
   const newItem: ActivityLogItem = {
     id: 'log-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
     advocateName,
+    advocateRole: role,
     action,
     timeAgo: 'Just now',
     timestamp: Date.now(),
@@ -97,7 +127,7 @@ export const logSystemActivity = (
   const updated = [newItem, ...currentLogs].slice(0, 50); // Keep last 50 events
   try {
     localStorage.setItem('SYSTEM_ACTIVITY_LOGS', JSON.stringify(updated));
-  } catch (e) {}
+  } catch (e) { }
   window.dispatchEvent(new CustomEvent('activityLogsUpdated', { detail: updated }));
   return newItem;
 };
