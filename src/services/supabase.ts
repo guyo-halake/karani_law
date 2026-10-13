@@ -42,6 +42,7 @@ export interface SystemUser {
   authUserId?: string;
   firmId?: string;
   fullName: string;
+  username?: string;
   advocateTitle: string;
   lskNo: string;
   role: 'Admin' | 'Developer' | 'Advocate';
@@ -197,14 +198,20 @@ export const SEEDED_USERS: SystemUser[] = [
 
 export const EXACT_FIRM_INFO = {
   name: "Nyagah B. Kithinji & Co. Advocates",
-  firmRegNo: "LSK/FIRM/1992/105",
-  address: "Upper Hill Financial District, Mbaruk Road off Ngong Road",
-  fullLocation: "Mbaruk Road off Ngong Road, Golf Course Estate, Upper Hill, Nairobi, Kenya",
-  poBox: "P.O. Box 45892-00100, Nairobi, Kenya",
-  email: "info@kithinjilegal.co.ke",
-  taxationEmail: "taxation@kithinjilegal.co.ke",
-  billingEmail: "billing@kithinjilegal.co.ke",
-  phone: "+254 (0)20 271 8900 / +254 722 000 000",
+  firmRegNo: "P.105/1992",
+  managingPartner: "Nyagah B. Kithinji",
+  managingPartnerLsk: "P.105/1992",
+  managingPartnerEmail: "info@nbkco-advocates.com",
+  managingPartnerPhone: "+254 722 000 111",
+  address: "Suite 4B, Mbaruk Road, Off Muchai Drive, Golf Course Estate",
+  fullLocation: "Mbaruk Road, Off Muchai Drive, Golf Course Estate, Upper Hill, Nairobi, Kenya",
+  poBox: "P.O. Box 1992-00100, Nairobi, Kenya",
+  email: "info@nbkco-advocates.com",
+  companyEmail: "info@nbkco-advocates.com",
+  taxationEmail: "taxation@nbkco-advocates.com",
+  billingEmail: "billing@nbkco-advocates.com",
+  phone: "+254 (0)20 271 8890 / +254 722 000 111",
+  companyPhone: "+254 (0)20 271 8890 / +254 722 000 111",
   kraPin: "P051123456Z",
   bankDetails: "KCB Bank Kenya Ltd | Kilimani Branch | A/C No: 1104889922 | Swift: KCBLKENX",
   website: "www.kithinjilegal.co.ke",
@@ -423,7 +430,11 @@ export interface ExactFeeNoteRecord {
   instructionFee: number;
   gettingUpFee: number;
   grandTotal: number;
-  status: 'processed' | 'draft';
+  status: 'processed' | 'draft' | 'paid' | 'settled' | 'partially_paid';
+  paidAmount?: number;
+  paymentReference?: string;
+  paymentMethod?: string;
+  paymentDate?: string;
   generatedByUser: string;
   generatedByUserId: string;
   createdAt: string;
@@ -558,6 +569,7 @@ export const persistFeeNotes = (notes: ExactFeeNoteRecord[]) => {
     localStorage.setItem('EXACT_FEE_NOTES', JSON.stringify(notes));
   } catch (e) {}
   window.dispatchEvent(new CustomEvent('feeNotesUpdated', { detail: notes }));
+  window.dispatchEvent(new CustomEvent('databaseRealtimeUpdate', { detail: { table: 'fee_notes' } }));
 };
 
 export const saveFeeNotes = () => {
@@ -567,8 +579,106 @@ export const saveFeeNotes = () => {
   window.dispatchEvent(new CustomEvent('feeNotesUpdated', { detail: EXACT_FEE_NOTES }));
 };
 
+export const saveFeeNoteToDatabase = async (note: ExactFeeNoteRecord): Promise<{ success: boolean; note: ExactFeeNoteRecord }> => {
+  try {
+    const res = await fetch('/api/v1/feenotes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(note)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const savedNote = data.note || note;
+      const current = getFeeNotes();
+      const updated = [savedNote, ...current.filter(n => n.billNumber !== savedNote.billNumber && n.id !== savedNote.id)];
+      persistFeeNotes(updated);
+      return { success: true, note: savedNote };
+    }
+  } catch (e) {
+    console.warn('Backend saveFeeNoteToDatabase error:', e);
+  }
+  const current = getFeeNotes();
+  const updated = [note, ...current.filter(n => n.billNumber !== note.billNumber && n.id !== note.id)];
+  persistFeeNotes(updated);
+  return { success: true, note };
+};
+
+export const deleteFeeNoteFromDatabase = async (noteId: string): Promise<boolean> => {
+  try {
+    await fetch(`/api/v1/feenotes/${encodeURIComponent(noteId)}`, { method: 'DELETE' });
+  } catch (e) {}
+  const current = getFeeNotes();
+  const updated = current.filter(n => n.id !== noteId && n.billNumber !== noteId);
+  persistFeeNotes(updated);
+  return true;
+};
+
+// -------------------------------------------------------------
+// CLIENTS & MATTERS PERSISTENCE LEDGERS
+// -------------------------------------------------------------
+export const getClients = (): ExactClientRecord[] => {
+  try {
+    const saved = localStorage.getItem('EXACT_CLIENTS');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {}
+  return EXACT_CLIENTS;
+};
+
+export const persistClients = (clients: ExactClientRecord[]) => {
+  EXACT_CLIENTS.length = 0;
+  EXACT_CLIENTS.push(...clients);
+  try {
+    localStorage.setItem('EXACT_CLIENTS', JSON.stringify(clients));
+  } catch (e) {}
+  window.dispatchEvent(new CustomEvent('clientsUpdated', { detail: clients }));
+  window.dispatchEvent(new CustomEvent('databaseRealtimeUpdate', { detail: { table: 'clients' } }));
+};
+
+export const getMatters = (): ExactMatterRecord[] => {
+  try {
+    const saved = localStorage.getItem('EXACT_MATTERS');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {}
+  return EXACT_MATTERS;
+};
+
+export const persistMatters = (matters: ExactMatterRecord[]) => {
+  EXACT_MATTERS.length = 0;
+  EXACT_MATTERS.push(...matters);
+  try {
+    localStorage.setItem('EXACT_MATTERS', JSON.stringify(matters));
+  } catch (e) {}
+  window.dispatchEvent(new CustomEvent('mattersUpdated', { detail: matters }));
+  window.dispatchEvent(new CustomEvent('databaseRealtimeUpdate', { detail: { table: 'matters' } }));
+};
+
 export const fetchFeeNotesFromDatabase = async (firmId?: string): Promise<ExactFeeNoteRecord[]> => {
   try {
+    // 1. Primary: Authoritative server database (/api/v1/feenotes)
+    const res = await fetch('/api/v1/feenotes');
+    if (res.ok) {
+      const remoteNotes: ExactFeeNoteRecord[] = await res.json();
+      if (Array.isArray(remoteNotes) && remoteNotes.length > 0) {
+        persistFeeNotes(remoteNotes);
+        return remoteNotes;
+      }
+    }
+  } catch (e) {
+    console.warn('Primary database /api/v1/feenotes unavailable, trying Supabase fallback:', e);
+  }
+
+  try {
+    // 2. Secondary: Supabase cloud backup
     let query = supabase.from('fee_notes').select('*').order('created_at', { ascending: false });
     if (firmId) {
       query = query.or(`firm_id.eq.${firmId},firm_id.is.null`);
@@ -597,7 +707,6 @@ export const fetchFeeNotesFromDatabase = async (firmId?: string): Promise<ExactF
         excelData: row.excel_data || undefined
       }));
 
-      // Merge remote records with any local records
       const localNotes = getFeeNotes();
       const combinedMap = new Map<string, ExactFeeNoteRecord>();
       records.forEach(r => combinedMap.set(r.id || r.billNumber, r));
@@ -812,3 +921,116 @@ export const EXACT_VAULT_FILES: ExactVaultFileRecord[] = [
     verifiedTruth: true
   }
 ];
+
+// =============================================================================
+// 6. IT SUPPORT DESK & TICKET SYSTEM SCHEMA & PERSISTENCE
+// =============================================================================
+export interface ITTicketMessage {
+  id: string;
+  senderName: string;
+  senderRole: 'advocate' | 'support_engineer' | 'system';
+  text: string;
+  timestamp: string;
+}
+
+export interface ITSupportTicket {
+  id: string;
+  ticketNumber: string;
+  title: string;
+  category: 'remuneration' | 'documents' | 'database' | 'permissions' | 'connectivity' | 'general';
+  priority: 'p1_court_critical' | 'p2_high' | 'p3_medium' | 'p4_low';
+  status: 'open' | 'in_progress' | 'pending_user' | 'resolved';
+  creatorName: string;
+  creatorEmail: string;
+  firmId: string;
+  createdAt: string;
+  updatedAt: string;
+  diagnosticsAttached?: boolean;
+  diagnosticSummary?: string;
+  messages: ITTicketMessage[];
+}
+
+export const INITIAL_SUPPORT_TICKETS: ITSupportTicket[] = [
+  {
+    id: "tkt-001",
+    ticketNumber: "TKT-2026-0492",
+    title: "Schedule 6 Ad Valorem Getting-Up Fee Verification for Seyani Brothers",
+    category: "remuneration",
+    priority: "p2_high",
+    status: "resolved",
+    creatorName: "Karani Victor",
+    creatorEmail: "vickarani@gmail.com",
+    firmId: "firm-001",
+    createdAt: "2026-03-18 14:20",
+    updatedAt: "2026-03-18 15:45",
+    diagnosticsAttached: true,
+    diagnosticSummary: "FastAPI Remuneration Engine (L.N. 35/2014) | Claim: 30,820,193.28 | Instruction: 662,302.90 | Getting-Up: 220,767.63",
+    messages: [
+      {
+        id: "tm-1",
+        senderName: "Karani Victor",
+        senderRole: "advocate",
+        text: "Please verify that the 1/3 Getting-Up floor correctly excludes statutory VAT from base calculation.",
+        timestamp: "2026-03-18 14:20"
+      },
+      {
+        id: "tm-2",
+        senderName: "Razak Wako (P3L Engineer)",
+        senderRole: "support_engineer",
+        text: "Audited remuneration_engine.py: Item 2 Getting-Up is computed strictly as instruction_fee / 3.0 before 16% VAT is applied to taxable subtotal. Confirmed compliant with Kenya Law LN 64/1962.",
+        timestamp: "2026-03-18 15:45"
+      }
+    ]
+  },
+  {
+    id: "tkt-002",
+    ticketNumber: "TKT-2026-0518",
+    title: "Multi-device Realtime Sync check on High Court Commercial taxation list",
+    category: "database",
+    priority: "p3_medium",
+    status: "in_progress",
+    creatorName: "Guyoh Alake",
+    creatorEmail: "guyohalakeofficial@gmail.com",
+    firmId: "firm-001",
+    createdAt: "2026-03-19 08:30",
+    updatedAt: "2026-03-19 09:10",
+    diagnosticsAttached: true,
+    diagnosticSummary: "Supabase WebSocket Realtime Channel: matters, fee_notes | LocalStorage Ledger: Active",
+    messages: [
+      {
+        id: "tm-3",
+        senderName: "Guyoh Alake",
+        senderRole: "advocate",
+        text: "Checking if matter updates made on the office workstation automatically reflect on mobile/remote devices.",
+        timestamp: "2026-03-19 08:30"
+      },
+      {
+        id: "tm-4",
+        senderName: "System Automation",
+        senderRole: "system",
+        text: "Supabase Realtime heartbeat healthy. Broadcast latency: 24ms. Both cloud PostgreSQL and local browser storage synchronized.",
+        timestamp: "2026-03-19 08:31"
+      }
+    ]
+  }
+];
+
+export const getSupportTickets = (): ITSupportTicket[] => {
+  try {
+    const saved = localStorage.getItem('P3L_SUPPORT_TICKETS');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {}
+  return INITIAL_SUPPORT_TICKETS;
+};
+
+export const persistSupportTickets = (tickets: ITSupportTicket[]) => {
+  try {
+    localStorage.setItem('P3L_SUPPORT_TICKETS', JSON.stringify(tickets));
+  } catch (e) {}
+  window.dispatchEvent(new CustomEvent('supportTicketsUpdated', { detail: tickets }));
+};
