@@ -4,12 +4,12 @@ import {
   ArrowUpRight, Search, Eye, Share2, AlertTriangle, Briefcase, ShieldCheck, 
   Calendar, CheckCircle2, Download, Building2, UserCheck, RefreshCw, ExternalLink,
   Lock, Settings, MessageSquare, Edit3, X, Save, Phone, Mail, Award, Plus,
-  UserPlus, KeyRound, Send, Check, CheckCheck, Activity, Shield, Sparkles
+  UserPlus, KeyRound, Send, Check, CheckCheck, Activity, Shield, Sparkles, Trash2
 } from 'lucide-react';
 import { 
   ExactFeeNoteRecord, fetchFeeNotesFromDatabase, updateFeeNoteStatus, SystemUser, saveUserProfile
 } from '../../services/supabase';
-import { fetchClients, fetchFirmUsers, fetchMatters, PermissionItem, fetchPermissionItems, createFirmUser, updateFirmUser } from '../../services/data';
+import { fetchClients, fetchFirmUsers, fetchMatters, PermissionItem, fetchPermissionItems, createFirmUser, updateFirmUser, deleteFirmUser } from '../../services/data';
 import { getActivityLogs, logSystemActivity } from '../../services/activityLogger';
 import { showToast } from './ToastNotification';
 import { sendEmail } from '../../services/email';
@@ -396,6 +396,27 @@ export const ManagingPartnerHubView: React.FC<ManagingPartnerHubViewProps> = ({
     setMessageText('');
   };
 
+  // Delete User from Firm Database in Real Time
+  const handleDeleteUser = async (user: SystemUser) => {
+    if (!window.confirm(`Are you sure you want to permanently delete user "${user.fullName}" from the firm database? This action cannot be undone.`)) {
+      return;
+    }
+    const firmId = currentUser?.firmId || 'firm-001';
+    try {
+      await deleteFirmUser(firmId, user.id);
+      setUsers(prev => prev.filter(u => u.id !== user.id));
+      showToast('success', 'User Deleted', `${user.fullName} has been removed from firm database.`);
+      logSystemActivity(
+        currentUser?.fullName || 'Managing Partner',
+        `deleted user ${user.fullName} (${user.workEmail}) from firm database`,
+        'permission',
+        'bg-rose-500'
+      );
+    } catch (err: any) {
+      showToast('error', 'Delete Failed', err.message || 'Unable to delete user from database.');
+    }
+  };
+
   return (
     <div className="space-y-6 pb-12 font-sans">
       
@@ -751,139 +772,134 @@ export const ManagingPartnerHubView: React.FC<ManagingPartnerHubViewProps> = ({
           </div>
         )}
 
-        {/* TAB 2: MODERN USERS AND PERMISSIONS TABLE */}
+        {/* TAB 2: CLEAN MINIMALIST USERS & PERMISSIONS MATRIX */}
         {activeTab === 'users_permissions' && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <div className="overflow-x-auto w-full">
+            <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-[var(--border-color)] text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider bg-[var(--bg-subtle)]">
-                  <th className="py-3 px-5">Advocate / User</th>
-                  <th className="py-3 px-4">Contact Details</th>
-                  <th className="py-3 px-4">Role Template</th>
-                  <th className="py-3 px-4">Granted Permissions</th>
-                  <th className="py-3 px-5 text-right">Actions</th>
+                <tr className="border-b border-[var(--border-color)] text-[11px] font-mono font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider bg-[var(--bg-subtle)]">
+                  <th className="py-4 px-6 min-w-[220px]">User</th>
+                  <th className="py-4 px-6 min-w-[220px]">Contact Details</th>
+                  <th className="py-4 px-6 min-w-[240px]">Granted Permissions</th>
+                  <th className="py-4 px-6 min-w-[280px] text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[var(--border-color)]/60">
+              <tbody className="divide-y divide-[var(--border-color)]/60 font-sans">
                 {users.map((user) => {
                   const roleCode = userRoleMap[user.id] || (user.role === 'Developer' ? 'developer_sys_admin' : user.role === 'Admin' ? 'managing_partner_exec' : 'senior_advocates_lawyers');
                   const tpl = roleTemplates.find(t => t.code === roleCode) || roleTemplates[0];
-                  const roleBadgeColor = ROLE_COLORS[roleCode] || 'bg-slate-500/10 text-slate-600 border-slate-500/20';
-                  const isDevOrExec = roleCode === 'developer_sys_admin' || roleCode === 'managing_partner_exec';
+                  const initials = user.fullName.split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase();
+                  const isFullAccess = roleCode === 'developer_sys_admin' || roleCode === 'managing_partner_exec';
 
                   return (
-                    <tr key={user.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/20 transition-colors">
-                      {/* 1. Username Column */}
-                      <td className="py-3.5 px-5">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-xs text-slate-700 dark:text-zinc-300 shrink-0">
-                            {user.fullName.split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-bold text-slate-900 dark:text-white">
-                              {user.fullName}
-                            </div>
-                            <div className="text-[11px] text-slate-500">
-                              {user.advocateTitle || user.position || user.role}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* 2. Contact Column */}
-                      <td className="py-3.5 px-4 text-[11px] text-slate-600 dark:text-zinc-400">
-                        <div className="font-mono">{user.workEmail}</div>
-                        <div className="text-[10px] text-slate-400 font-mono">{user.phonePrimary || '+254 700 000 000'}</div>
-                      </td>
-
-                      {/* 3. Role Dropdown Column */}
-                      <td className="py-3.5 px-4">
-                        <div className="relative inline-block">
-                          <button
-                            onClick={() => setRoleDropdownUser(roleDropdownUser === user.id ? null : user.id)}
-                            className="text-xs font-semibold text-slate-800 dark:text-zinc-200 hover:text-blue-600 flex items-center gap-1 cursor-pointer"
-                          >
-                            <span>{tpl?.name || user.role}</span>
-                            <ChevronDown className="w-3 h-3 text-slate-400" />
-                          </button>
-
-                          {roleDropdownUser === user.id && (
-                            <div className="absolute left-0 top-full mt-1.5 w-64 p-1.5 z-40 bg-white dark:bg-zinc-900 border border-[var(--border-color)] rounded-xl shadow-xl space-y-1">
-                              {roleTemplates.map(t => (
-                                <button
-                                  key={t.code}
-                                  onClick={() => handleChangeUserRole(user.id, t.code)}
-                                  className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
-                                    roleCode === t.code
-                                      ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 font-bold'
-                                      : 'hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200'
-                                  }`}
-                                >
-                                  <div className="font-medium">{t.name}</div>
-                                </button>
-                              ))}
+                    <tr key={user.id} className="hover:bg-slate-50/80 dark:hover:bg-zinc-800/40 transition-colors">
+                      {/* 1. User Column */}
+                      <td className="py-4.5 px-6">
+                        <div className="flex items-center gap-3">
+                          {user.avatarUrl ? (
+                            <img
+                              src={user.avatarUrl}
+                              alt={user.fullName}
+                              className="w-10 h-10 rounded-xl object-cover border border-[var(--border-color)] shrink-0 shadow-2xs"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center font-brand font-bold text-xs bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-900/60 shrink-0 shadow-2xs">
+                              {initials}
                             </div>
                           )}
+                          <div className="min-w-0">
+                            <div className="font-bold text-slate-900 dark:text-white truncate text-sm leading-snug">
+                              {user.fullName}
+                            </div>
+                            <div className="text-xs text-slate-500 dark:text-zinc-400 truncate mt-0.5 font-sans">
+                              {user.position || user.role}
+                            </div>
+                          </div>
                         </div>
                       </td>
 
-                      {/* 4. Granted Permissions Column */}
-                      <td className="py-3.5 px-4 text-xs max-w-md">
-                        {isDevOrExec ? (
-                          <div className="space-y-1">
-                            <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold text-[11px] block">
-                              Full Access ({tpl?.permissions.length || 56} Permissions)
-                            </span>
-                            <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto pr-1">
-                              {tpl?.permissions.map(p => (
-                                <span key={p.code} className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-[9.5px] font-mono text-slate-700 dark:text-zinc-300">
-                                  {p.code}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-1">
-                            <span className="font-mono text-blue-600 dark:text-blue-400 font-bold text-[11px] block">
-                              {tpl?.permissions.length || 26} Permissions Granted
-                            </span>
-                            <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto pr-1">
-                              {tpl?.permissions.map(p => (
-                                <span key={p.code} className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-[9.5px] font-mono text-slate-700 dark:text-zinc-300">
-                                  {p.code}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                      {/* 2. Contact Details Column */}
+                      <td className="py-4.5 px-6 font-mono text-xs">
+                        <div className="text-slate-800 dark:text-zinc-200 truncate flex items-center gap-2 leading-snug">
+                          <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate">{user.workEmail || user.personalEmail}</span>
+                        </div>
+                        <div className="text-slate-500 dark:text-zinc-400 text-[11px] mt-1 flex items-center gap-2 leading-tight">
+                          <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span>{user.phonePrimary || '+254 700 000 000'}</span>
+                        </div>
                       </td>
 
-                      {/* 5. Actions Column */}
-                      <td className="py-3.5 px-5 text-right">
-                        <div className="flex items-center justify-end gap-3 text-xs">
+                      {/* 3. Granted Permissions Column */}
+                      <td className="py-4.5 px-6">
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2.5">
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-mono font-bold shadow-2xs ${
+                              isFullAccess
+                                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800'
+                                : 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200/80 dark:border-blue-800'
+                            }`}>
+                              <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                              <span>
+                                {isFullAccess
+                                  ? `Full Access (${tpl?.permissions.length || 68})`
+                                  : `${tpl?.permissions.length || 45} Granted`}
+                              </span>
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto pr-1">
+                            {(tpl?.permissions || []).slice(0, 5).map(p => (
+                              <span key={p.code} className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-[10px] font-mono text-slate-600 dark:text-zinc-400 border border-[var(--border-color)]/70">
+                                {p.code}
+                              </span>
+                            ))}
+                            {(tpl?.permissions || []).length > 5 && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] text-slate-400 font-mono">
+                                +{(tpl?.permissions || []).length - 5} more
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* 4. Actions Column (Clearly Visible, Spacious & Responsive) */}
+                      <td className="py-4.5 px-6 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => {
                               setMessagingUser(user);
                               setMessageText('');
                             }}
-                            className="text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors cursor-pointer"
-                            title={`Send note to ${user.fullName}`}
+                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-xl transition-colors cursor-pointer"
+                            title={`Send direct note to ${user.fullName}`}
                           >
-                            <MessageSquare className="w-3.5 h-3.5" />
+                            <MessageSquare className="w-4 h-4" />
                           </button>
 
                           <button
                             onClick={() => setManagingUser(user)}
-                            className="text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white font-medium cursor-pointer"
+                            className="px-3.5 py-2 text-xs font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                            title="View User Profile Details"
                           >
-                            Manage User
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>View</span>
                           </button>
 
                           <button
                             onClick={() => onNavigateTab('managing_permissions', user.id)}
-                            className="text-purple-600 dark:text-purple-400 hover:text-purple-700 font-semibold cursor-pointer"
+                            className="px-3.5 py-2 text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-black dark:hover:bg-slate-100 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+                            title="Configure User Permissions Matrix"
                           >
-                            Permissions
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            <span>Permissions</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteUser(user)}
+                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors cursor-pointer"
+                            title={`Permanently delete ${user.fullName} from database`}
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
