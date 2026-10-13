@@ -3,19 +3,19 @@ import { SystemUser } from '../../services/supabase';
 import { fetchFirmUsers } from '../../services/data';
 import { logSystemActivity } from '../../services/activityLogger';
 import { showToast } from './ToastNotification';
-import { 
+import {
   Lock, ShieldCheck, CheckCircle2, Save, Users, Key, Search,
   Clock, Shield, Eye, AlertTriangle, ChevronDown, RefreshCw, Briefcase, FileText, Database,
   Layers, Check, Sparkles, Folder, HelpCircle, ArrowRight, Plus, Trash2, Edit3, Copy, X,
   Sliders, Calendar, UserCheck, ShieldAlert, CheckSquare, Square, Info, AlertOctagon, Terminal,
   User, MessageSquare, Home, BookOpen
 } from 'lucide-react';
-import { 
-  RoleTemplate, 
-  fetchRoleTemplates, 
+import {
+  RoleTemplate,
+  fetchRoleTemplates,
   saveRoleTemplateToDb,
-  assignRoleToUser, 
-  setUserPermissionOverride, 
+  assignRoleToUser,
+  setUserPermissionOverride,
   deleteUserOverride,
   resetUserOverrides,
   fetchUserOverrides,
@@ -82,7 +82,7 @@ const RESOURCE_ICONS: Record<string, any> = {
   all: Layers,
 };
 
-interface AdvocatePermissionsViewProps { 
+interface AdvocatePermissionsViewProps {
   currentUser?: SystemUser | null;
   initialUserId?: string;
 }
@@ -98,7 +98,7 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
   const [userRoleMap, setUserRoleMap] = useState<Record<string, string>>({});
   const [selectedUserId, setSelectedUserId] = useState<string>(initialUserId || '');
   const [userOverrides, setUserOverrides] = useState<UserPermissionOverride[]>([]);
-  
+
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedResource, setSelectedResource] = useState<string>('all');
@@ -368,9 +368,9 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
   // Filtered Effective Permissions
   const filteredEffectivePermissions = effectivePermissions.filter(p => {
     const matchesRes = selectedResource === 'all' || p.resource === selectedResource;
-    const matchesSearch = !searchQuery || 
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      p.code.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const matchesSearch = !searchQuery ||
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.description.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesRes && matchesSearch;
   });
@@ -378,9 +378,9 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
   // Filtered Catalog Items
   const filteredCatalog = permissionCatalog.filter(item => {
     const matchesRes = selectedResource === 'all' || item.resource === selectedResource;
-    const matchesSearch = !searchQuery || 
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      item.code.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const matchesSearch = !searchQuery ||
+      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.targetComponent && item.targetComponent.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesRes && matchesSearch;
@@ -388,10 +388,10 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
 
   return (
     <div className="space-y-5 text-slate-900 dark:text-white font-sans pb-16">
-      
+
       {/* Minimalist Modern Navigation Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[var(--border-color)]/60">
-        
+
         {/* Switchable Tabs */}
         <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-zinc-800/70 rounded-xl w-fit">
           {[
@@ -405,19 +405,17 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
-                  isActive
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${isActive
                     ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-xs font-bold'
                     : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
+                  }`}
               >
                 <Icon className="w-3.5 h-3.5" />
                 <span>{tab.label}</span>
-                <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-md ${
-                  isActive
+                <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-md ${isActive
                     ? 'bg-slate-100 dark:bg-zinc-800 text-slate-900 dark:text-white'
                     : 'bg-slate-200/60 dark:bg-zinc-700/60 text-slate-500'
-                }`}>
+                  }`}>
                   {tab.count}
                 </span>
               </button>
@@ -427,7 +425,7 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
 
         {/* Right Action Bar: Minimalist User Dropdown + Search */}
         <div className="flex items-center gap-2.5">
-          
+
           {/* Minimalist User Select Dropdown (Visible on Staff tab) */}
           {activeTab === 'staff' && (
             <div className="relative">
@@ -458,11 +456,10 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
                           setSelectedUserId(u.id);
                           setUserSelectDropdownOpen(false);
                         }}
-                        className={`w-full text-left p-2.5 rounded-xl text-xs cursor-pointer transition-colors flex items-center gap-2.5 ${
-                          isSelected
+                        className={`w-full text-left p-2.5 rounded-xl text-xs cursor-pointer transition-colors flex items-center gap-2.5 ${isSelected
                             ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold'
                             : 'hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200'
-                        }`}
+                          }`}
                       >
                         <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-[10.5px] shrink-0 border border-[var(--border-color)]">
                           {u.fullName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
@@ -487,9 +484,9 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
           {/* Search Bar */}
           <div className="relative shrink-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-            <input 
-              type="text" 
-              value={searchQuery} 
+            <input
+              type="text"
+              value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search permissions, codes..."
               className="pl-8 pr-3 py-1.5 text-xs font-mono w-48 sm:w-56 bg-white dark:bg-zinc-900 border border-[var(--border-color)] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 shadow-xs"
@@ -503,7 +500,7 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
       {/* ========================================================================= */}
       {activeTab === 'templates' && (
         <div className="space-y-4">
-          
+
           <div className="flex items-center justify-between">
             <div>
               <h2 className="font-brand font-bold text-base text-slate-900 dark:text-white">
@@ -543,8 +540,8 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
               });
 
               return (
-                <div 
-                  key={template.id || template.code} 
+                <div
+                  key={template.id || template.code}
                   className="p-4 space-y-3 border border-[var(--border-color)] rounded-2xl bg-white dark:bg-zinc-900 flex flex-col justify-between hover:border-blue-500/40 transition-all shadow-xs"
                 >
                   <div className="space-y-2.5">
@@ -575,7 +572,7 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
                       </div>
 
                       <div className="w-full bg-slate-100 dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden">
-                        <div 
+                        <div
                           className={`h-full rounded-full ${isPlatformRoot ? 'bg-cyan-500' : 'bg-blue-600'}`}
                           style={{ width: `${Math.min(100, Math.round((template.permissions.length / Math.max(1, permissionCatalog.length)) * 100))}%` }}
                         />
@@ -586,13 +583,12 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
                           const count = resourceCounts[res] || 0;
                           const ResIcon = (res && RESOURCE_ICONS[res]) || FileText;
                           return (
-                            <div 
-                              key={res} 
-                              className={`px-1.5 py-0.5 rounded text-[9.5px] font-mono flex items-center justify-between border ${
-                                count > 0 
-                                  ? 'bg-slate-50 dark:bg-zinc-800/60 text-slate-700 dark:text-zinc-300 border-[var(--border-color)]/60' 
+                            <div
+                              key={res}
+                              className={`px-1.5 py-0.5 rounded text-[9.5px] font-mono flex items-center justify-between border ${count > 0
+                                  ? 'bg-slate-50 dark:bg-zinc-800/60 text-slate-700 dark:text-zinc-300 border-[var(--border-color)]/60'
                                   : 'bg-transparent text-slate-400 border-dashed border-slate-200 dark:border-zinc-800'
-                              }`}
+                                }`}
                             >
                               <span className="flex items-center gap-1 capitalize">
                                 <ResIcon className="w-2.5 h-2.5 text-slate-400" /> {res.replace('_', ' ')}
@@ -647,7 +643,7 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
           {selectedUser && (
             <div className="py-2 px-1 space-y-4 border-b border-[var(--border-color)]/60">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                
+
                 {/* User Summary Info */}
                 <div className="flex items-center gap-3.5">
                   <div className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-900 dark:text-white border border-[var(--border-color)] flex items-center justify-center font-brand font-bold text-sm shadow-xs shrink-0">
@@ -672,7 +668,7 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
 
                 {/* Role Template Dropdown & Quick Actions */}
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  
+
                   {/* Change Role Template Dropdown */}
                   <div className="relative">
                     <button
@@ -693,11 +689,10 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
                           <button
                             key={t.code}
                             onClick={() => handleAssignRoleTemplate(t.code)}
-                            className={`w-full text-left px-3 py-2 rounded-xl text-xs cursor-pointer transition-colors ${
-                              selectedUserRoleCode === t.code
+                            className={`w-full text-left px-3 py-2 rounded-xl text-xs cursor-pointer transition-colors ${selectedUserRoleCode === t.code
                                 ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold'
                                 : 'hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200'
-                            }`}
+                              }`}
                           >
                             <div className="flex items-center justify-between">
                               <span className="font-semibold">{t.name}</span>
@@ -727,11 +722,10 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
                   {/* Manage Overrides */}
                   <button
                     onClick={() => setShowManageOverridesModal(true)}
-                    className={`px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer border transition-colors ${
-                      userOverrides.length > 0
+                    className={`px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer border transition-colors ${userOverrides.length > 0
                         ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30'
                         : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 border-transparent'
-                    }`}
+                      }`}
                   >
                     <Sliders className="w-3 h-3" />
                     <span>Overrides ({userOverrides.length})</span>
@@ -797,18 +791,17 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
               { id: 'support', label: '3.3 Support & Help' },
               { id: 'database', label: '4. Database & System' },
             ].map(res => {
-              const count = res.id === 'all' 
-                ? effectivePermissions.length 
+              const count = res.id === 'all'
+                ? effectivePermissions.length
                 : effectivePermissions.filter(p => p.resource === res.id).length;
               return (
                 <button
                   key={res.id}
                   onClick={() => setSelectedResource(res.id)}
-                  className={`px-3 py-1 rounded-xl text-xs font-mono font-semibold transition-colors cursor-pointer shrink-0 border ${
-                    selectedResource === res.id
+                  className={`px-3 py-1 rounded-xl text-xs font-mono font-semibold transition-colors cursor-pointer shrink-0 border ${selectedResource === res.id
                       ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white'
                       : 'bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border-[var(--border-color)] hover:bg-slate-100 dark:hover:bg-zinc-800'
-                  }`}
+                    }`}
                 >
                   {res.label} <span className="opacity-60 text-[10px]">({count})</span>
                 </button>
@@ -839,11 +832,10 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
                     const riskStyle = RISK_BADGES[risk];
 
                     return (
-                      <tr 
-                        key={perm.code} 
-                        className={`hover:bg-slate-50/70 dark:hover:bg-zinc-800/30 transition-colors ${
-                          hasExplicitOverride ? 'bg-amber-50/30 dark:bg-amber-950/10' : ''
-                        }`}
+                      <tr
+                        key={perm.code}
+                        className={`hover:bg-slate-50/70 dark:hover:bg-zinc-800/30 transition-colors ${hasExplicitOverride ? 'bg-amber-50/30 dark:bg-amber-950/10' : ''
+                          }`}
                       >
                         {/* Status Checkbox */}
                         <td className="py-3 px-4 text-center">
@@ -890,12 +882,11 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
 
                         {/* Scope */}
                         <td className="py-3 px-4">
-                          <span className={`px-2 py-0.5 rounded text-[9.5px] font-mono font-bold border ${
-                            perm.scope === 'Platform' ? 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20' :
-                            perm.scope === 'Firm' ? 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20' :
-                            perm.scope === 'Assigned' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20' :
-                            'bg-slate-100 dark:bg-zinc-800 text-slate-600 border-slate-200'
-                          }`}>
+                          <span className={`px-2 py-0.5 rounded text-[9.5px] font-mono font-bold border ${perm.scope === 'Platform' ? 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20' :
+                              perm.scope === 'Firm' ? 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20' :
+                                perm.scope === 'Assigned' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20' :
+                                  'bg-slate-100 dark:bg-zinc-800 text-slate-600 border-slate-200'
+                            }`}>
                             {perm.scope}
                           </span>
                         </td>
@@ -957,7 +948,7 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
       {/* ========================================================================= */}
       {activeTab === 'catalog' && (
         <div className="space-y-4">
-          
+
           <div className="flex items-center justify-between">
             <div>
               <h2 className="font-brand font-bold text-base text-slate-900 dark:text-white">
@@ -1006,18 +997,17 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
               { id: 'support', label: '3.3 Support & Help' },
               { id: 'database', label: '4. Database & System' },
             ].map(res => {
-              const count = res.id === 'all' 
-                ? permissionCatalog.length 
+              const count = res.id === 'all'
+                ? permissionCatalog.length
                 : permissionCatalog.filter(p => p.resource === res.id).length;
               return (
                 <button
                   key={res.id}
                   onClick={() => setSelectedResource(res.id)}
-                  className={`px-3 py-1 rounded-xl text-xs font-mono font-semibold transition-colors cursor-pointer shrink-0 border ${
-                    selectedResource === res.id
+                  className={`px-3 py-1 rounded-xl text-xs font-mono font-semibold transition-colors cursor-pointer shrink-0 border ${selectedResource === res.id
                       ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white'
                       : 'bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border-[var(--border-color)] hover:bg-slate-100 dark:hover:bg-zinc-800'
-                  }`}
+                    }`}
                 >
                   {res.label} <span className="opacity-60 text-[10px]">({count})</span>
                 </button>
@@ -1113,7 +1103,7 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
                   Edit Permission: {editingPermission.code}
                 </h3>
               </div>
-              <button 
+              <button
                 onClick={() => setEditingPermission(null)}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
               >
@@ -1248,7 +1238,7 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
                   </h3>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => setIsCreatingPermission(false)}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
               >
@@ -1375,7 +1365,7 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
                   Target: {selectedUser?.fullName}
                 </p>
               </div>
-              <button 
+              <button
                 onClick={() => setOverrideModal(prev => ({ ...prev, isOpen: false }))}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
               >
@@ -1410,22 +1400,20 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
                     <button
                       type="button"
                       onClick={() => setOverrideModal(prev => ({ ...prev, effect: 'grant' }))}
-                      className={`py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer border ${
-                        overrideModal.effect === 'grant'
+                      className={`py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer border ${overrideModal.effect === 'grant'
                           ? 'bg-emerald-600 text-white border-emerald-600'
                           : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 border-transparent'
-                      }`}
+                        }`}
                     >
                       <Check className="w-3.5 h-3.5" /> GRANT
                     </button>
                     <button
                       type="button"
                       onClick={() => setOverrideModal(prev => ({ ...prev, effect: 'deny' }))}
-                      className={`py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer border ${
-                        overrideModal.effect === 'deny'
+                      className={`py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer border ${overrideModal.effect === 'deny'
                           ? 'bg-red-600 text-white border-red-600'
                           : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 border-transparent'
-                      }`}
+                        }`}
                     >
                       <X className="w-3.5 h-3.5" /> DENY
                     </button>
@@ -1491,7 +1479,7 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
                   Active Overrides for {selectedUser?.fullName}
                 </h3>
               </div>
-              <button 
+              <button
                 onClick={() => setShowManageOverridesModal(false)}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
               >
@@ -1506,17 +1494,16 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
             ) : (
               <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
                 {userOverrides.map(ovr => (
-                  <div 
+                  <div
                     key={ovr.id || ovr.permissionCode}
                     className="p-3 rounded-xl border border-[var(--border-color)] bg-slate-50/70 dark:bg-zinc-800/40 flex items-center justify-between gap-3"
                   >
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-bold ${
-                          ovr.effect === 'grant' 
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300' 
+                        <span className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-bold ${ovr.effect === 'grant'
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
                             : 'bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300'
-                        }`}>
+                          }`}>
                           {ovr.effect.toUpperCase()}
                         </span>
                         <span className="font-mono font-bold text-xs text-blue-600 dark:text-blue-400">
@@ -1570,7 +1557,7 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
                   Edit Role Template: {editingTemplate.name}
                 </h3>
               </div>
-              <button 
+              <button
                 onClick={() => setEditingTemplate(null)}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
               >
@@ -1638,13 +1625,12 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
                     const currentScope = editingTemplate.permissions.find(perm => perm.code === p.code)?.scope || 'Firm';
 
                     return (
-                      <div 
+                      <div
                         key={p.code}
-                        className={`p-2 rounded-lg border text-xs flex items-center justify-between gap-2 ${
-                          isChecked 
-                            ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-slate-900 dark:text-white' 
+                        className={`p-2 rounded-lg border text-xs flex items-center justify-between gap-2 ${isChecked
+                            ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-slate-900 dark:text-white'
                             : 'bg-white dark:bg-zinc-900 border-[var(--border-color)]/60 text-slate-500'
-                        }`}
+                          }`}
                       >
                         <label className="flex items-center gap-2 cursor-pointer min-w-0 flex-1">
                           <input
