@@ -1,0 +1,8 @@
+# GitHub Linguist Language Overrides
+# Collapse and exclude legacy HTML prototypes and compiled assets from repository language statistics
+
+Billszip/** linguist-vendored
+Billszip/** linguist-documentation
+*.html linguist-detectable=false
+dist/** linguist-vendored
+node_modules/** linguist-vendored
