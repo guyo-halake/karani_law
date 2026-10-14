@@ -705,17 +705,18 @@ export const AdminDashboard: React.FC = () => {
         
         {/* Top Command Bar */}
                 {/* Top Command Bar */}
-        <header className="px-8 py-3.5 w-full flex justify-between items-center border-b border-slate-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md z-10 sticky top-0">
-          <div className="flex items-center gap-4 min-w-0">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-zinc-700">
+                {/* Top Command Bar (Vercel / GitHub Minimalist) */}
+        <header className="px-8 py-3.5 w-full flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-black/80 backdrop-blur-md z-10 sticky top-0">
+          <div className="flex items-center gap-6 min-w-0">
+            <div className="flex items-center gap-3">
+              <div className="w-7 h-7 rounded-md bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden border border-zinc-200 dark:border-zinc-700">
                 <img src="/p3l_logo_nobg.png" alt="P3L" className="w-full h-full object-contain p-0.5" />
               </div>
-              <div>
-                <span className="text-sm font-black tracking-tight text-slate-900 dark:text-white font-brand block leading-tight">
+              <div className="min-w-0">
+                <span className="text-xs font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 block leading-tight">
                   P3L Developers
                 </span>
-                <span className="text-[10px] text-slate-500 dark:text-zinc-400 font-mono block leading-tight">
+                <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono block leading-tight truncate">
                   subsidiary Biftu Construction Company, Marsabit
                 </span>
               </div>
@@ -723,256 +724,239 @@ export const AdminDashboard: React.FC = () => {
 
             {/* Quick Search Bar */}
             <div className="relative hidden md:block w-72">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-2.5" />
+              <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-2.5" />
               <input 
                 type="text"
                 placeholder="Search repos, clients, tasks (Ctrl+K)..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-1.5 rounded-full border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 transition-colors"
+                className="w-full pl-8 pr-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600 transition-colors"
               />
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 font-mono text-xs">
-              <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300 font-semibold">
-                Branch: <strong className="text-slate-900 dark:text-white">update-4</strong>
+            <div className="hidden sm:flex items-center gap-2 font-mono text-xs text-zinc-500 dark:text-zinc-400">
+              <span className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300">
+                update-4
               </span>
-              <span className="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 font-bold flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                razak-server: 7ms
+              <span className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                7ms
               </span>
             </div>
 
             <button
               onClick={() => showToast('No unread server alerts.')}
-              className="p-2 rounded-full text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer transition-colors"
+              className="p-1.5 rounded-md text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer transition-colors"
               title="Notifications"
             >
-              <Bell className="w-4 h-4" />
+              <Bell className="w-4 h-4 stroke-[1.75]" />
             </button>
 
             <button
               onClick={() => window.location.href = '/'}
-              className="px-4 py-2 rounded-full text-xs font-bold bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 dark:from-white dark:via-slate-100 dark:to-zinc-200 text-white dark:text-slate-900 hover:opacity-90 flex items-center gap-1.5 cursor-pointer shadow-md shadow-indigo-950/20 transition-all"
+              className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-900 hover:bg-black text-white dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
             >
-              <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
+              <ArrowUpRight className="w-3.5 h-3.5 stroke-[2]" />
               <span>Launch Karani Portal</span>
             </button>
           </div>
         </header>
 
         {/* Scrollable Work Canvas */}
-        <main className="flex-1 overflow-y-auto px-8 py-6 pb-20">
-          <div className="max-w-7xl mx-auto space-y-6">
+        <main className="flex-1 overflow-y-auto px-8 py-8 pb-20 bg-zinc-50/50 dark:bg-black">
+          <div className="max-w-7xl mx-auto space-y-8">
 
             {/* ========================================================================= */}
-            {/* HERO WELCOME HEADER & PILL ACTION BAR (UNBOXED, AIRY, PURE SLEEK MODERN) */}
+            {/* HERO WELCOME HEADER & ACTIONS (VERCEL & APPLE MINIMALIST) */}
             {/* ========================================================================= */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 pt-1 pb-1">
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white font-brand">
-                    Hey Guyo, welcome to <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 bg-clip-text text-transparent">P3L Developers Command</span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-zinc-200 dark:border-zinc-800/80">
+              <div className="space-y-1">
+                <div className="flex items-center gap-3">
+                  <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+                    P3L Command
                   </h1>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/60">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                     Live Fleet
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-zinc-400 flex items-center gap-2 flex-wrap font-sans">
-                  <span className="font-semibold text-slate-700 dark:text-zinc-300">Marsabit County Operations Node</span>
-                  <span className="text-slate-300 dark:text-zinc-700">&bull;</span>
-                  <span>Sayara Aesthetics, Fresh City POS, Karani Law &amp; OdinBot</span>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  Marsabit County Operations Node &middot; Sayara Aesthetics, Fresh City POS, Karani Law &amp; OdinBot
                 </p>
               </div>
 
-              {/* Action Buttons: High-Contrast PILLS */}
-              <div className="flex items-center gap-2.5 flex-wrap">
+              {/* Vercel / Apple Pill Button Group */}
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => setShowAddProjectModal(true)}
-                  className="px-4 py-2 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all transform hover:-translate-y-0.5 flex items-center gap-1.5 cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-full bg-zinc-900 hover:bg-black text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white text-xs font-medium shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>Add Project</span>
+                  <Plus className="w-3.5 h-3.5 stroke-[2]" />
+                  <span>New Project</span>
                 </button>
 
                 <button
                   onClick={() => setShowAddTaskModal(true)}
-                  className="px-4 py-2 rounded-full text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/25 hover:shadow-blue-600/40 transition-all transform hover:-translate-y-0.5 flex items-center gap-1.5 cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-full bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <Plus className="w-3.5 h-3.5 stroke-[2]" />
                   <span>Add Task</span>
                 </button>
 
                 <button
                   onClick={() => setShowLogPaymentModal(true)}
-                  className="px-4 py-2 rounded-full text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md shadow-amber-500/25 hover:shadow-amber-500/40 transition-all transform hover:-translate-y-0.5 flex items-center gap-1.5 cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-full bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
-                  <DollarSign className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <DollarSign className="w-3.5 h-3.5 stroke-[2]" />
                   <span>Log Payment</span>
                 </button>
 
                 <button
                   onClick={handleExportBackup}
-                  className="px-4 py-2 rounded-full text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 border border-slate-700/80 shadow-sm transition-all transform hover:-translate-y-0.5 flex items-center gap-1.5 cursor-pointer"
+                  className="p-2 rounded-full bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 text-xs transition-colors cursor-pointer"
                   title="Export full JSON master backup"
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Master Snapshot</span>
+                  <Download className="w-3.5 h-3.5 stroke-[1.75]" />
                 </button>
 
                 <button
                   onClick={toggleMaintenance}
-                  className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer ${
                     isMaintenanceMode 
-                      ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse shadow-md shadow-red-600/30' 
-                      : 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 border border-rose-300/80 dark:border-rose-800/80'
+                      ? 'bg-rose-600 text-white animate-pulse' 
+                      : 'border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:border-rose-300 dark:hover:border-rose-900/60'
                   }`}
                 >
-                  <Power className="w-3.5 h-3.5" />
-                  <span>{isMaintenanceMode ? 'Kill-Switch Active' : 'Kill-Switch'}</span>
+                  <Power className="w-3.5 h-3.5 stroke-[1.75]" />
+                  <span>{isMaintenanceMode ? 'Kill-Switch On' : 'Kill-Switch'}</span>
                 </button>
               </div>
             </div>
 
             {/* ========================================================================= */}
-            {/* 1. DASHBOARD VIEW: TOP 3 CORE FOUNDER CARDS */}
+            {/* 1. DASHBOARD VIEW: OVERVIEW METRIC GRID */}
             {/* ========================================================================= */}
             {activeTab === 'dashboard' && (
-              <div className="space-y-6 animate-fadeIn">
+              <div className="space-y-8 animate-fadeIn">
                 
-                {/* 3 Vital Cards with Bold Distinct Theming */}
+                {/* 3 Clean Vercel-Style Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   
-                  {/* CARD 1: REVENUE & CASHFLOW WITH PILL PERIOD SWITCHER (EMERALD THEME) */}
-                  <div className="p-6 rounded-2xl bg-gradient-to-br from-emerald-500/[0.08] via-teal-500/[0.03] to-white dark:to-zinc-900 border border-emerald-500/30 dark:border-emerald-500/40 shadow-sm flex flex-col justify-between space-y-4">
+                  {/* CARD 1: REVENUE & CASHFLOW */}
+                  <div className="p-5 sm:p-6 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs flex flex-col justify-between space-y-5">
                     <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
-                          <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-medium">
                           Cashflow &amp; Revenue
                         </span>
-                        {/* Pill Period Switcher */}
-                        <div className="flex items-center p-1 bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/20 rounded-full text-[10.5px] font-mono">
+                        
+                        {/* Apple-style Segmented Control */}
+                        <div className="flex items-center p-0.5 bg-zinc-100 dark:bg-zinc-800/80 rounded-full border border-zinc-200/60 dark:border-zinc-700/60 text-[10.5px] font-medium">
                           <button
                             onClick={() => setRevenuePeriod('this_month')}
-                            className={`px-3 py-1 rounded-full font-bold cursor-pointer transition-all ${
+                            className={`px-2.5 py-0.5 rounded-full cursor-pointer transition-all ${
                               revenuePeriod === 'this_month' 
-                                ? 'bg-emerald-600 text-white shadow-xs' 
-                                : 'text-slate-600 dark:text-zinc-400 hover:text-emerald-700 dark:hover:text-white'
+                                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-xs font-semibold' 
+                                : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
                             }`}
                           >
-                            This Month
+                            Month
                           </button>
                           <button
                             onClick={() => setRevenuePeriod('last_6_months')}
-                            className={`px-3 py-1 rounded-full font-bold cursor-pointer transition-all ${
+                            className={`px-2.5 py-0.5 rounded-full cursor-pointer transition-all ${
                               revenuePeriod === 'last_6_months' 
-                                ? 'bg-emerald-600 text-white shadow-xs' 
-                                : 'text-slate-600 dark:text-zinc-400 hover:text-emerald-700 dark:hover:text-white'
+                                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-xs font-semibold' 
+                                : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
                             }`}
                           >
-                            Last 6 Mo
+                            6 Mo
                           </button>
                           <button
                             onClick={() => setRevenuePeriod('this_year')}
-                            className={`px-3 py-1 rounded-full font-bold cursor-pointer transition-all ${
+                            className={`px-2.5 py-0.5 rounded-full cursor-pointer transition-all ${
                               revenuePeriod === 'this_year' 
-                                ? 'bg-emerald-600 text-white shadow-xs' 
-                                : 'text-slate-600 dark:text-zinc-400 hover:text-emerald-700 dark:hover:text-white'
+                                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-xs font-semibold' 
+                                : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
                             }`}
                           >
-                            This Year
+                            Year
                           </button>
                         </div>
                       </div>
 
-                      {/* Dynamic Big Figure in Vivid Bold Emerald */}
-                      <div className="space-y-2">
-                        <p className="text-3xl sm:text-4xl font-black font-mono text-emerald-600 dark:text-emerald-400 tracking-tight">
+                      {/* Large Minimalist Monospace Figure */}
+                      <div className="mt-4">
+                        <p className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 font-mono">
                           {revenuePeriod === 'this_month' ? 'KES 8,000' : revenuePeriod === 'last_6_months' ? 'KES 43,000' : 'KES 85,000'}
                         </p>
-                        
-                        {/* Context explanation pill banner */}
-                        <div className="px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-900 dark:text-emerald-200 text-xs font-semibold flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                          <span>
-                            {revenuePeriod === 'this_month' 
-                              ? 'KES 3,200 received from Sarah Rashid (Sayara) + KES 4,800 other sources' 
-                              : revenuePeriod === 'last_6_months'
-                              ? '6-Month client settlements & POS license disbursements'
-                              : 'Annual startup revenue across client accounts'}
-                          </span>
-                        </div>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 font-normal">
+                          {revenuePeriod === 'this_month' 
+                            ? 'KES 3,200 received from Sarah Rashid (Sayara)' 
+                            : revenuePeriod === 'last_6_months'
+                            ? '6-Month client settlements & POS license fees'
+                            : 'Annual startup revenue across client accounts'}
+                        </p>
                       </div>
                     </div>
 
-                    {/* Breakdown list with colorful pill badges */}
-                    <div className="pt-3 border-t border-emerald-500/20 space-y-2 text-xs font-mono">
-                      <div className="flex justify-between items-center text-slate-600 dark:text-zinc-400">
-                        <span className="font-sans font-medium text-slate-800 dark:text-zinc-200">Fresh City POS Retainer:</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-slate-900 dark:text-white">KES 3,500/mo</span>
-                          <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                            Setup 32k paid
-                          </span>
+                    {/* Hairline Breakdown Rows */}
+                    <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800/80 space-y-2 text-xs">
+                      <div className="flex justify-between items-center text-zinc-600 dark:text-zinc-400">
+                        <span>Fresh City POS:</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-zinc-900 dark:text-zinc-200">KES 3,500/mo</span>
+                          <span className="text-[10px] text-zinc-400 font-mono">32k paid</span>
                         </div>
                       </div>
-                      <div className="flex justify-between items-center text-slate-600 dark:text-zinc-400">
-                        <span className="font-sans font-medium text-slate-800 dark:text-zinc-200">Sayara Aesthetics:</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-slate-900 dark:text-white">% Comm.</span>
-                          <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300">
-                            Setup 10k paid
-                          </span>
+                      <div className="flex justify-between items-center text-zinc-600 dark:text-zinc-400">
+                        <span>Sayara Aesthetics:</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-zinc-900 dark:text-zinc-200">% Commission</span>
+                          <span className="text-[10px] text-zinc-400 font-mono">10k paid</span>
                         </div>
                       </div>
-                      <div className="flex justify-between items-center text-slate-600 dark:text-zinc-400">
-                        <span className="font-sans font-medium text-slate-800 dark:text-zinc-200">Karani Law ERP:</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-slate-900 dark:text-white">Milestone</span>
-                          <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
-                            In Progress
-                          </span>
+                      <div className="flex justify-between items-center text-zinc-600 dark:text-zinc-400">
+                        <span>Karani Law ERP:</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-zinc-900 dark:text-zinc-200">Milestone</span>
+                          <span className="text-[10px] text-zinc-400 font-mono">In Progress</span>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* CARD 2: LIVE SERVICES & VERCEL CLOUD DEPLOYMENTS (CYAN / SKY THEME) */}
-                  <div className="p-6 rounded-2xl bg-gradient-to-br from-cyan-500/[0.08] via-sky-500/[0.03] to-white dark:to-zinc-900 border border-cyan-500/30 dark:border-cyan-500/40 shadow-sm flex flex-col justify-between space-y-4">
+                  {/* CARD 2: LIVE DEPLOYMENTS */}
+                  <div className="p-5 sm:p-6 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs flex flex-col justify-between space-y-5">
                     <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-400 flex items-center gap-1.5">
-                          <Globe className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-                          Live Deployments (Top 3)
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-medium">
+                          Deployments
                         </span>
-                        <span className="text-[10.5px] font-mono px-3 py-1 rounded-full bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 font-bold border border-cyan-500/30 flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></span>
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10.5px] font-mono text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/60 dark:border-zinc-700/60">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                           3 Running
                         </span>
                       </div>
 
-                      <div className="space-y-2.5">
+                      <div className="mt-4 space-y-3">
                         {/* 1. Sayara Aesthetics Storefront */}
                         <div 
                           onContextMenu={(e) => handleDeploymentContextMenu(e, projects.find(p => p.id === 'prj-sayara-ecom')!)}
-                          className="p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-800/60 hover:border-cyan-400/80 transition-all flex items-center justify-between cursor-pointer"
+                          className="flex items-center justify-between py-1 group cursor-pointer"
                         >
                           <div className="min-w-0 pr-2">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                                Sayara Aesthetics Storefront
-                              </span>
-                              <ExternalLink className="w-3 h-3 text-slate-400 shrink-0" />
-                            </div>
-                            <span className="text-[10px] text-slate-400 font-mono block truncate">
+                            <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100 block truncate group-hover:underline">
+                              Sayara Aesthetics Storefront
+                            </span>
+                            <span className="text-[10.5px] text-zinc-400 font-mono block truncate">
                               sayara-aesthetics.vercel.app &middot; 24ms
                             </span>
                           </div>
-                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-bold text-[10px] font-mono shrink-0">
+                          <span className="inline-flex items-center gap-1.5 text-[10.5px] font-mono text-emerald-600 dark:text-emerald-400 font-medium shrink-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                             200 OK
                           </span>
                         </div>
@@ -980,17 +964,18 @@ export const AdminDashboard: React.FC = () => {
                         {/* 2. Sayara Shein Python Sync API */}
                         <div 
                           onContextMenu={(e) => handleDeploymentContextMenu(e, projects.find(p => p.id === 'prj-sayara-api')!)}
-                          className="p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-800/60 hover:border-purple-400/80 transition-all flex items-center justify-between cursor-pointer"
+                          className="flex items-center justify-between py-1 group cursor-pointer"
                         >
                           <div className="min-w-0 pr-2">
-                            <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
+                            <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100 block truncate group-hover:underline">
                               Sayara Shein Python Sync API
                             </span>
-                            <span className="text-[10px] text-slate-400 font-mono block truncate">
+                            <span className="text-[10.5px] text-zinc-400 font-mono block truncate">
                               api.sayara.p3ldev.com &middot; Port 8040
                             </span>
                           </div>
-                          <span className="px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 font-bold text-[10px] font-mono shrink-0">
+                          <span className="inline-flex items-center gap-1.5 text-[10.5px] font-mono text-zinc-500 dark:text-zinc-400 font-medium shrink-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
                             Daemon
                           </span>
                         </div>
@@ -998,54 +983,55 @@ export const AdminDashboard: React.FC = () => {
                         {/* 3. Fresh City Supermarket POS */}
                         <div 
                           onContextMenu={(e) => handleDeploymentContextMenu(e, projects.find(p => p.id === 'prj-fresh-city')!)}
-                          className="p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-800/60 hover:border-blue-400/80 transition-all flex items-center justify-between cursor-pointer"
+                          className="flex items-center justify-between py-1 group cursor-pointer"
                         >
                           <div className="min-w-0 pr-2">
-                            <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
+                            <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100 block truncate group-hover:underline">
                               Fresh City Supermarket POS
                             </span>
-                            <span className="text-[10px] text-slate-400 font-mono block truncate">
-                              Rosemary Terminal POS-01 (In Store)
+                            <span className="text-[10.5px] text-zinc-400 font-mono block truncate">
+                              Rosemary Terminal POS-01 &middot; SQLite
                             </span>
                           </div>
-                          <span className="px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30 font-bold text-[10px] font-mono shrink-0">
+                          <span className="inline-flex items-center gap-1.5 text-[10.5px] font-mono text-emerald-600 dark:text-emerald-400 font-medium shrink-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                             Active
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    <p className="text-[10px] font-mono text-cyan-700 dark:text-cyan-400/80 pt-2 border-t border-cyan-500/20">
-                      Right-click any deployment card to inspect logs or restart
+                    <p className="text-[10.5px] font-mono text-zinc-400 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
+                      Right-click to inspect logs or restart
                     </p>
                   </div>
 
-                  {/* CARD 3: TODAY'S PRIORITIES & HIGH-SEVERITY ALERTS (INDIGO & ROSE THEME) */}
-                  <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-500/[0.08] via-purple-500/[0.03] to-white dark:to-zinc-900 border border-indigo-500/30 dark:border-indigo-500/40 shadow-sm flex flex-col justify-between space-y-4">
+                  {/* CARD 3: TODAY'S PRIORITIES */}
+                  <div className="p-5 sm:p-6 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs flex flex-col justify-between space-y-5">
                     <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
-                          <CheckSquare className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-medium">
                           Today's Priorities
                         </span>
-                        {/* Pill Work vs Personal Filter */}
-                        <div className="flex items-center p-1 bg-indigo-500/10 dark:bg-indigo-950/40 border border-indigo-500/20 rounded-full text-[10.5px] font-mono">
+                        
+                        {/* Apple-style Work / Personal Segment */}
+                        <div className="flex items-center p-0.5 bg-zinc-100 dark:bg-zinc-800/80 rounded-full border border-zinc-200/60 dark:border-zinc-700/60 text-[10.5px] font-medium">
                           <button
                             onClick={() => setTasksFilter('work')}
-                            className={`px-3 py-1 rounded-full font-bold cursor-pointer transition-all ${
+                            className={`px-2.5 py-0.5 rounded-full cursor-pointer transition-all ${
                               tasksFilter === 'work' 
-                                ? 'bg-indigo-600 text-white shadow-xs' 
-                                : 'text-slate-600 dark:text-zinc-400 hover:text-indigo-700 dark:hover:text-white'
+                                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-xs font-semibold' 
+                                : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
                             }`}
                           >
                             Work
                           </button>
                           <button
                             onClick={() => setTasksFilter('personal')}
-                            className={`px-3 py-1 rounded-full font-bold cursor-pointer transition-all ${
+                            className={`px-2.5 py-0.5 rounded-full cursor-pointer transition-all ${
                               tasksFilter === 'personal' 
-                                ? 'bg-indigo-600 text-white shadow-xs' 
-                                : 'text-slate-600 dark:text-zinc-400 hover:text-indigo-700 dark:hover:text-white'
+                                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-xs font-semibold' 
+                                : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
                             }`}
                           >
                             Personal
@@ -1053,87 +1039,86 @@ export const AdminDashboard: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Work Tasks View */}
-                      {tasksFilter === 'work' ? (
-                        <div className="space-y-2.5">
-                          {/* Karani Law Vivid Multi-stop Gradient Progress Bar */}
-                          <div className="p-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10 space-y-1.5">
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="font-bold text-slate-900 dark:text-white">Karani Law &amp; BillsZip ERP</span>
-                              <span className="font-mono font-black text-indigo-600 dark:text-indigo-400">78%</span>
-                            </div>
-                            <div className="w-full bg-slate-200 dark:bg-zinc-700 h-2.5 rounded-full overflow-hidden">
-                              <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-500 h-full rounded-full transition-all" style={{ width: '78%' }}></div>
-                            </div>
-                            <span className="text-[10px] text-indigo-900/80 dark:text-indigo-300/80 block font-mono">
-                              Milestone: Bills of Costs &amp; Azure deployment sign-off
-                            </span>
-                          </div>
-
-                          {/* Sayara Pending Task */}
-                          <div 
-                            onClick={() => toggleTask('tsk-02')}
-                            className="p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-800/80 flex items-start gap-2.5 cursor-pointer hover:border-indigo-400 transition-colors"
-                          >
-                            <input 
-                              type="checkbox" 
-                              checked={tasks.find(t => t.id === 'tsk-02')?.completed} 
-                              onChange={() => {}} 
-                              className="rounded-full w-4 h-4 mt-0.5 cursor-pointer accent-indigo-600" 
-                            />
-                            <div className="text-xs">
-                              <span className="font-semibold text-slate-900 dark:text-white block">
-                                Sayara: Verify Shein price markup rules &amp; webhooks
+                      {/* Minimalist Task Items */}
+                      <div className="mt-4 space-y-3">
+                        {tasksFilter === 'work' ? (
+                          <>
+                            {/* Karani Law Progress Bar */}
+                            <div className="space-y-1.5">
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="font-medium text-zinc-900 dark:text-zinc-100">Karani Law &amp; BillsZip</span>
+                                <span className="font-mono text-zinc-600 dark:text-zinc-300">78%</span>
+                              </div>
+                              <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-1 rounded-full overflow-hidden">
+                                <div className="bg-zinc-900 dark:bg-zinc-100 h-full rounded-full" style={{ width: '78%' }}></div>
+                              </div>
+                              <span className="text-[10px] text-zinc-400 block font-mono">
+                                Bills of Costs &amp; Azure deployment
                               </span>
-                              <span className="text-[10px] text-slate-400 font-mono">Due Today, 19:30</span>
                             </div>
-                          </div>
 
-                          {/* CRITICAL INCIDENT ERROR CARD (HIGH-CONTRAST ROSE RED) */}
-                          <div className="p-3 rounded-xl border border-rose-400 dark:border-rose-800 bg-rose-500/15 text-xs space-y-1">
-                            <span className="font-bold text-rose-700 dark:text-rose-400 block flex items-center gap-1.5 font-mono">
-                              <AlertOctagon className="w-4 h-4 text-rose-600" />
-                              Critical API Gateway Incident
-                            </span>
-                            <p className="text-[11px] text-rose-950 dark:text-rose-200 font-mono">
-                              OdinBot cannot access I&amp;M Bank mirror: <code className="bg-rose-200/60 dark:bg-rose-900/40 px-1 py-0.5 rounded">razak-server/mirrors/api/kenyanbanks/IandM</code> (502 Refused)
-                            </p>
-                          </div>
-                        </div>
-                      ) : (
-                        /* Personal Tasks View */
-                        <div className="space-y-2">
-                          {tasks.filter(t => t.category === 'personal').map(t => (
+                            {/* Sayara Task */}
                             <div 
-                              key={t.id}
-                              onClick={() => toggleTask(t.id)}
-                              className={`p-2.5 rounded-xl border transition-colors flex items-start gap-2 cursor-pointer ${
-                                t.completed ? 'bg-slate-50 dark:bg-zinc-800/40 border-slate-200 dark:border-zinc-800 opacity-60' : 'bg-white dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-800 hover:border-indigo-400'
-                              }`}
+                              onClick={() => toggleTask('tsk-02')}
+                              className="flex items-start gap-2.5 pt-1 cursor-pointer group"
                             >
                               <input 
                                 type="checkbox" 
-                                checked={t.completed} 
+                                checked={tasks.find(t => t.id === 'tsk-02')?.completed} 
                                 onChange={() => {}} 
-                                className="rounded-full w-4 h-4 mt-0.5 cursor-pointer accent-indigo-600" 
+                                className="rounded mt-0.5 cursor-pointer accent-zinc-900 dark:accent-zinc-100 w-3.5 h-3.5" 
                               />
-                              <div className="text-xs">
-                                <span className={`font-semibold block ${t.completed ? 'line-through text-slate-500' : 'text-slate-900 dark:text-white'}`}>
-                                  {t.title}
+                              <div className="text-xs min-w-0">
+                                <span className="font-medium text-zinc-800 dark:text-zinc-200 block truncate group-hover:text-zinc-950 dark:group-hover:text-white">
+                                  Sayara: Shein markup rules &amp; webhooks
                                 </span>
-                                <span className="text-[10px] text-slate-400 font-mono">{t.dueDate}</span>
+                                <span className="text-[10px] text-zinc-400 font-mono">Due Today, 19:30</span>
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      )}
+
+                            {/* Incident Alert Row (Clean & Calm) */}
+                            <div className="p-2.5 rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50/40 dark:bg-rose-950/20 text-xs">
+                              <div className="flex items-center gap-1.5 text-rose-700 dark:text-rose-400 font-medium">
+                                <AlertOctagon className="w-3.5 h-3.5 shrink-0" />
+                                <span>OdinBot: I&amp;M Bank Mirror Unreachable</span>
+                              </div>
+                              <p className="text-[10.5px] text-zinc-500 dark:text-zinc-400 mt-1 font-mono">
+                                razak-server port 8082 returned 502 Refused
+                              </p>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="space-y-2">
+                            {tasks.filter(t => t.category === 'personal').slice(0, 3).map(t => (
+                              <div 
+                                key={t.id}
+                                onClick={() => toggleTask(t.id)}
+                                className="flex items-start gap-2 cursor-pointer text-xs"
+                              >
+                                <input 
+                                  type="checkbox" 
+                                  checked={t.completed} 
+                                  onChange={() => {}} 
+                                  className="rounded mt-0.5 cursor-pointer accent-zinc-900 w-3.5 h-3.5" 
+                                />
+                                <div className="min-w-0">
+                                  <span className={`block truncate ${t.completed ? 'line-through text-zinc-400' : 'text-zinc-800 dark:text-zinc-200'}`}>
+                                    {t.title}
+                                  </span>
+                                  <span className="text-[10px] text-zinc-400 font-mono">{t.dueDate}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="pt-2 border-t border-indigo-500/20 flex justify-between items-center text-[10.5px] font-mono text-slate-400">
+                    <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex justify-between items-center text-[10.5px] font-mono text-zinc-400">
                       <span>Completed: {tasks.filter(t => t.completed).length}/{tasks.length}</span>
                       <button 
                         onClick={() => setShowAddTaskModal(true)} 
-                        className="px-3 py-1 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10.5px] shadow-sm cursor-pointer transition-all"
+                        className="text-zinc-900 dark:text-zinc-200 font-medium hover:underline cursor-pointer"
                       >
                         + Add Priority
                       </button>
@@ -1142,286 +1127,228 @@ export const AdminDashboard: React.FC = () => {
 
                 </div>
 
-                {/* COMPANION STRIP: RAZAK-SERVER TELEMETRY & RECENT STARTUP ACTIVITIES */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                  
-                  {/* Left: razak-server Live Ticker (DARK COMMAND STATION) */}
-                  <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800 text-slate-100 shadow-md flex flex-col justify-between space-y-4 font-mono">
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                      <div className="flex items-center gap-2">
-                        <Cpu className="w-4 h-4 text-cyan-400" />
-                        <span className="font-bold text-sm tracking-tight text-white">razak-server</span>
-                      </div>
-                      <span className="text-[10.5px] px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/40 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                        {apiLatency} ms Speed
+                {/* ========================================================================= */}
+                {/* SYSTEM TELEMETRY & AUDIT STRIP (LINEAR & VERCEL STYLE) */}
+                {/* ========================================================================= */}
+                <div className="p-5 sm:p-6 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-zinc-100 dark:border-zinc-800/80">
+                    <div className="flex items-center gap-2.5">
+                      <Cpu className="w-4 h-4 text-zinc-400" />
+                      <span className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
+                        razak-server telemetry
+                      </span>
+                      <span className="text-[10.5px] font-mono text-zinc-400">
+                        Marsabit Biftu Station &middot; 7ms Latency
                       </span>
                     </div>
-
-                    {/* Live Clock Dynamic Monospace Counter */}
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">
-                        Running Uptime (Live Clock):
-                      </span>
-                      <p className="text-2xl font-black text-cyan-400 tracking-wider">
-                        {formatUptime(uptimeSeconds)}
-                      </p>
-                    </div>
-
-                    {/* Hardware telemetry bars */}
-                    <div className="space-y-3 text-xs">
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-[11px]">
-                          <span className="text-slate-400">CPU Load:</span>
-                          <span className="text-cyan-300 font-bold">14% (8 Cores)</span>
-                        </div>
-                        <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                          <div className="bg-cyan-500 h-full rounded-full" style={{ width: '14%' }}></div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-[11px]">
-                          <span className="text-slate-400">RAM Allocation:</span>
-                          <span className="text-purple-300 font-bold">1.8 GB / 8.0 GB</span>
-                        </div>
-                        <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                          <div className="bg-purple-500 h-full rounded-full" style={{ width: '22.5%' }}></div>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-between text-[11px] pt-1">
-                        <span className="text-slate-400">Host:</span>
-                        <span className="text-white font-semibold">Marsabit Biftu Station</span>
-                      </div>
-                    </div>
-
                     <button
                       onClick={() => setShowDiagnosticsModal(true)}
-                      className="w-full py-2 rounded-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-md shadow-cyan-600/25 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white cursor-pointer transition-colors"
                     >
-                      <Terminal className="w-3.5 h-3.5" />
-                      <span>Inspect Telemetry &rarr;</span>
+                      Full Diagnostics &rarr;
                     </button>
                   </div>
 
-                  {/* Right: Startup Recent Activity Feed */}
-                  <div className="lg:col-span-2 p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm flex flex-col justify-between space-y-4">
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
-                      <div>
-                        <h3 className="font-bold text-sm text-slate-900 dark:text-white font-brand flex items-center gap-2">
-                          <Activity className="w-4 h-4 text-blue-500" />
-                          Startup Recent Activity &amp; Releases
-                        </h3>
-                        <p className="text-[11px] text-slate-400">Past 7 days across P3L projects</p>
-                      </div>
-                      <span className="text-[10.5px] font-mono px-3 py-1 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-bold border border-slate-200 dark:border-zinc-700">
-                        {recentActivities.length} Audits
+                  {/* 4-Stat Minimal Grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 font-mono text-xs">
+                    <div>
+                      <span className="text-[10px] text-zinc-400 uppercase tracking-wider block">Running Uptime</span>
+                      <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mt-0.5 block">
+                        {formatUptime(uptimeSeconds)}
                       </span>
                     </div>
-
-                    <div className="space-y-2.5 overflow-y-auto max-h-56 pr-1 font-mono text-xs">
-                      {recentActivities.map(act => (
-                        <div key={act.id} className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-100 dark:border-zinc-800/80 flex items-start justify-between gap-3 hover:border-slate-300 dark:hover:border-zinc-700 transition-colors">
-                          <div className="min-w-0">
-                            <span className={`px-2.5 py-0.5 rounded-full text-[9.5px] font-bold inline-block mb-1 ${
-                              act.tag === 'Git Commit' ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30' :
-                              act.tag === 'Python Cron' ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30' :
-                              act.tag === 'Retail POS' ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30' :
-                              'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
-                            }`}>
-                              {act.tag}
-                            </span>
-                            <p className="font-medium text-slate-800 dark:text-zinc-200 truncate font-sans text-xs">
-                              {act.action}
-                            </p>
-                          </div>
-                          <span className="text-[10px] text-slate-400 shrink-0 mt-1">{act.time}</span>
-                        </div>
-                      ))}
+                    <div>
+                      <span className="text-[10px] text-zinc-400 uppercase tracking-wider block">CPU Load</span>
+                      <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mt-0.5 block">
+                        14% (8 Cores)
+                      </span>
                     </div>
-
-                    <div className="pt-2 border-t border-slate-100 dark:border-zinc-800/80 flex justify-between items-center text-[10px] font-mono text-slate-400">
-                      <span>Live sync via razak-server daemon</span>
-                      <button onClick={() => showToast('Refreshed recent activity logs')} className="text-blue-600 dark:text-blue-400 hover:underline cursor-pointer font-bold">
-                        Refresh Stream
-                      </button>
+                    <div>
+                      <span className="text-[10px] text-zinc-400 uppercase tracking-wider block">RAM Allocated</span>
+                      <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mt-0.5 block">
+                        1.8 GB / 8.0 GB
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-zinc-400 uppercase tracking-wider block">Cloud Gateway</span>
+                      <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mt-0.5 block">
+                        Azure App Service
+                      </span>
                     </div>
                   </div>
 
+                  {/* Recent Activity Stream */}
+                  <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800/80 space-y-2">
+                    <span className="text-[10.5px] font-mono text-zinc-400 uppercase tracking-wider block">
+                      Past 7 Days Audit Trail
+                    </span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                      {recentActivities.slice(0, 4).map(act => (
+                        <div key={act.id} className="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-800/60 flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <span className="text-[9.5px] font-mono text-zinc-400 block mb-0.5">{act.tag}</span>
+                            <span className="text-zinc-800 dark:text-zinc-200 block truncate font-normal">{act.action}</span>
+                          </div>
+                          <span className="text-[10px] text-zinc-400 font-mono shrink-0 mt-0.5">{act.time}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 {/* ========================================================================= */}
-                {/* BIG WORKSPACE CARD: 4 SUB-TABS (PROJECTS, EDUCATION, RAZAK SERVER, USERS) */}
+                {/* BIG WORKSPACE CARD: GITHUB & APPLE STYLE TABS */}
                 {/* ========================================================================= */}
-                <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-6">
+                <div className="p-5 sm:p-6 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs space-y-6">
                   
-                  {/* Tab Navigation Pill Bar */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 dark:border-zinc-800 gap-3">
-                    <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-zinc-800/80 rounded-full border border-slate-200 dark:border-zinc-700 text-xs font-semibold overflow-x-auto">
+                  {/* Apple / GitHub Segmented Navigation */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800/80 gap-3">
+                    <div className="flex items-center gap-1 p-0.5 bg-zinc-100 dark:bg-zinc-800/80 rounded-full border border-zinc-200/60 dark:border-zinc-700/60 text-xs font-medium overflow-x-auto">
                       <button
                         onClick={() => setWorkspaceTab('projects')}
-                        className={`px-4 py-2 rounded-full cursor-pointer transition-all flex items-center gap-1.5 shrink-0 ${
+                        className={`px-3.5 py-1.5 rounded-full cursor-pointer transition-all flex items-center gap-1.5 shrink-0 ${
                           workspaceTab === 'projects' 
-                            ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/25' 
-                            : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                            ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-xs font-semibold' 
+                            : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
                         }`}
                       >
-                        <Layers className="w-3.5 h-3.5" />
-                        <span>Projects Status ({projects.length})</span>
+                        <Layers className="w-3.5 h-3.5 stroke-[1.75]" />
+                        <span>Projects ({projects.length})</span>
                       </button>
 
                       <button
                         onClick={() => setWorkspaceTab('education')}
-                        className={`px-4 py-2 rounded-full cursor-pointer transition-all flex items-center gap-1.5 shrink-0 ${
+                        className={`px-3.5 py-1.5 rounded-full cursor-pointer transition-all flex items-center gap-1.5 shrink-0 ${
                           workspaceTab === 'education' 
-                            ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/25' 
-                            : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                            ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-xs font-semibold' 
+                            : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
                         }`}
                       >
-                        <GraduationCap className="w-3.5 h-3.5" />
-                        <span>Education &amp; Skills</span>
+                        <GraduationCap className="w-3.5 h-3.5 stroke-[1.75]" />
+                        <span>Education ({coursework.length})</span>
                       </button>
 
                       <button
                         onClick={() => setWorkspaceTab('server')}
-                        className={`px-4 py-2 rounded-full cursor-pointer transition-all flex items-center gap-1.5 shrink-0 ${
+                        className={`px-3.5 py-1.5 rounded-full cursor-pointer transition-all flex items-center gap-1.5 shrink-0 ${
                           workspaceTab === 'server' 
-                            ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/25' 
-                            : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                            ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-xs font-semibold' 
+                            : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
                         }`}
                       >
-                        <Server className="w-3.5 h-3.5" />
-                        <span>Razak Server</span>
+                        <Server className="w-3.5 h-3.5 stroke-[1.75]" />
+                        <span>Server Daemons</span>
                       </button>
 
                       <button
                         onClick={() => setWorkspaceTab('users')}
-                        className={`px-4 py-2 rounded-full cursor-pointer transition-all flex items-center gap-1.5 shrink-0 ${
+                        className={`px-3.5 py-1.5 rounded-full cursor-pointer transition-all flex items-center gap-1.5 shrink-0 ${
                           workspaceTab === 'users' 
-                            ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/25' 
-                            : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                            ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-xs font-semibold' 
+                            : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
                         }`}
                       >
-                        <Users className="w-3.5 h-3.5" />
-                        <span>Users Management</span>
+                        <Users className="w-3.5 h-3.5 stroke-[1.75]" />
+                        <span>Team Roster</span>
                       </button>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => setShowAddProjectModal(true)}
-                        className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm flex items-center gap-1.5 cursor-pointer"
+                        className="px-3 py-1 rounded-full text-xs font-medium border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5 cursor-pointer transition-colors"
                       >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Project</span>
-                      </button>
-                      <button
-                        onClick={() => setShowAddTaskModal(true)}
-                        className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-sm flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Task</span>
+                        <Plus className="w-3.5 h-3.5 stroke-[2]" />
+                        <span>New Project</span>
                       </button>
                     </div>
                   </div>
 
                   {/* --------------------------------------------------------------------- */}
-                  {/* SUB-TAB 1: PROJECTS STATUS (ALL 7 REPOS) */}
+                  {/* SUB-TAB 1: PROJECTS (GITHUB STYLE TABLE) */}
                   {/* --------------------------------------------------------------------- */}
                   {workspaceTab === 'projects' && (
                     <div className="overflow-x-auto animate-fadeIn">
                       <table className="w-full text-left border-collapse text-xs">
                         <thead>
-                          <tr className="border-b border-slate-200 dark:border-zinc-800 text-[10.5px] uppercase font-mono text-slate-500 dark:text-zinc-400 tracking-wider">
-                            <th className="py-2.5 px-3">Client</th>
-                            <th className="py-2.5 px-3">Service / Product</th>
-                            <th className="py-2.5 px-3">Contract Type</th>
-                            <th className="py-2.5 px-3">Monthly Rate / Fee</th>
-                            <th className="py-2.5 px-3">Status</th>
-                            <th className="py-2.5 px-3">Next Milestone (Hover for Tasks)</th>
-                            <th className="py-2.5 px-3 text-right">Actions</th>
+                          <tr className="border-b border-zinc-200 dark:border-zinc-800 text-[10.5px] uppercase font-mono text-zinc-400 tracking-wider">
+                            <th className="py-2.5 px-3 font-medium">Client</th>
+                            <th className="py-2.5 px-3 font-medium">Service / Product</th>
+                            <th className="py-2.5 px-3 font-medium">Contract Type</th>
+                            <th className="py-2.5 px-3 font-medium">Rate / Fee</th>
+                            <th className="py-2.5 px-3 font-medium">Status</th>
+                            <th className="py-2.5 px-3 font-medium">Next Milestone</th>
+                            <th className="py-2.5 px-3 text-right font-medium">Action</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60 font-mono">
-                          {projects.map(p => {
-                            const initials = p.client.split(' ').map(n => n[0]).join('').substring(0, 2);
-                            return (
-                              <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors group">
-                                <td className="py-3 px-3">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-7 h-7 rounded-full bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-[10px] font-bold text-indigo-700 dark:text-indigo-300 font-sans shrink-0">
-                                      {initials}
-                                    </div>
-                                    <div className="min-w-0">
-                                      <span className="font-bold text-slate-900 dark:text-white block font-sans truncate">{p.client}</span>
-                                      <span className="text-[10px] text-slate-400">{p.clientPhone}</span>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="py-3 px-3">
-                                  <span className="font-semibold text-slate-900 dark:text-white block">{p.name}</span>
-                                  <span className="text-[10px] text-slate-400 font-sans">{p.category}</span>
-                                </td>
-                                <td className="py-3 px-3 text-slate-600 dark:text-zinc-300">
-                                  <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-[10px] font-semibold">
-                                    {p.contractType}
-                                  </span>
-                                </td>
-                                <td className="py-3 px-3">
-                                  <span className="font-bold text-emerald-600 dark:text-emerald-400 block">{p.monthlyFee}</span>
-                                  <span className="text-[10px] text-slate-400">Initial: {p.initialPaid}</span>
-                                </td>
-                                <td className="py-3 px-3">
-                                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-block ${
-                                    p.status === 'Live (In Store)' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' :
-                                    p.status === 'Live (Vercel)' ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30' :
-                                    p.status === 'Live (Python Daemon)' ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30' :
-                                    p.status === 'In Development (78%)' ? 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30' :
-                                    p.status === 'Debugging (API Issue)' ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30' :
-                                    'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700'
-                                  }`}>
-                                    {p.status}
-                                  </span>
-                                </td>
-                                <td 
-                                  className="py-3 px-3 relative cursor-help"
-                                  onMouseEnter={() => setHoveredMilestoneTasks({ project: p.name, tasks: p.tasks })}
-                                  onMouseLeave={() => setHoveredMilestoneTasks(null)}
-                                >
-                                  <span className="text-slate-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 font-sans text-xs underline decoration-dotted decoration-slate-400 transition-colors">
-                                    {p.nextMilestone}
-                                  </span>
+                        <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60 font-mono">
+                          {projects.map(p => (
+                            <tr key={p.id} className="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30 transition-colors group">
+                              <td className="py-3 px-3">
+                                <span className="font-medium text-zinc-900 dark:text-zinc-100 block font-sans">{p.client}</span>
+                                <span className="text-[10px] text-zinc-400">{p.clientPhone}</span>
+                              </td>
+                              <td className="py-3 px-3">
+                                <span className="font-medium text-zinc-900 dark:text-zinc-100 block font-sans">{p.name}</span>
+                                <span className="text-[10px] text-zinc-400 font-sans">{p.category}</span>
+                              </td>
+                              <td className="py-3 px-3 text-zinc-600 dark:text-zinc-400">
+                                <span className="text-[10.5px]">
+                                  {p.contractType}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3">
+                                <span className="font-medium text-zinc-900 dark:text-zinc-100 block">{p.monthlyFee}</span>
+                                <span className="text-[10px] text-zinc-400">Paid: {p.initialPaid}</span>
+                              </td>
+                              <td className="py-3 px-3">
+                                <span className="inline-flex items-center gap-1.5 text-[10.5px] font-mono text-zinc-700 dark:text-zinc-300">
+                                  <span className={`w-1.5 h-1.5 rounded-full ${
+                                    p.status.includes('Live') ? 'bg-emerald-500' :
+                                    p.status.includes('Debugging') ? 'bg-rose-500' :
+                                    p.status.includes('Development') ? 'bg-amber-500' :
+                                    'bg-zinc-400'
+                                  }`}></span>
+                                  {p.status}
+                                </span>
+                              </td>
+                              <td 
+                                className="py-3 px-3 relative cursor-help"
+                                onMouseEnter={() => setHoveredMilestoneTasks({ project: p.name, tasks: p.tasks })}
+                                onMouseLeave={() => setHoveredMilestoneTasks(null)}
+                              >
+                                <span className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-sans text-xs underline decoration-dotted decoration-zinc-300 dark:decoration-zinc-700">
+                                  {p.nextMilestone}
+                                </span>
 
-                                  {/* Hover Task Flyout Tooltip */}
-                                  {hoveredMilestoneTasks?.project === p.name && (
-                                    <div className="absolute left-0 bottom-full mb-2 z-50 w-72 p-3 bg-slate-950 text-white rounded-xl shadow-2xl border border-slate-700 space-y-2 pointer-events-none animate-fadeIn">
-                                      <div className="flex items-center justify-between border-b border-slate-700 pb-1">
-                                        <span className="font-bold text-[10.5px] uppercase font-mono text-cyan-400">Milestone Checklist</span>
-                                        <span className="text-[9px] text-slate-400 font-mono">{p.tasks.length} tasks</span>
-                                      </div>
-                                      <ul className="space-y-1 text-[11px] font-sans">
-                                        {p.tasks.map((t, idx) => (
-                                          <li key={idx} className="flex items-start gap-1.5">
-                                            <span className="text-emerald-400 mt-0.5">&bull;</span>
-                                            <span className="text-slate-200">{t}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
+                                {/* Minimal Tooltip */}
+                                {hoveredMilestoneTasks?.project === p.name && (
+                                  <div className="absolute left-0 bottom-full mb-2 z-50 w-72 p-3 bg-zinc-950 text-white rounded-lg shadow-xl border border-zinc-800 space-y-2 pointer-events-none animate-fadeIn">
+                                    <div className="flex items-center justify-between border-b border-zinc-800 pb-1">
+                                      <span className="font-medium text-[10px] uppercase font-mono text-zinc-400">Milestone Tasks</span>
+                                      <span className="text-[9px] text-zinc-500 font-mono">{p.tasks.length} total</span>
                                     </div>
-                                  )}
-                                </td>
-                                <td className="py-3 px-3 text-right">
-                                  <button 
-                                    onClick={() => showToast(`Opening workspace for ${p.name}`)}
-                                    className="px-3 py-1 rounded-full bg-slate-900 hover:bg-black text-white dark:bg-white dark:text-slate-900 text-xs font-bold cursor-pointer shadow-xs transition-all"
-                                  >
-                                    Open
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })}
+                                    <ul className="space-y-1 text-[11px] font-sans">
+                                      {p.tasks.map((t, idx) => (
+                                        <li key={idx} className="flex items-start gap-1.5 text-zinc-300">
+                                          <span className="text-zinc-500 mt-0.5">&bull;</span>
+                                          <span>{t}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </td>
+                              <td className="py-3 px-3 text-right">
+                                <button 
+                                  onClick={() => showToast(`Opening workspace for ${p.name}`)}
+                                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:underline cursor-pointer"
+                                >
+                                  Open &rarr;
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
                     </div>
@@ -1433,47 +1360,44 @@ export const AdminDashboard: React.FC = () => {
                   {workspaceTab === 'education' && (
                     <div className="space-y-5 animate-fadeIn">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        
-                        {/* Coursework & University Assignments */}
-                        <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">
-                          <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 font-mono flex items-center justify-between">
-                            <span>University Assignments &amp; Coursework</span>
-                            <span className="text-[10px] text-emerald-600 font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">4 Active</span>
+                        <div className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-800 space-y-3">
+                          <h4 className="font-medium text-xs uppercase tracking-wider text-zinc-400 font-mono flex items-center justify-between">
+                            <span>Coursework &amp; Assignments</span>
+                            <span className="text-[10px] text-zinc-500">4 active</span>
                           </h4>
                           <div className="space-y-2">
                             {coursework.map(c => (
-                              <div key={c.id} className="p-2.5 rounded-lg bg-slate-50 dark:bg-zinc-800/40 border border-slate-100 dark:border-zinc-800 flex justify-between items-center text-xs">
+                              <div key={c.id} className="p-2.5 rounded-md bg-zinc-50/50 dark:bg-zinc-800/30 border border-zinc-100 dark:border-zinc-800 flex justify-between items-center text-xs">
                                 <div>
-                                  <span className="font-bold text-slate-900 dark:text-white block">{c.title}</span>
-                                  <span className="text-[10px] text-slate-400 font-mono">{c.subject} &middot; Due: {c.deadline}</span>
+                                  <span className="font-medium text-zinc-900 dark:text-zinc-100 block">{c.title}</span>
+                                  <span className="text-[10px] text-zinc-400 font-mono">{c.subject} &middot; {c.deadline}</span>
                                 </div>
                                 <div className="text-right font-mono">
-                                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300 block font-bold">
+                                  <span className="text-[10px] text-zinc-600 dark:text-zinc-400 font-medium block">
                                     {c.status}
                                   </span>
-                                  <span className="text-[9.5px] text-slate-500 mt-0.5 block">{c.marks}</span>
+                                  <span className="text-[9.5px] text-zinc-400 mt-0.5 block">{c.marks}</span>
                                 </div>
                               </div>
                             ))}
                           </div>
                         </div>
 
-                        {/* Reading PDFs & Architecture Handbooks */}
-                        <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">
-                          <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 font-mono flex items-center justify-between">
-                            <span>Reading PDFs &amp; Architecture References</span>
-                            <span className="text-[10px] text-blue-600 font-bold px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20">Offline Available</span>
+                        <div className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-800 space-y-3">
+                          <h4 className="font-medium text-xs uppercase tracking-wider text-zinc-400 font-mono flex items-center justify-between">
+                            <span>Reading References (PDF)</span>
+                            <span className="text-[10px] text-zinc-500">Offline cached</span>
                           </h4>
                           <div className="space-y-2">
                             {readingPdfs.map((pdf, idx) => (
-                              <div key={idx} className="p-2.5 rounded-lg bg-slate-50 dark:bg-zinc-800/40 border border-slate-100 dark:border-zinc-800 flex justify-between items-center text-xs">
+                              <div key={idx} className="p-2.5 rounded-md bg-zinc-50/50 dark:bg-zinc-800/30 border border-zinc-100 dark:border-zinc-800 flex justify-between items-center text-xs">
                                 <div className="min-w-0 pr-2">
-                                  <span className="font-semibold text-slate-900 dark:text-white block truncate">{pdf.title}</span>
-                                  <span className="text-[10px] text-slate-400 font-mono">{pdf.category} &middot; {pdf.pages}</span>
+                                  <span className="font-medium text-zinc-900 dark:text-zinc-100 block truncate">{pdf.title}</span>
+                                  <span className="text-[10px] text-zinc-400 font-mono">{pdf.category} &middot; {pdf.pages}</span>
                                 </div>
                                 <button
-                                  onClick={() => showToast(`Opening reference: ${pdf.title}`)}
-                                  className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-slate-700 dark:text-zinc-300 text-[10px] font-bold font-mono cursor-pointer shrink-0"
+                                  onClick={() => showToast(`Opening ${pdf.title}`)}
+                                  className="text-[10.5px] font-mono text-zinc-500 hover:text-zinc-900 dark:hover:text-white cursor-pointer shrink-0"
                                 >
                                   Read
                                 </button>
@@ -1481,68 +1405,44 @@ export const AdminDashboard: React.FC = () => {
                             ))}
                           </div>
                         </div>
-
-                      </div>
-
-                      {/* Schedule: Lectures, Exams & Mentorship */}
-                      <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-600">
-                            <Calendar className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <span className="font-bold text-slate-900 dark:text-white block">Next Live Engineering Session</span>
-                            <span className="text-slate-500 font-mono text-[10.5px]">Distributed Systems Lecture &middot; Tomorrow, 10:00 AM (Zoom)</span>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => showToast('Session reminder logged')}
-                          className="px-4 py-2 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm cursor-pointer"
-                        >
-                          Add to Calendar
-                        </button>
                       </div>
                     </div>
                   )}
 
                   {/* --------------------------------------------------------------------- */}
-                  {/* SUB-TAB 3: RAZAK SERVER DAEMONS & MIRROR APIS */}
+                  {/* SUB-TAB 3: RAZAK SERVER DAEMONS & MIRRORS */}
                   {/* --------------------------------------------------------------------- */}
                   {workspaceTab === 'server' && (
                     <div className="space-y-5 animate-fadeIn">
-                      
-                      {/* Active Daemons Table */}
                       <div className="space-y-2">
-                        <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 font-mono flex items-center justify-between">
-                          <span>Active Daemon Processes (Linux Systemd)</span>
-                          <span className="text-[10px] text-emerald-600 font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">Node: razak-server</span>
-                        </h4>
+                        <span className="text-[10.5px] font-mono uppercase tracking-wider text-zinc-400 block font-medium">
+                          Systemd Daemons (Linux)
+                        </span>
                         <div className="overflow-x-auto">
                           <table className="w-full text-left text-xs font-mono">
                             <thead>
-                              <tr className="border-b border-slate-200 dark:border-zinc-800 text-[10px] text-slate-400">
-                                <th className="p-2">PID</th>
-                                <th className="p-2">Process Name</th>
-                                <th className="p-2">Port</th>
-                                <th className="p-2">CPU</th>
-                                <th className="p-2">Memory</th>
-                                <th className="p-2">Uptime</th>
-                                <th className="p-2 text-right">Status</th>
+                              <tr className="border-b border-zinc-200 dark:border-zinc-800 text-[10px] text-zinc-400">
+                                <th className="p-2 font-medium">PID</th>
+                                <th className="p-2 font-medium">Name</th>
+                                <th className="p-2 font-medium">Port</th>
+                                <th className="p-2 font-medium">CPU</th>
+                                <th className="p-2 font-medium">Memory</th>
+                                <th className="p-2 font-medium">Uptime</th>
+                                <th className="p-2 text-right font-medium">Status</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60">
+                            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
                               {serverDaemons.map(d => (
-                                <tr key={d.pid} className="hover:bg-slate-50 dark:hover:bg-zinc-800/40">
-                                  <td className="p-2 text-slate-400">{d.pid}</td>
-                                  <td className="p-2 font-bold text-slate-900 dark:text-white">{d.name}</td>
-                                  <td className="p-2 text-blue-600">{d.port}</td>
-                                  <td className="p-2">{d.cpu}</td>
-                                  <td className="p-2">{d.memory}</td>
-                                  <td className="p-2 text-slate-500">{d.uptime}</td>
+                                <tr key={d.pid} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
+                                  <td className="p-2 text-zinc-400">{d.pid}</td>
+                                  <td className="p-2 font-medium text-zinc-900 dark:text-zinc-100">{d.name}</td>
+                                  <td className="p-2 text-zinc-500">{d.port}</td>
+                                  <td className="p-2 text-zinc-500">{d.cpu}</td>
+                                  <td className="p-2 text-zinc-500">{d.memory}</td>
+                                  <td className="p-2 text-zinc-400">{d.uptime}</td>
                                   <td className="p-2 text-right">
-                                    <span className={`px-2.5 py-0.5 rounded-full text-[9.5px] font-bold ${
-                                      d.status === 'Running' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
-                                    }`}>
+                                    <span className="inline-flex items-center gap-1.5 text-[10px]">
+                                      <span className={`w-1.5 h-1.5 rounded-full ${d.status === 'Running' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
                                       {d.status}
                                     </span>
                                   </td>
@@ -1553,87 +1453,52 @@ export const AdminDashboard: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Mirror APIs */}
-                      <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
-                        <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 font-mono flex items-center justify-between">
-                          <span>Simulated Kenyan Bank &amp; Payment Gateway Mirrors</span>
-                          <span className="text-[10px] text-rose-600 font-bold px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20">1 Incident Detected</span>
-                        </h4>
+                      <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800/80 space-y-2">
+                        <span className="text-[10.5px] font-mono uppercase tracking-wider text-zinc-400 block font-medium">
+                          Simulated Bank Mirrors
+                        </span>
                         <div className="space-y-2">
                           {mirrorApis.map((m, idx) => (
-                            <div key={idx} className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono ${
-                              m.alert ? 'border-rose-400 bg-rose-500/10 text-rose-900 dark:text-rose-200' : 'border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40'
-                            }`}>
+                            <div key={idx} className="p-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 flex justify-between items-center text-xs font-mono">
                               <div>
-                                <span className="font-bold block">{m.endpoint}</span>
-                                <span className="text-[10px] text-slate-500">Port: {m.port} &middot; {m.protocol}</span>
+                                <span className="font-medium text-zinc-900 dark:text-zinc-100 block">{m.endpoint}</span>
+                                <span className="text-[10px] text-zinc-400">Port: {m.port} &middot; {m.protocol}</span>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                                  m.alert ? 'bg-rose-600 text-white shadow-xs' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
-                                }`}>
-                                  {m.status}
-                                </span>
-                                {m.alert && (
-                                  <button
-                                    onClick={() => showToast('Attempting daemon restart on port 8082...')}
-                                    className="px-3 py-1 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold cursor-pointer transition-all"
-                                  >
-                                    Restart Socket
-                                  </button>
-                                )}
-                              </div>
+                              <span className={`text-[10.5px] font-medium ${m.alert ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                {m.status}
+                              </span>
                             </div>
                           ))}
                         </div>
                       </div>
-
                     </div>
                   )}
 
                   {/* --------------------------------------------------------------------- */}
-                  {/* SUB-TAB 4: USERS MANAGEMENT (P3L INTERNAL ROSTER) */}
+                  {/* SUB-TAB 4: TEAM ROSTER */}
                   {/* --------------------------------------------------------------------- */}
                   {workspaceTab === 'users' && (
                     <div className="space-y-4 animate-fadeIn">
-                      <div className="flex justify-between items-center">
-                        <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 font-mono">
-                          P3L Core Operating Personnel (3 Founders &amp; Leads)
-                        </h4>
-                        <button
-                          onClick={() => showToast('Direct invite link generated')}
-                          className="px-3.5 py-1.5 rounded-full bg-slate-900 hover:bg-black text-white dark:bg-white dark:text-slate-900 text-xs font-bold cursor-pointer"
-                        >
-                          + Invite Team Member
-                        </button>
-                      </div>
-
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40 space-y-2">
-                          <span className="text-xs font-bold text-slate-900 dark:text-white block">Guyoh Halake</span>
-                          <span className="text-[10px] font-mono text-slate-500 block">Founder &amp; Chief Architect</span>
-                          <span className="text-[10px] font-mono text-blue-600 block">p3lcodes@gmail.com</span>
-                          <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 text-[9.5px] font-mono font-bold uppercase inline-block">
-                            Super Admin
-                          </span>
+                        <div className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/30 space-y-1">
+                          <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 block">Guyoh Halake</span>
+                          <span className="text-[10.5px] font-mono text-zinc-400 block">Founder &amp; Chief Architect</span>
+                          <span className="text-[10.5px] font-mono text-zinc-500 block">p3lcodes@gmail.com</span>
+                          <span className="text-[10px] font-mono text-zinc-400 uppercase mt-2 block font-medium">Super Admin</span>
                         </div>
 
-                        <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40 space-y-2">
-                          <span className="text-xs font-bold text-slate-900 dark:text-white block">Razak Guyo</span>
-                          <span className="text-[10px] font-mono text-slate-500 block">Systems &amp; Server Lead</span>
-                          <span className="text-[10px] font-mono text-blue-600 block">razak@p3ldev.com</span>
-                          <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 text-[9.5px] font-mono font-bold uppercase inline-block">
-                            Systems Admin
-                          </span>
+                        <div className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/30 space-y-1">
+                          <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 block">Razak Guyo</span>
+                          <span className="text-[10.5px] font-mono text-zinc-400 block">Systems &amp; Server Lead</span>
+                          <span className="text-[10.5px] font-mono text-zinc-500 block">razak@p3ldev.com</span>
+                          <span className="text-[10px] font-mono text-zinc-400 uppercase mt-2 block font-medium">Systems Admin</span>
                         </div>
 
-                        <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40 space-y-2">
-                          <span className="text-xs font-bold text-slate-900 dark:text-white block">Victor Karani</span>
-                          <span className="text-[10px] font-mono text-slate-500 block">LegalTech Lead &amp; Reviewer</span>
-                          <span className="text-[10px] font-mono text-blue-600 block">karani@p3ldev.com</span>
-                          <span className="px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 text-[9.5px] font-mono font-bold uppercase inline-block">
-                            Legal Engineer
-                          </span>
+                        <div className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/30 space-y-1">
+                          <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 block">Victor Karani</span>
+                          <span className="text-[10.5px] font-mono text-zinc-400 block">LegalTech Lead &amp; Reviewer</span>
+                          <span className="text-[10.5px] font-mono text-zinc-500 block">karani@p3ldev.com</span>
+                          <span className="text-[10px] font-mono text-zinc-400 uppercase mt-2 block font-medium">Legal Engineer</span>
                         </div>
                       </div>
                     </div>
@@ -1642,53 +1507,46 @@ export const AdminDashboard: React.FC = () => {
                 </div>
 
                 {/* ========================================================================= */}
-                {/* MARSABIT COUNTY MAP & INTERACTIVE DIAGNOSTICS */}
+                {/* MARSABIT COUNTY NODE (CLEAN & MINIMALIST) */}
                 {/* ========================================================================= */}
                 <div 
                   onContextMenu={(e) => {
                     e.preventDefault();
                     setShowDiagnosticsModal(true);
                   }}
-                  className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-4"
+                  className="p-5 sm:p-6 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs space-y-4"
                   title="Right-click anywhere on the map to inspect full server diagnostics"
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
-                      <h3 className="font-brand font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
-                        <MapPin className="w-4 h-4 text-red-500" />
-                        P3L Headquarters &amp; Server Node: Marsabit County, Kenya
+                      <h3 className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
+                        Marsabit Station &middot; Biftu Construction Co.
                       </h3>
-                      <p className="text-xs text-slate-500 dark:text-zinc-400">
-                        Biftu Construction Company Station &middot; Marsabit Town &middot; Uplink to Azure Cloud
+                      <p className="text-[11px] text-zinc-400 font-mono">
+                        GPS: 2.3333&deg; N, 37.9833&deg; E &middot; Marsabit County, Kenya
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10.5px] font-mono bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 px-3 py-1 rounded-full font-bold">
-                        GPS: 2.3333&deg; N, 37.9833&deg; E
-                      </span>
-                      <button
-                        onClick={() => setShowDiagnosticsModal(true)}
-                        className="px-4 py-1.5 rounded-full bg-slate-900 hover:bg-black text-white dark:bg-white dark:text-slate-900 text-xs font-bold shadow-sm transition-all cursor-pointer"
-                      >
-                        Inspect Server Telemetry
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => setShowDiagnosticsModal(true)}
+                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white cursor-pointer transition-colors"
+                    >
+                      Server Telemetry &rarr;
+                    </button>
                   </div>
 
-                  {/* Marsabit Embedded Map */}
-                  <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-700 h-60 shadow-inner relative">
+                  <div className="rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 h-48 relative">
                     <iframe
                       title="Marsabit County Server Node"
                       src="https://maps.google.com/maps?q=2.3333,37.9833&z=13&output=embed"
                       width="100%"
                       height="100%"
-                      style={{ border: 0, filter: 'grayscale(25%)' }}
+                      style={{ border: 0, filter: 'grayscale(100%) opacity(0.8)' }}
                       allowFullScreen={false}
                       loading="lazy"
                     />
-                    <div className="absolute bottom-3 left-3 bg-slate-900/90 text-white px-3.5 py-1.5 rounded-full text-[10px] font-mono backdrop-blur-xs pointer-events-none border border-white/10 shadow-lg">
-                      Right-click map for Full Server Diagnostics
+                    <div className="absolute bottom-2 left-2 bg-black/80 text-white px-2.5 py-1 rounded text-[9.5px] font-mono backdrop-blur-xs pointer-events-none">
+                      Right-click for telemetry
                     </div>
                   </div>
                 </div>

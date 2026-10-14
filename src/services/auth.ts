@@ -77,7 +77,7 @@ export async function getCurrentUserProfile(): Promise<SystemUser | null> {
   // This works both before and after the optional auth_user_id migration is applied.
   const { data: emailProfile, error: emailError } = await supabase
     .from('users')
-    .select('id, firm_id, full_name, email, lsk_no, role, position, phone_primary, phone_secondary, avatar_url')
+    .select('id, firm_id, full_name, email, lsk_no, role, avatar_url')
     .ilike('email', authData.user.email || '')
     .eq('is_active', true)
     .maybeSingle();
