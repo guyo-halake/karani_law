@@ -25,3 +25,8 @@ venv/
 Thumbs.db
 .vscode/
 .idea/
+
+# Scratch & Temporary
+*.bak
+.temp/
+scratch/

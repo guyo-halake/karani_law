@@ -1,10 +1,13 @@
 /* ============================================================
-   App Shell Engine — Top Bar Header Navigation & Supabase Live Engine
+   App Shell Engine — Top Bar Header Navigation & Theme Switcher
    Features:
    - Official Kenyan Law Firm Seal Logo & Real Company Name
-   - Top Bar Navigation Buttons (Home, Bill of Costs, Matters, Clients, Vault, Guide)
-   - Live Supabase Connection Indicator & Cloud Sync
-   - Action Icons & Modals
+   - Top Bar Navigation Buttons (Home, Bill of Costs, Matters, Clients, Guide)
+   - Rounded Pill "+ New Bill" Action Button
+   - Scroll-activated compact header (hides center links on scroll)
+   - Action Icons: Eye (View), Share (Native / WhatsApp / Email / Print), Delete
+   - Theme Switcher (Dark Mode / Minimalist Light Mode toggle)
+   - Advocate Profile Avatar with dropdown
    ============================================================ */
 
 const TOP_ICONS = {
@@ -37,31 +40,12 @@ const TOP_NAV_ITEMS = [
   { id: "guide", label: "Remuneration Guide", href: "remuneration-guide.html", icon: "guide" }
 ];
 
-// Dynamically load Supabase JS SDK CDN if needed
-(function loadSupabaseSDK() {
-  if (!window.supabase && !document.getElementById("supabase-sdk-script")) {
-    const script = document.createElement("script");
-    script.id = "supabase-sdk-script";
-    script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
-    script.onload = function() {
-      if (window.supabase && window.SUPABASE_CONFIG) {
-        window.supabaseClient = window.supabase.createClient(
-          window.SUPABASE_CONFIG.url,
-          window.SUPABASE_CONFIG.anonKey
-        );
-        console.log("Supabase Client initialized successfully with live project ref: hhkbypvdwikxdlwivmrn");
-      }
-    };
-    document.head.appendChild(script);
-  }
-})();
-
 function initTheme() {
-  const savedTheme = localStorage.getItem("BILLSZIP_THEME") || "light";
-  if (savedTheme === "dark") {
-    document.body.classList.remove("light-theme");
-  } else {
+  const savedTheme = localStorage.getItem("BILLSZIP_THEME") || "dark";
+  if (savedTheme === "light") {
     document.body.classList.add("light-theme");
+  } else {
+    document.body.classList.remove("light-theme");
   }
 }
 
@@ -102,12 +86,9 @@ function renderShell(opts) {
           ${navHtml}
         </nav>
 
-        <!-- Right Side Controls & Live Supabase Status -->
+        <!-- Right Side Controls -->
         <div class="topbar-controls">
-          <span class="status-pill paid" style="font-size:10px; padding:3px 8px; margin-right:4px;" title="Connected to Supabase Project: hhkbypvdwikxdlwivmrn">
-            <span class="dot"></span>Supabase Cloud Connected
-          </span>
-
+          <!-- Minimalist Rounded Pill + New Bill Button -->
           <a class="btn-pill primary" href="bill-of-costs-builder.html">
             ${TOP_ICONS.plus} New Bill
           </a>
@@ -127,13 +108,13 @@ function renderShell(opts) {
             <!-- Notifications Dropdown -->
             <div class="dropdown-menu" id="notifMenu" style="width: 280px; padding: 12px;">
               <div style="font-weight:700; font-size:12px; color:var(--ink-primary); border-bottom:var(--glass-border); padding-bottom:8px; margin-bottom:8px;">
-                🔔 Notifications & Realtime Audit
+                🔔 Notifications & Taxations
               </div>
               <div style="font-size:12px; color:var(--ink-secondary); margin-bottom:8px;">
                 <strong>HCCC E104/2025:</strong> Taxation notice set for 24th Aug 2026.
               </div>
               <div style="font-size:12px; color:var(--ink-secondary);">
-                <strong>Seyani Brothers:</strong> Supabase realtime sync active.
+                <strong>Seyani Brothers:</strong> Bill of Costs draft saved successfully.
               </div>
             </div>
           </div>
@@ -172,8 +153,8 @@ function renderShell(opts) {
 
   document.getElementById("app").innerHTML = topbarHtml;
 
-  // Scroll Event Listener
-  window.addEventListener("scroll", function() {
+  // Scroll Event Listener to hide center top nav links on scroll down
+  window.addEventListener("scroll", function () {
     const topbar = document.getElementById("mainTopbar");
     if (topbar) {
       if (window.scrollY > 40) {
@@ -185,7 +166,7 @@ function renderShell(opts) {
   });
 
   // Close dropdowns on outside click
-  document.addEventListener("click", function(e) {
+  document.addEventListener("click", function (e) {
     if (!e.target.closest(".profile-trigger") && !e.target.closest(".icon-btn")) {
       document.querySelectorAll(".dropdown-menu").forEach(d => d.classList.remove("show"));
     }
@@ -200,6 +181,69 @@ function toggleDropdown(menuId) {
     target.classList.add("show");
   }
 }
+
+// Global Share Modal (Native Share API or WhatsApp / Email / Print options)
+window.openShareModal = function (title, docId) {
+  const pageUrl = window.location.origin + window.location.pathname.replace(/[^\/]*$/, '') + 'fee-note-detail.html?id=' + docId;
+  const shareText = `Bill of Costs & Fee Note Document (${docId.toUpperCase()}) — ${title}`;
+
+  if (navigator.share) {
+    navigator.share({
+      title: shareText,
+      text: shareText,
+      url: pageUrl
+    }).catch(err => { });
+    return;
+  }
+
+  // Fallback modal dialog
+  const modalHtml = `
+    <div class="modal-backdrop" id="shareModal" onclick="if(event.target === this) closeShareModal()">
+      <div class="modal-card">
+        <h3 style="font-family:var(--font-brand); font-size:16px; color:var(--ink-primary); margin-bottom:12px;">
+          🔗 Share Fee Note (${docId.toUpperCase()})
+        </h3>
+        <p style="font-size:12.5px; color:var(--ink-secondary); margin-bottom:16px;">${title}</p>
+        
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <a class="btn secondary" href="https://api.whatsapp.com/send?text=${encodeURIComponent(shareText + ' ' + pageUrl)}" target="_blank">
+            💬 Share via WhatsApp
+          </a>
+          <a class="btn secondary" href="mailto:?subject=${encodeURIComponent(shareText)}&body=${encodeURIComponent(pageUrl)}" target="_blank">
+            ✉️ Share via Email
+          </a>
+          <button class="btn secondary" onclick="navigator.clipboard.writeText('${pageUrl}'); alert('Document link copied to clipboard!'); closeShareModal();">
+            📋 Copy Document Link
+          </button>
+          <button class="btn primary" onclick="window.location.href='fee-note-detail.html?id=${docId}'; closeShareModal();">
+            🖨️ View & Print Document
+          </button>
+        </div>
+        <button class="btn small secondary" onclick="closeShareModal()" style="margin-top:16px; width:100%;">Close</button>
+      </div>
+    </div>
+  `;
+
+  const existing = document.getElementById("shareModal");
+  if (existing) existing.remove();
+
+  document.body.insertAdjacentHTML("beforeend", modalHtml);
+};
+
+window.closeShareModal = function () {
+  const m = document.getElementById("shareModal");
+  if (m) m.remove();
+};
+
+window.deleteBillDoc = function (docId) {
+  if (confirm(`Are you sure you want to delete Bill of Costs (${docId.toUpperCase()})?`)) {
+    let drafts = JSON.parse(localStorage.getItem("BILLSZIP_BILLS_OF_COSTS") || "[]");
+    drafts = drafts.filter(d => d.id !== docId);
+    localStorage.setItem("BILLSZIP_BILLS_OF_COSTS", JSON.stringify(drafts));
+    alert("Document deleted.");
+    window.location.reload();
+  }
+};
 
 function money(n) {
   return "Kshs " + Number(n || 0).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });

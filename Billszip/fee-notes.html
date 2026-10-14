@@ -1,69 +1,73 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>My Fee Notes & Bills of Costs — Billszip</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Fee Notes & Bills of Costs — Billszip</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
 
-<div class="app" id="app"></div>
+  <div class="app" id="app"></div>
 
-<script src="data.js"></script>
-<script src="remuneration.js"></script>
-<script src="shell.js"></script>
-<script>
-  renderShell({
-    page: "feenotes",
-    title: "My Fee Notes & Bills of Costs Registry",
-    searchPlaceholder: "Search by client, ref number, or cause title...",
-    primaryAction: { href: "bill-of-costs-builder.html", label: "+ Build Fee Note" }
-  });
+  <script src="data.js"></script>
+  <script src="remuneration.js"></script>
+  <script src="shell.js"></script>
+  <script>
+    renderShell({
+      page: "feenotes",
+      title: "My Fee Notes & Bills of Costs Registry",
+      searchPlaceholder: "Search by client, ref number, or cause title...",
+      primaryAction: { href: "bill-of-costs-builder.html", label: "+ Build Fee Note" }
+    });
 
-  const data = window.APP_DATA;
-  const rem = window.REMUNERATION;
-  const content = document.getElementById("pageContent");
+    const data = window.APP_DATA;
+    const rem = window.REMUNERATION;
+    const content = document.getElementById("pageContent");
 
-  let activeFilter = "all";
-  let query = "";
+    let activeFilter = "all";
+    let query = "";
 
-  function render() {
-    const drafts = rem.getDrafts();
-    let allNotes = [
-      ...drafts.map(d => ({
-        id: d.id,
-        client: d.client || "Client",
-        matter: d.matter || "Matter",
-        date: d.updatedAt ? d.updatedAt.split("T")[0] : new Date().toISOString().split("T")[0],
-        amount: d.computed ? d.computed.grandTotal : 0,
-        status: "draft"
-      })),
-      ...data.feeNotes
-    ];
+    function render() {
+      const drafts = rem.getDrafts();
+      let allNotes = [
+        ...drafts.map(d => ({
+          id: d.id,
+          client: d.client || "Client",
+          matter: d.matter || "Matter",
+          date: d.updatedAt ? d.updatedAt.split("T")[0] : new Date().toISOString().split("T")[0],
+          amount: d.computed ? d.computed.grandTotal : 0,
+          status: "draft"
+        })),
+        ...data.feeNotes
+      ];
 
-    if (activeFilter !== "all") {
-      allNotes = allNotes.filter(f => f.status === activeFilter);
-    }
-    if (query.trim()) {
-      const q = query.trim().toLowerCase();
-      allNotes = allNotes.filter(f =>
-        f.client.toLowerCase().includes(q) ||
-        f.id.toLowerCase().includes(q)
-      );
-    }
+      if (activeFilter !== "all") {
+        allNotes = allNotes.filter(f => f.status === activeFilter);
+      }
+      if (query.trim()) {
+        const q = query.trim().toLowerCase();
+        allNotes = allNotes.filter(f =>
+          f.client.toLowerCase().includes(q) ||
+          f.id.toLowerCase().includes(q)
+        );
+      }
 
-    const filters = [
-      { id: "all", label: "All Fee Notes" },
-      { id: "draft", label: "Drafts" },
-      { id: "pending", label: "Pending" },
-      { id: "paid", label: "Paid" },
-      { id: "overdue", label: "Overdue" }
-    ];
+      const filters = [
+        { id: "all", label: "All Fee Notes" },
+        { id: "draft", label: "Drafts" },
+        { id: "pending", label: "Pending" },
+        { id: "paid", label: "Paid" },
+        { id: "overdue", label: "Overdue" }
+      ];
 
-    content.innerHTML = `
+      content.innerHTML = `
       <!-- Filter Tabs Row -->
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
         <div style="display:flex; gap:6px; flex-wrap:wrap;">
@@ -96,9 +100,9 @@
             ${allNotes.length === 0 ? `
               <tr><td colspan="6" style="text-align:center; padding:30px; color:var(--ink-muted);">No fee notes found matching filter.</td></tr>
             ` : allNotes.map((f, idx) => {
-              const fullRef = f.id.toUpperCase();
-              const shortRef = fullRef.length > 7 ? fullRef.substring(0, 6) + "…" : fullRef;
-              return `
+        const fullRef = f.id.toUpperCase();
+        const shortRef = fullRef.length > 7 ? fullRef.substring(0, 6) + "…" : fullRef;
+        return `
                 <tr>
                   <td>
                     <span class="ref-pill" data-fullref="${fullRef}" title="${fullRef}">${shortRef}</span>
@@ -129,7 +133,7 @@
                   </td>
                 </tr>
               `;
-            }).join("")}
+      }).join("")}
           </tbody>
         </table>
         <div class="table-footer">
@@ -137,39 +141,40 @@
         </div>
       </div>
     `;
-  }
-
-  window.setFilter = function(filterId) {
-    activeFilter = filterId;
-    render();
-  };
-
-  window.changeNoteStatus = function(noteId, newStatus) {
-    // Update memory or LocalStorage draft status
-    const fn = data.feeNotes.find(f => f.id === noteId);
-    if (fn) {
-      fn.status = newStatus;
-    } else {
-      const drafts = rem.getDrafts();
-      const d = drafts.find(x => x.id === noteId);
-      if (d) {
-        d.status = newStatus;
-        localStorage.setItem("rem_drafts", JSON.stringify(drafts));
-      }
     }
-    render();
-  };
 
-  render();
-
-  const topSearch = document.getElementById("topSearch");
-  if (topSearch) {
-    topSearch.addEventListener("input", (e) => {
-      query = e.target.value;
+    window.setFilter = function (filterId) {
+      activeFilter = filterId;
       render();
-    });
-  }
-</script>
+    };
+
+    window.changeNoteStatus = function (noteId, newStatus) {
+      // Update memory or LocalStorage draft status
+      const fn = data.feeNotes.find(f => f.id === noteId);
+      if (fn) {
+        fn.status = newStatus;
+      } else {
+        const drafts = rem.getDrafts();
+        const d = drafts.find(x => x.id === noteId);
+        if (d) {
+          d.status = newStatus;
+          localStorage.setItem("rem_drafts", JSON.stringify(drafts));
+        }
+      }
+      render();
+    };
+
+    render();
+
+    const topSearch = document.getElementById("topSearch");
+    if (topSearch) {
+      topSearch.addEventListener("input", (e) => {
+        query = e.target.value;
+        render();
+      });
+    }
+  </script>
 
 </body>
+
 </html>

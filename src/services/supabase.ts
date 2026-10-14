@@ -39,7 +39,10 @@ export const DB_SYSTEM_ROLES: SystemRole[] = [
 
 export interface SystemUser {
   id: string;
+  authUserId?: string;
+  firmId?: string;
   fullName: string;
+  username?: string;
   advocateTitle: string;
   lskNo: string;
   role: 'Admin' | 'Developer' | 'Advocate';
@@ -50,17 +53,56 @@ export interface SystemUser {
   phoneSecondary: string;
   hasAllPermissions: boolean;
   passwordHash: string;
+  avatarUrl?: string;
+  barAdmissionNumber?: string;
+  department?: string;
 }
 
-// SEEDED USERS IN DATABASE
+export const saveUserProfile = (user: SystemUser) => {
+  try {
+    const storedSession = localStorage.getItem('BILLSZIP_SESSION');
+    if (storedSession) {
+      const current = JSON.parse(storedSession);
+      if (current && (current.id === user.id || current.workEmail === user.workEmail)) {
+        localStorage.setItem('BILLSZIP_SESSION', JSON.stringify(user));
+      }
+    }
+    const stored = localStorage.getItem('EXACT_USERS');
+    let list: SystemUser[] = stored ? JSON.parse(stored) : [...SEEDED_USERS];
+    const idx = list.findIndex(u => u.id === user.id || u.workEmail?.toLowerCase() === user.workEmail?.toLowerCase());
+    if (idx !== -1) {
+      list[idx] = { ...list[idx], ...user };
+    } else {
+      list.push(user);
+    }
+    localStorage.setItem('EXACT_USERS', JSON.stringify(list));
+  } catch (e) {}
+  window.dispatchEvent(new CustomEvent('userProfileUpdated', { detail: user }));
+};
+
+// SEEDED USERS IN DATABASE (Authoritative Firm Roster)
 export const SEEDED_USERS: SystemUser[] = [
+  {
+    id: "usr-guyoh-admin",
+    fullName: "Guyoh Alake",
+    advocateTitle: "Adv. Guyoh Alake",
+    lskNo: "ADMIN/2026/001",
+    role: "Admin",
+    position: "Senior Managing Partner & System Administrator",
+    workEmail: "guyohalakeofficial@gmail.com",
+    personalEmail: "guyohalakeofficial@gmail.com",
+    phonePrimary: "+254 700 888 999",
+    phoneSecondary: "+254 722 000 888",
+    hasAllPermissions: true,
+    passwordHash: "guyoh123"
+  },
   {
     id: "usr-karani-admin",
     fullName: "Karani Victor",
     advocateTitle: "Adv. Karani Victor",
     lskNo: "P.105/9920",
     role: "Developer",
-    position: "Senior Managing Partner & System Administrator",
+    position: "Senior Partner & Remuneration Lead",
     workEmail: "vickarani@gmail.com",
     personalEmail: "vickarani@gmail.com",
     phonePrimary: "+254 712 345678",
@@ -74,39 +116,115 @@ export const SEEDED_USERS: SystemUser[] = [
     advocateTitle: "Adv. Nyagah Kithinji",
     lskNo: "P.105/1992",
     role: "Advocate",
-    position: "Senior Associate Advocate",
+    position: "Managing Partner & Senior Counsel",
     workEmail: "advocate@kithinjilegal.co.ke",
     personalEmail: "nkithinji@gmail.com",
     phonePrimary: "+254 722 000 111",
     phoneSecondary: "+254 733 111 222",
-    hasAllPermissions: false,
+    hasAllPermissions: true,
     passwordHash: "lawyer123"
+  },
+  {
+    id: "usr-p3l-admin",
+    fullName: "Razak Wako",
+    advocateTitle: "Razak Wako (P3L Developer)",
+    lskNo: "P3L/DEV/2026/001",
+    role: "Developer",
+    position: "Lead Developer & System Administrator",
+    workEmail: "razak.admin@p3ldev.com",
+    personalEmail: "razak.admin@p3ldev.com",
+    phonePrimary: "+254 700 123456",
+    phoneSecondary: "+254 711 654321",
+    hasAllPermissions: true,
+    passwordHash: "razak123"
+  },
+  {
+    id: "usr-faith-chebet",
+    fullName: "Faith Chebet",
+    advocateTitle: "Adv. Faith Chebet",
+    lskNo: "P.105/14820",
+    role: "Advocate",
+    position: "Senior Associate — Commercial Litigation",
+    workEmail: "fchebet@kithinjilegal.co.ke",
+    personalEmail: "fchebet@gmail.com",
+    phonePrimary: "+254 720 445 566",
+    phoneSecondary: "+254 734 112 233",
+    hasAllPermissions: false,
+    passwordHash: "chebet123"
+  },
+  {
+    id: "usr-brian-omondi",
+    fullName: "Brian Omondi",
+    advocateTitle: "Adv. Brian Omondi",
+    lskNo: "P.105/16301",
+    role: "Advocate",
+    position: "Associate Advocate — Conveyancing & Banking",
+    workEmail: "bomondi@kithinjilegal.co.ke",
+    personalEmail: "bomondi.law@gmail.com",
+    phonePrimary: "+254 711 889 900",
+    phoneSecondary: "+254 722 334 455",
+    hasAllPermissions: false,
+    passwordHash: "brian123"
+  },
+  {
+    id: "usr-mercy-wanjiku",
+    fullName: "Mercy Wanjiku",
+    advocateTitle: "Mercy Wanjiku",
+    lskNo: "FIN/2024/089",
+    role: "Advocate",
+    position: "Finance & Taxation Billing Manager",
+    workEmail: "mwanjiku@kithinjilegal.co.ke",
+    personalEmail: "mwanjiku@gmail.com",
+    phonePrimary: "+254 723 667 788",
+    phoneSecondary: "+254 735 990 011",
+    hasAllPermissions: false,
+    passwordHash: "mercy123"
+  },
+  {
+    id: "usr-kevin-mutua",
+    fullName: "Kevin Mutua",
+    advocateTitle: "Kevin Mutua (Pupil)",
+    lskNo: "PUP/2026/042",
+    role: "Advocate",
+    position: "Legal Assistant & Pupil",
+    workEmail: "kmutua@kithinjilegal.co.ke",
+    personalEmail: "kmutua.legal@gmail.com",
+    phonePrimary: "+254 701 556 677",
+    phoneSecondary: "+254 712 778 899",
+    hasAllPermissions: false,
+    passwordHash: "kevin123"
   }
 ];
 
 export const EXACT_FIRM_INFO = {
   name: "Nyagah B. Kithinji & Co. Advocates",
-  firmRegNo: "LSK/FIRM/1992/105",
-  address: "Upper Hill Financial District, Mbaruk Road off Ngong Road",
-  fullLocation: "Mbaruk Road off Ngong Road, Golf Course Estate, Upper Hill, Nairobi, Kenya",
-  poBox: "P.O. Box 45892-00100, Nairobi, Kenya",
-  email: "info@kithinjilegal.co.ke",
-  taxationEmail: "taxation@kithinjilegal.co.ke",
-  billingEmail: "billing@kithinjilegal.co.ke",
-  phone: "+254 (0)20 271 8900 / +254 722 000 000",
+  firmRegNo: "P.105/1992",
+  managingPartner: "Nyagah B. Kithinji",
+  managingPartnerLsk: "P.105/1992",
+  managingPartnerEmail: "info@nbkco-advocates.com",
+  managingPartnerPhone: "+254 722 000 111",
+  address: "Suite 4B, Mbaruk Road, Off Muchai Drive, Golf Course Estate",
+  fullLocation: "Mbaruk Road, Off Muchai Drive, Golf Course Estate, Upper Hill, Nairobi, Kenya",
+  poBox: "P.O. Box 1992-00100, Nairobi, Kenya",
+  email: "info@nbkco-advocates.com",
+  companyEmail: "info@nbkco-advocates.com",
+  taxationEmail: "taxation@nbkco-advocates.com",
+  billingEmail: "billing@nbkco-advocates.com",
+  phone: "+254 (0)20 271 8890 / +254 722 000 111",
+  companyPhone: "+254 (0)20 271 8890 / +254 722 000 111",
   kraPin: "P051123456Z",
   bankDetails: "KCB Bank Kenya Ltd | Kilimani Branch | A/C No: 1104889922 | Swift: KCBLKENX",
   website: "www.kithinjilegal.co.ke",
   logoUrl: "/logo.png",
   user: {
-    name: "Adv. Karani Victor",
+    name: "Adv. Guyoh Alake",
     role: "Admin",
-    lskNo: "P.105/9920",
-    email: "karani.victor@kithinjilegal.co.ke"
+    lskNo: "ADMIN/2026/001",
+    email: "guyohalakeofficial@gmail.com"
   }
 };
 
-export const EXACT_LOGGED_IN_USER = SEEDED_USERS[1];
+export const EXACT_LOGGED_IN_USER = SEEDED_USERS[0];
 
 // 1. CLIENTS DATABASE SCHEMA & INTERFACE
 export interface ExactClientRecord {
@@ -120,6 +238,11 @@ export interface ExactClientRecord {
   phoneSecondary: string;
   matters: number;
   mattersList: string[];
+  code?: string;
+  kraPin?: string;
+  contactPerson?: string;
+  activeMattersCount?: number;
+  totalBilledAmount?: number;
 }
 
 export const EXACT_CLIENTS: ExactClientRecord[] = [
@@ -133,7 +256,12 @@ export const EXACT_CLIENTS: ExactClientRecord[] = [
     phonePrimary: "+254 720 100 200",
     phoneSecondary: "+254 20 271 8800",
     matters: 2,
-    mattersList: ["Seyani v Greenhills (HCCC E104/2025)", "Seyani Commercial Lease Review"]
+    mattersList: ["Seyani v Greenhills (HCCC E104/2025)", "Seyani Commercial Lease Review"],
+    code: "CLI-SEYANI-001",
+    kraPin: "P051234567A",
+    contactPerson: "Managing Director",
+    activeMattersCount: 2,
+    totalBilledAmount: 31072493.28
   },
   {
     id: "c2",
@@ -145,7 +273,12 @@ export const EXACT_CLIENTS: ExactClientRecord[] = [
     phonePrimary: "+254 733 400 500",
     phoneSecondary: "+254 711 222 333",
     matters: 1,
-    mattersList: ["Dhanya v Sunil Shah (Arb. Cause 12/2025)"]
+    mattersList: ["Dhanya v Sunil Shah (Arb. Cause 12/2025)"],
+    code: "CLI-DHANYA-002",
+    kraPin: "P051987654B",
+    contactPerson: "Head of Legal",
+    activeMattersCount: 1,
+    totalBilledAmount: 4210930.59
   },
   {
     id: "c3",
@@ -157,7 +290,12 @@ export const EXACT_CLIENTS: ExactClientRecord[] = [
     phonePrimary: "+254 721 888 999",
     phoneSecondary: "+254 700 999 111",
     matters: 1,
-    mattersList: ["Zhenjian v Eighty Eight Nairobi (HCCOMM E547/2024)"]
+    mattersList: ["Zhenjian v Eighty Eight Nairobi (HCCOMM E547/2024)"],
+    code: "CLI-ZHENJIAN-003",
+    kraPin: "P051777888C",
+    contactPerson: "Chief Legal Counsel",
+    activeMattersCount: 1,
+    totalBilledAmount: 405594.00
   },
   {
     id: "c4",
@@ -169,7 +307,12 @@ export const EXACT_CLIENTS: ExactClientRecord[] = [
     phonePrimary: "+254 711 900 800",
     phoneSecondary: "+254 20 555 4444",
     matters: 1,
-    mattersList: ["Main Suit Party Bill taxation"]
+    mattersList: ["Main Suit Party Bill taxation"],
+    code: "CLI-88NAIROBI-004",
+    kraPin: "P051666555D",
+    contactPerson: "Finance Director",
+    activeMattersCount: 1,
+    totalBilledAmount: 405594.00
   },
   {
     id: "c5",
@@ -181,7 +324,12 @@ export const EXACT_CLIENTS: ExactClientRecord[] = [
     phonePrimary: "+254 722 555 444",
     phoneSecondary: "+254 733 888 777",
     matters: 1,
-    mattersList: ["Arbitration Hearing Respondent Defense"]
+    mattersList: ["Arbitration Hearing Respondent Defense"],
+    code: "CLI-SUNIL-005",
+    kraPin: "A001234567K",
+    contactPerson: "Sunil Shah",
+    activeMattersCount: 1,
+    totalBilledAmount: 0.00
   }
 ];
 
@@ -202,6 +350,9 @@ export interface ExactMatterRecord {
   itemsCount: number;
   feeNoteLink: string;
   documentLink: string;
+  nextHearingDate?: string;
+  matterNumber?: string;
+  leadAdvocate?: string;
 }
 
 export const EXACT_MATTERS: ExactMatterRecord[] = [
@@ -212,32 +363,18 @@ export const EXACT_MATTERS: ExactMatterRecord[] = [
     applicantRole: "Claimant",
     respondent: "Greenhills Investment Ltd",
     respondentRole: "Respondent",
-    forum: "Arbitration / High Court",
+    forum: "Arbitration / High Court Commercial",
     status: "Taxation Ready",
     statusClass: "ready",
-    caseNo: "Under Arbitration Act 1995 (HCCC E104/2025)",
+    caseNo: "HCCC E104/2025",
     filedBy: "Nyagah B. Kithinji & Co. Advocates — for the Claimant",
     amount: 30820193.28,
     itemsCount: 250,
     feeNoteLink: "BOC-2026-SEYANI-001",
-    documentLink: "26.02.2026 - BILL OF COSTS - Seyani v Green Hills (1).xlsx"
-  },
-  {
-    id: "hccomm",
-    title: "Zhenjian Chengjian Construction Africa Ltd v Eighty Eight Nairobi Ltd & Anor",
-    applicant: "Zhenjian Chengjian Construction",
-    applicantRole: "Plaintiff",
-    respondent: "Eighty Eight Nairobi Ltd & Anor",
-    respondentRole: "Defendants",
-    forum: "High Court — Commercial",
-    status: "Commercial Court",
-    statusClass: "court",
-    caseNo: "HCCOMM E547 of 2024",
-    filedBy: "Nyagah B. Kithinji & Co. Advocates — for Defendants",
-    amount: 405594.00,
-    itemsCount: 19,
-    feeNoteLink: "BOC-2026-ZHENJIAN-002",
-    documentLink: "HCCOMM E547 of 2024 - Main Suit - 88's Party and Party Bill of Costs.xlsx"
+    documentLink: "26.02.2026 - BILL OF COSTS - Seyani v Green Hills (1).xlsx",
+    nextHearingDate: "Today @ 09:30 AM",
+    matterNumber: "HCCC E104/2025",
+    leadAdvocate: "Adv. Karani Victor"
   },
   {
     id: "dhanya",
@@ -246,7 +383,7 @@ export const EXACT_MATTERS: ExactMatterRecord[] = [
     applicantRole: "Claimant",
     respondent: "Sunil Shah",
     respondentRole: "Respondent",
-    forum: "Arbitration",
+    forum: "Arbitration Tribunal",
     status: "Taxation Ready",
     statusClass: "ready",
     caseNo: "Arb. Cause No. 12 of 2025",
@@ -254,7 +391,30 @@ export const EXACT_MATTERS: ExactMatterRecord[] = [
     amount: 3986663.93,
     itemsCount: 226,
     feeNoteLink: "BOC-2026-DHANYA-003",
-    documentLink: "14.01.2026 - Bill of Costs - Dhanya v Sunil.xlsx"
+    documentLink: "14.01.2026 - Bill of Costs - Dhanya v Sunil.xlsx",
+    nextHearingDate: "Tomorrow @ 11:00 AM",
+    matterNumber: "Arb. Cause 12/2025",
+    leadAdvocate: "Adv. Guyoh Alake"
+  },
+  {
+    id: "hccomm",
+    title: "Zhenjian Chengjian Construction Africa Ltd v Eighty Eight Nairobi Ltd & Anor",
+    applicant: "Zhenjian Chengjian Construction",
+    applicantRole: "Plaintiff",
+    respondent: "Eighty Eight Nairobi Ltd & Anor",
+    respondentRole: "Defendants",
+    forum: "High Court — Commercial Division",
+    status: "Commercial Court",
+    statusClass: "court",
+    caseNo: "HCCOMM E547 of 2024",
+    filedBy: "Nyagah B. Kithinji & Co. Advocates — for Defendants",
+    amount: 405594.00,
+    itemsCount: 19,
+    feeNoteLink: "BOC-2026-ZHENJIAN-002",
+    documentLink: "HCCOMM E547 of 2024 - Main Suit - 88's Party and Party Bill of Costs.xlsx",
+    nextHearingDate: "06 Oct 2026 @ 02:15 PM",
+    matterNumber: "HCCOMM E547/2024",
+    leadAdvocate: "Adv. Nyagah Kithinji"
   }
 ];
 
@@ -270,15 +430,26 @@ export interface ExactFeeNoteRecord {
   instructionFee: number;
   gettingUpFee: number;
   grandTotal: number;
-  status: 'processed' | 'draft';
+  status: 'processed' | 'draft' | 'paid' | 'settled' | 'partially_paid';
+  paidAmount?: number;
+  paymentReference?: string;
+  paymentMethod?: string;
+  paymentDate?: string;
   generatedByUser: string;
   generatedByUserId: string;
   createdAt: string;
   pdfUrl: string;
   excelUrl: string;
+  excelData?: any[];
+  claimantName?: string;
+  respondentName?: string;
+  judgeName?: string;
+  forumName?: string;
+  approvalStatus?: 'pending' | 'approved' | 'returned';
+  returnNotes?: string;
 }
 
-export const EXACT_FEE_NOTES: ExactFeeNoteRecord[] = [
+const INITIAL_FEE_NOTES: ExactFeeNoteRecord[] = [
   {
     id: "fn-001",
     billNumber: "BOC-2026-SEYANI-001",
@@ -370,6 +541,200 @@ export const EXACT_FEE_NOTES: ExactFeeNoteRecord[] = [
     excelUrl: ""
   }
 ];
+
+export let EXACT_FEE_NOTES: ExactFeeNoteRecord[] = [];
+
+export const getFeeNotes = (): ExactFeeNoteRecord[] => {
+  try {
+    const saved = localStorage.getItem('EXACT_FEE_NOTES');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        EXACT_FEE_NOTES = parsed;
+        return parsed;
+      }
+    }
+  } catch (e) {}
+  if (!EXACT_FEE_NOTES || EXACT_FEE_NOTES.length === 0) {
+    EXACT_FEE_NOTES = [...INITIAL_FEE_NOTES];
+  }
+  return EXACT_FEE_NOTES;
+};
+
+EXACT_FEE_NOTES = getFeeNotes();
+
+export const persistFeeNotes = (notes: ExactFeeNoteRecord[]) => {
+  EXACT_FEE_NOTES = [...notes];
+  try {
+    localStorage.setItem('EXACT_FEE_NOTES', JSON.stringify(notes));
+  } catch (e) {}
+  window.dispatchEvent(new CustomEvent('feeNotesUpdated', { detail: notes }));
+  window.dispatchEvent(new CustomEvent('databaseRealtimeUpdate', { detail: { table: 'fee_notes' } }));
+};
+
+export const saveFeeNotes = () => {
+  try {
+    localStorage.setItem('EXACT_FEE_NOTES', JSON.stringify(EXACT_FEE_NOTES));
+  } catch (e) {}
+  window.dispatchEvent(new CustomEvent('feeNotesUpdated', { detail: EXACT_FEE_NOTES }));
+};
+
+export const saveFeeNoteToDatabase = async (note: ExactFeeNoteRecord): Promise<{ success: boolean; note: ExactFeeNoteRecord }> => {
+  try {
+    const res = await fetch('/api/v1/feenotes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(note)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const savedNote = data.note || note;
+      const current = getFeeNotes();
+      const updated = [savedNote, ...current.filter(n => n.billNumber !== savedNote.billNumber && n.id !== savedNote.id)];
+      persistFeeNotes(updated);
+      return { success: true, note: savedNote };
+    }
+  } catch (e) {
+    console.warn('Backend saveFeeNoteToDatabase error:', e);
+  }
+  const current = getFeeNotes();
+  const updated = [note, ...current.filter(n => n.billNumber !== note.billNumber && n.id !== note.id)];
+  persistFeeNotes(updated);
+  return { success: true, note };
+};
+
+export const deleteFeeNoteFromDatabase = async (noteId: string): Promise<boolean> => {
+  try {
+    await fetch(`/api/v1/feenotes/${encodeURIComponent(noteId)}`, { method: 'DELETE' });
+  } catch (e) {}
+  const current = getFeeNotes();
+  const updated = current.filter(n => n.id !== noteId && n.billNumber !== noteId);
+  persistFeeNotes(updated);
+  return true;
+};
+
+// -------------------------------------------------------------
+// CLIENTS & MATTERS PERSISTENCE LEDGERS
+// -------------------------------------------------------------
+export const getClients = (): ExactClientRecord[] => {
+  try {
+    const saved = localStorage.getItem('EXACT_CLIENTS');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {}
+  return EXACT_CLIENTS;
+};
+
+export const persistClients = (clients: ExactClientRecord[]) => {
+  EXACT_CLIENTS.length = 0;
+  EXACT_CLIENTS.push(...clients);
+  try {
+    localStorage.setItem('EXACT_CLIENTS', JSON.stringify(clients));
+  } catch (e) {}
+  window.dispatchEvent(new CustomEvent('clientsUpdated', { detail: clients }));
+  window.dispatchEvent(new CustomEvent('databaseRealtimeUpdate', { detail: { table: 'clients' } }));
+};
+
+export const getMatters = (): ExactMatterRecord[] => {
+  try {
+    const saved = localStorage.getItem('EXACT_MATTERS');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {}
+  return EXACT_MATTERS;
+};
+
+export const persistMatters = (matters: ExactMatterRecord[]) => {
+  EXACT_MATTERS.length = 0;
+  EXACT_MATTERS.push(...matters);
+  try {
+    localStorage.setItem('EXACT_MATTERS', JSON.stringify(matters));
+  } catch (e) {}
+  window.dispatchEvent(new CustomEvent('mattersUpdated', { detail: matters }));
+  window.dispatchEvent(new CustomEvent('databaseRealtimeUpdate', { detail: { table: 'matters' } }));
+};
+
+export const fetchFeeNotesFromDatabase = async (firmId?: string): Promise<ExactFeeNoteRecord[]> => {
+  try {
+    // 1. Primary: Authoritative server database (/api/v1/feenotes)
+    const res = await fetch('/api/v1/feenotes');
+    if (res.ok) {
+      const remoteNotes: ExactFeeNoteRecord[] = await res.json();
+      if (Array.isArray(remoteNotes) && remoteNotes.length > 0) {
+        persistFeeNotes(remoteNotes);
+        return remoteNotes;
+      }
+    }
+  } catch (e) {
+    console.warn('Primary database /api/v1/feenotes unavailable, trying Supabase fallback:', e);
+  }
+
+  try {
+    // 2. Secondary: Supabase cloud backup
+    let query = supabase.from('fee_notes').select('*').order('created_at', { ascending: false });
+    if (firmId) {
+      query = query.or(`firm_id.eq.${firmId},firm_id.is.null`);
+    }
+    const { data, error } = await query;
+
+    if (!error && data && data.length > 0) {
+      const records: ExactFeeNoteRecord[] = data.map((row: any) => ({
+        id: row.id,
+        billNumber: row.bill_number,
+        matterId: row.matter_id || '',
+        matterTitle: row.matter_title || 'Bill of Costs',
+        clientName: row.client_name || 'Client',
+        courtSchedule: row.court_schedule || '',
+        claimValue: Number(row.claim_value || 0),
+        instructionFee: Number(row.instruction_fee || 0),
+        gettingUpFee: Number(row.getting_up_fee || 0),
+        grandTotal: Number(row.grand_total || 0),
+        status: row.status === 'processed' || row.status === 'issued' ? 'processed' : 'draft',
+        approvalStatus: row.status === 'issued' ? 'approved' : row.status === 'draft' ? 'pending' : undefined,
+        generatedByUser: row.generated_by_user || 'Advocate',
+        generatedByUserId: row.generated_by_user_id || '',
+        createdAt: row.created_at || new Date().toISOString(),
+        pdfUrl: row.pdf_url || '',
+        excelUrl: row.excel_url || '',
+        excelData: row.excel_data || undefined
+      }));
+
+      const localNotes = getFeeNotes();
+      const combinedMap = new Map<string, ExactFeeNoteRecord>();
+      records.forEach(r => combinedMap.set(r.id || r.billNumber, r));
+      localNotes.forEach(l => {
+        if (!combinedMap.has(l.id) && !combinedMap.has(l.billNumber)) {
+          combinedMap.set(l.id || l.billNumber, l);
+        }
+      });
+      const combined = Array.from(combinedMap.values());
+      persistFeeNotes(combined);
+      return combined;
+    }
+  } catch (e) {
+    console.warn('fetchFeeNotesFromDatabase remote error, using local ledger:', e);
+  }
+
+  return getFeeNotes();
+};
+
+export const updateFeeNoteStatus = async (firmId: string, noteId: string, status: ExactFeeNoteRecord['status']) => {
+  const { error } = await supabase.from('fee_notes').update({ status }).eq('firm_id', firmId).eq('id', noteId);
+  if (error) throw error;
+};
+
+export const deleteFeeNote = async (firmId: string, noteId: string) => {
+  const { error } = await supabase.from('fee_notes').delete().eq('firm_id', firmId).eq('id', noteId);
+  if (error) throw error;
+};
 
 // 4. MESSAGES DATABASE SCHEMA & INTERFACE (WhatsApp, Email & Internal)
 export interface ExactMessageRecord {
@@ -556,3 +921,116 @@ export const EXACT_VAULT_FILES: ExactVaultFileRecord[] = [
     verifiedTruth: true
   }
 ];
+
+// =============================================================================
+// 6. IT SUPPORT DESK & TICKET SYSTEM SCHEMA & PERSISTENCE
+// =============================================================================
+export interface ITTicketMessage {
+  id: string;
+  senderName: string;
+  senderRole: 'advocate' | 'support_engineer' | 'system';
+  text: string;
+  timestamp: string;
+}
+
+export interface ITSupportTicket {
+  id: string;
+  ticketNumber: string;
+  title: string;
+  category: 'remuneration' | 'documents' | 'database' | 'permissions' | 'connectivity' | 'general';
+  priority: 'p1_court_critical' | 'p2_high' | 'p3_medium' | 'p4_low';
+  status: 'open' | 'in_progress' | 'pending_user' | 'resolved';
+  creatorName: string;
+  creatorEmail: string;
+  firmId: string;
+  createdAt: string;
+  updatedAt: string;
+  diagnosticsAttached?: boolean;
+  diagnosticSummary?: string;
+  messages: ITTicketMessage[];
+}
+
+export const INITIAL_SUPPORT_TICKETS: ITSupportTicket[] = [
+  {
+    id: "tkt-001",
+    ticketNumber: "TKT-2026-0492",
+    title: "Schedule 6 Ad Valorem Getting-Up Fee Verification for Seyani Brothers",
+    category: "remuneration",
+    priority: "p2_high",
+    status: "resolved",
+    creatorName: "Karani Victor",
+    creatorEmail: "vickarani@gmail.com",
+    firmId: "firm-001",
+    createdAt: "2026-03-18 14:20",
+    updatedAt: "2026-03-18 15:45",
+    diagnosticsAttached: true,
+    diagnosticSummary: "FastAPI Remuneration Engine (L.N. 35/2014) | Claim: 30,820,193.28 | Instruction: 662,302.90 | Getting-Up: 220,767.63",
+    messages: [
+      {
+        id: "tm-1",
+        senderName: "Karani Victor",
+        senderRole: "advocate",
+        text: "Please verify that the 1/3 Getting-Up floor correctly excludes statutory VAT from base calculation.",
+        timestamp: "2026-03-18 14:20"
+      },
+      {
+        id: "tm-2",
+        senderName: "Razak Wako (P3L Engineer)",
+        senderRole: "support_engineer",
+        text: "Audited remuneration_engine.py: Item 2 Getting-Up is computed strictly as instruction_fee / 3.0 before 16% VAT is applied to taxable subtotal. Confirmed compliant with Kenya Law LN 64/1962.",
+        timestamp: "2026-03-18 15:45"
+      }
+    ]
+  },
+  {
+    id: "tkt-002",
+    ticketNumber: "TKT-2026-0518",
+    title: "Multi-device Realtime Sync check on High Court Commercial taxation list",
+    category: "database",
+    priority: "p3_medium",
+    status: "in_progress",
+    creatorName: "Guyoh Alake",
+    creatorEmail: "guyohalakeofficial@gmail.com",
+    firmId: "firm-001",
+    createdAt: "2026-03-19 08:30",
+    updatedAt: "2026-03-19 09:10",
+    diagnosticsAttached: true,
+    diagnosticSummary: "Supabase WebSocket Realtime Channel: matters, fee_notes | LocalStorage Ledger: Active",
+    messages: [
+      {
+        id: "tm-3",
+        senderName: "Guyoh Alake",
+        senderRole: "advocate",
+        text: "Checking if matter updates made on the office workstation automatically reflect on mobile/remote devices.",
+        timestamp: "2026-03-19 08:30"
+      },
+      {
+        id: "tm-4",
+        senderName: "System Automation",
+        senderRole: "system",
+        text: "Supabase Realtime heartbeat healthy. Broadcast latency: 24ms. Both cloud PostgreSQL and local browser storage synchronized.",
+        timestamp: "2026-03-19 08:31"
+      }
+    ]
+  }
+];
+
+export const getSupportTickets = (): ITSupportTicket[] => {
+  try {
+    const saved = localStorage.getItem('P3L_SUPPORT_TICKETS');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {}
+  return INITIAL_SUPPORT_TICKETS;
+};
+
+export const persistSupportTickets = (tickets: ITSupportTicket[]) => {
+  try {
+    localStorage.setItem('P3L_SUPPORT_TICKETS', JSON.stringify(tickets));
+  } catch (e) {}
+  window.dispatchEvent(new CustomEvent('supportTicketsUpdated', { detail: tickets }));
+};

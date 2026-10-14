@@ -16,54 +16,70 @@ import { MyProfileView } from './components/profile/MyProfileView';
 import { ProfileSettingsView } from './components/settings/ProfileSettingsView';
 import { TechSupportView } from './components/support/TechSupportView';
 import { LoginView } from './components/auth/LoginView';
+import { PasswordResetView } from './components/auth/PasswordResetView';
 import { RecentsDraftsDrawer } from './components/layout/RecentsDraftsDrawer';
+import { AdminDashboard } from './components/admin/AdminDashboard';
+import { ManagingPartnerGodMode } from './components/admin/ManagingPartnerGodMode';
+import { ManagingPartnerHubView } from './components/admin/ManagingPartnerHubView';
+import { ApprovalQueueView } from './components/admin/ApprovalQueueView';
+import { RevenueAnalyticsView } from './components/admin/RevenueAnalyticsView';
+import { AdvocatePermissionsView } from './components/admin/AdvocatePermissionsView';
+import { LiveActivityFeedView } from './components/admin/LiveActivityFeedView';
+import { ToastContainer } from './components/admin/ToastNotification';
+import { AccessDeniedView } from './components/common/AccessDeniedView';
+import { DocumentVerifyView } from './components/verify/DocumentVerifyView';
+import { PaymentsBillingView } from './components/payments/PaymentsBillingView';
 
-// Import 11 Packed Admin Settings Views
-import AdminBocSettingsView from './components/admin/AdminBocSettingsView';
-import AdminFirmsView from './components/admin/AdminFirmsView';
-import AdminDocumentsPolicyView from './components/admin/AdminDocumentsPolicyView';
-import AdminSupportSettingsView from './components/admin/AdminSupportSettingsView';
-import AdminPythonEngineView from './components/admin/AdminPythonEngineView';
-import AdminPermissionsView from './components/admin/AdminPermissionsView';
-import AdminUsersRolesView from './components/admin/AdminUsersRolesView';
-import AdminNotificationsDispatchView from './components/admin/AdminNotificationsDispatchView';
-import AdminTicketingView from './components/admin/AdminTicketingView';
-import AdminDatabaseHealthView from './components/admin/AdminDatabaseHealthView';
-import AdminServerControlView from './components/admin/AdminServerControlView';
-
-import { SystemUser } from './services/supabase';
+import { SystemUser, fetchFeeNotesFromDatabase } from './services/supabase';
+import { getCurrentUserProfile, signOut, subscribeToAuthState } from './services/auth';
+import { subscribeToFirmTable } from './services/realtime';
+import { hasPermission } from './services/rbac';
 
 export const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<SystemUser | null>(null);
-  const [currentTab, setCurrentTab] = useState<string>('home');
+  const [currentUser, setCurrentUser] = useState<SystemUser | null>(() => {
+    try {
+      const stored = localStorage.getItem('BILLSZIP_SESSION');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && parsed.id) return parsed;
+      }
+    } catch (e) {}
+    return null;
+  });
+
+  const [currentTab, setCurrentTab] = useState<string>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.location) {
+        const p = new URLSearchParams(window.location.search);
+        if (p.get('tab') === 'verify' || p.get('ref')) return 'verify';
+      }
+    } catch (e) {}
+    return 'home';
+  });
   const [previousTab, setPreviousTab] = useState<string>('home');
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('BILLSZIP_THEME') || localStorage.getItem('theme');
+    if (saved === 'dark') return true;
+    if (saved === 'light') return false;
+    return false;
+  });
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [showRecentsDrawer, setShowRecentsDrawer] = useState<boolean>(false);
+  const [, setPermissionTick] = useState(0);
 
-  const [builderCourt, setBuilderCourt] = useState('schedule_6_high_court');
-  const [builderValue, setBuilderValue] = useState(0);
+  const can = (code: string) => hasPermission(currentUser, code);
+
+  const [builderNote, setBuilderNote] = useState<any>(null);
+  const [builderPreview, setBuilderPreview] = useState<boolean>(false);
 
   useEffect(() => {
-    // Check Session
-    const savedSession = localStorage.getItem('BILLSZIP_SESSION');
-    if (savedSession) {
-      try {
-        setCurrentUser(JSON.parse(savedSession));
-      } catch (e) {
-        setCurrentUser(null);
-      }
+    // Apply saved theme class to html & body
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      document.body.classList.add('dark-mode', 'dark');
     } else {
-      setCurrentUser(null); // Show login view if no active session
-    }
-
-    const savedTheme = localStorage.getItem('BILLSZIP_THEME') || 'light';
-    if (savedTheme === 'dark') {
-      setIsDarkMode(true);
-      document.body.classList.add('dark-mode');
-    } else {
-      setIsDarkMode(false);
-      document.body.classList.remove('dark-mode');
+      document.documentElement.classList.remove('dark');
+      document.body.classList.remove('dark-mode', 'dark');
     }
 
     const handleResize = () => {
@@ -74,12 +90,95 @@ export const App: React.FC = () => {
       }
     };
 
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const handleProfileUpdate = (e: any) => {
+      if (e.detail) {
+        setCurrentUser(e.detail);
+      }
+    };
+
+    const handlePermissions = () => {
+      setPermissionTick(t => t + 1);
+    };
+
+    window.addEventListener('userProfileUpdated', handleProfileUpdate);
+    window.addEventListener('permissionsUpdated', handlePermissions);
+    window.addEventListener('storage', handlePermissions);
+
+    let isMounted = true;
+    // Hydrate fee notes from database
+    void fetchFeeNotesFromDatabase().catch(() => {});
+
+    // Hydrate firm settings from persistent backend store
+    fetch('/api/v1/users/firm-settings')
+      .then(res => res.ok ? res.json() : null)
+      .then(firmData => {
+        if (firmData && Object.keys(firmData).length > 0) {
+          const current = localStorage.getItem('BILLSZIP_FIRM_SETTINGS');
+          const merged = current ? { ...JSON.parse(current), ...firmData } : firmData;
+          localStorage.setItem('BILLSZIP_FIRM_SETTINGS', JSON.stringify(merged));
+          window.dispatchEvent(new CustomEvent('firmSettingsChanged', { detail: merged }));
+        }
+      })
+      .catch(() => {});
+
+    void getCurrentUserProfile().then(profile => {
+      if (isMounted && profile) {
+        localStorage.setItem('BILLSZIP_SESSION', JSON.stringify(profile));
+        setCurrentUser(profile);
+      }
+    }).catch(() => {});
+
+    const unsubscribeAuth = subscribeToAuthState((event, session) => {
+      if (!isMounted) return;
+      if (event === 'SIGNED_OUT') {
+        localStorage.removeItem('BILLSZIP_SESSION');
+        setCurrentUser(null);
+        return;
+      }
+      if (session) {
+        void getCurrentUserProfile().then(profile => {
+          if (isMounted && profile) {
+            localStorage.setItem('BILLSZIP_SESSION', JSON.stringify(profile));
+            setCurrentUser(profile);
+          }
+        }).catch(() => {});
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribeAuth();
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('userProfileUpdated', handleProfileUpdate);
+      window.removeEventListener('permissionsUpdated', handlePermissions);
+      window.removeEventListener('storage', handlePermissions);
+    };
   }, []);
 
-  const handleNavigateTab = (newTab: string) => {
+  useEffect(() => {
+    if (!currentUser?.firmId) return;
+
+    const tables = ['clients', 'matters', 'fee_notes', 'documents', 'messages', 'notifications', 'activity_logs'] as const;
+    const cleanups = tables.map(table => subscribeToFirmTable(currentUser.firmId!, table, change => {
+      window.dispatchEvent(new CustomEvent('databaseRealtimeUpdate', {
+        detail: { table, ...change },
+      }));
+    }));
+
+    return () => cleanups.forEach(cleanup => cleanup());
+  }, [currentUser?.firmId]);
+
+  const [selectedPermissionUserId, setSelectedPermissionUserId] = useState<string>('');
+
+  const handleNavigateTab = (newTab: string, targetUserId?: string) => {
+    if (targetUserId) {
+      setSelectedPermissionUserId(targetUserId);
+    }
+    if (newTab === 'boc') {
+      // Clear any previous note when opening blank BOC Builder from navigation
+      setBuilderNote(null);
+      setBuilderPreview(false);
+    }
     if (newTab !== currentTab) {
       setPreviousTab(currentTab);
       setCurrentTab(newTab);
@@ -87,6 +186,7 @@ export const App: React.FC = () => {
   };
 
   const handleLogout = () => {
+    void signOut().catch(() => {});
     localStorage.removeItem('BILLSZIP_SESSION');
     setCurrentUser(null);
   };
@@ -95,23 +195,42 @@ export const App: React.FC = () => {
     setIsDarkMode(prev => {
       const next = !prev;
       if (next) {
-        document.body.classList.add('dark-mode');
+        document.documentElement.classList.add('dark');
+        document.body.classList.add('dark-mode', 'dark');
         localStorage.setItem('BILLSZIP_THEME', 'dark');
+        localStorage.setItem('theme', 'dark');
       } else {
-        document.body.classList.remove('dark-mode');
+        document.documentElement.classList.remove('dark');
+        document.body.classList.remove('dark-mode', 'dark');
         localStorage.setItem('BILLSZIP_THEME', 'light');
+        localStorage.setItem('theme', 'light');
       }
       return next;
     });
   };
 
-  const handleNavigateToBuilder = (court: string, value: number) => {
-    setBuilderCourt(court);
-    setBuilderValue(value);
-    handleNavigateTab('boc');
+  const handleNavigateToBuilder = (note?: any, isPreview?: boolean) => {
+    setBuilderNote(note || null);
+    setBuilderPreview(isPreview || false);
+    if (currentTab !== 'boc') {
+      setPreviousTab(currentTab);
+      setCurrentTab('boc');
+    }
   };
 
-  // If user is not logged in, render Login View
+  // If user is accessing password reset recovery URL (supports pathname, query param, or hash)
+  const isResetPasswordView =
+    window.location.pathname.includes('reset-password') ||
+    window.location.search.includes('reset-password') ||
+    window.location.search.includes('view=reset-password') ||
+    (window.location.search.includes('token=') && window.location.search.includes('email=')) ||
+    window.location.hash.includes('recovery') ||
+    window.location.hash.includes('reset-password');
+
+  if (isResetPasswordView) {
+    return <PasswordResetView />;
+  }
+
   if (!currentUser) {
     return (
       <LoginView
@@ -123,26 +242,45 @@ export const App: React.FC = () => {
     );
   }
 
+  // Standalone admin URLs still require a real authenticated privileged profile.
+  if (window.location.pathname === '/developer-page' || window.location.pathname === '/admin') {
+    if (currentUser.role !== 'Admin' && currentUser.role !== 'Developer') {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-[var(--bg-main)] text-[var(--text-main)] p-6">
+          <div className="vercel-card max-w-md p-8 text-center space-y-4">
+            <ShieldAlert className="w-10 h-10 mx-auto text-amber-500" />
+            <h1 className="font-brand font-bold text-xl">Access denied</h1>
+            <p className="text-sm text-[var(--text-muted)]">Your account does not have platform administration access.</p>
+          </div>
+        </div>
+      );
+    }
+    return <AdminDashboard />;
+  }
+
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--bg-main)] text-[var(--text-main)] transition-colors duration-200 font-sans relative">
-      {/* Top Bar Header */}
-      <Navbar
+    <div className="h-screen flex bg-[var(--bg-main)] text-[var(--text-main)] transition-colors duration-200 font-sans relative overflow-hidden">
+      
+      {/* Sidebar: Full Height on Left */}
+      <Sidebar
+        currentTab={currentTab}
+        setCurrentTab={handleNavigateTab}
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
-        isDarkMode={isDarkMode}
-        toggleTheme={toggleTheme}
-        onNavigateTab={handleNavigateTab}
-        onLogout={handleLogout}
         currentUser={currentUser}
+        onLogout={handleLogout}
       />
 
-      {/* Main Workspace Layout */}
-      <div className="flex-1 flex overflow-hidden relative">
-        <Sidebar
-          currentTab={currentTab}
-          setCurrentTab={handleNavigateTab}
+      {/* Main Content Area: Stacking Navbar and Dashboard */}
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
+        {/* Top Bar Header */}
+        <Navbar
           sidebarOpen={sidebarOpen}
           setSidebarOpen={setSidebarOpen}
+          isDarkMode={isDarkMode}
+          toggleTheme={toggleTheme}
+          onNavigateTab={handleNavigateTab}
+          onLogout={handleLogout}
           currentUser={currentUser}
         />
 
@@ -154,90 +292,240 @@ export const App: React.FC = () => {
             previousTab={previousTab}
           />
 
-          {/* ACCESS DENIED GUARD FOR NON-DEVELOPERS ATTEMPTING DEVELOPER TABS */}
-          {currentTab.startsWith('admin_') && currentUser?.role !== 'Developer' ? (
-            <div className="w-full max-w-xl mx-auto my-12 p-8 border border-red-500/30 rounded-2xl bg-red-500/5 text-center space-y-4 shadow-xl">
-              <div className="w-14 h-14 mx-auto rounded-full bg-red-500/10 text-red-500 flex items-center justify-center border border-red-500/20">
-                <ShieldAlert className="w-8 h-8" />
-              </div>
-              <div>
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-500 bg-red-500/10 px-2.5 py-0.5 rounded-full border border-red-500/20">
-                  DEVELOPER ROLE REQUIRED
-                </span>
-                <h2 className="font-brand font-bold text-xl text-[var(--text-main)] mt-2">
-                  Access Restricted to Lead Developer
-                </h2>
-                <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed">
-                  The Admin Control Panel and System Infrastructure Settings are strictly reserved for system developers (<span className="font-mono font-bold text-[var(--text-main)]">Role: Developer</span>). Firm Admins and Advocates do not have access to these controls.
-                </p>
-              </div>
-              <button
-                onClick={() => handleNavigateTab('home')}
-                className="btn-black px-6 py-2.5 text-xs font-semibold inline-flex items-center gap-2 cursor-pointer shadow-md"
-              >
-                <ArrowLeft className="w-4 h-4" /> Return to Home Dashboard
-              </button>
-            </div>
-          ) : (
-            <>
-              {/* BASIC NAVIGATION VIEWS */}
-              {currentTab === 'home' && (
-                <DashboardView
-                  onNavigateTab={handleNavigateTab}
-                  onNavigateToBuilder={handleNavigateToBuilder}
-                  onOpenRecents={() => setShowRecentsDrawer(true)}
-                  currentUser={currentUser}
-                />
-              )}
+          {/* BASIC NAVIGATION VIEWS */}
+          {currentTab === 'home' && (
+            can('dashboard.view') ? (
+              <DashboardView
+                onNavigateTab={handleNavigateTab}
+                onNavigateToBuilder={handleNavigateToBuilder}
+                onOpenRecents={() => setShowRecentsDrawer(true)}
+                currentUser={currentUser}
+              />
+            ) : (
+              <AccessDeniedView
+                resourceName="Advocate Dashboard"
+                permissionCode="dashboard.view"
+                onNavigateHome={() => handleNavigateTab('support')}
+              />
+            )
+          )}
 
-              {currentTab === 'boc' && (
-                <FeeNoteBuilderView
-                  initialCourt={builderCourt}
-                  initialValue={builderValue}
-                  onNavigateToTab={handleNavigateTab}
-                />
-              )}
+          {currentTab === 'boc' && (
+            can('boc.view') ? (
+              <FeeNoteBuilderView
+                initialNote={builderNote}
+                isPreview={builderPreview}
+                onNavigateToTab={handleNavigateTab}
+                currentUser={currentUser}
+              />
+            ) : (
+              <AccessDeniedView
+                resourceName="Bill of Costs Builder"
+                permissionCode="boc.view"
+                onNavigateHome={() => handleNavigateTab('home')}
+              />
+            )
+          )}
 
-              {currentTab === 'feenotes' && (
-                <FeeNotesListView
-                  onNavigateTab={handleNavigateTab}
-                  onNavigateToBuilder={handleNavigateToBuilder}
-                />
-              )}
+          {currentTab === 'feenotes' && (
+            can('feenotes.view') ? (
+              <FeeNotesListView
+                onNavigateTab={handleNavigateTab}
+                onNavigateToBuilder={handleNavigateToBuilder}
+                currentUser={currentUser}
+              />
+            ) : (
+              <AccessDeniedView
+                resourceName="Fee Notes Ledger"
+                permissionCode="feenotes.view"
+                onNavigateHome={() => handleNavigateTab('home')}
+              />
+            )
+          )}
 
-              {currentTab === 'matters' && <MattersView onNavigateTab={handleNavigateTab} />}
+          {currentTab === 'matters' && (
+            can('matters.view') ? (
+              <MattersView onNavigateTab={handleNavigateTab} onNavigateToBuilder={handleNavigateToBuilder} currentUser={currentUser} />
+            ) : (
+              <AccessDeniedView
+                resourceName="My Matters Registry"
+                permissionCode="matters.view"
+                onNavigateHome={() => handleNavigateTab('home')}
+              />
+            )
+          )}
 
-              {currentTab === 'clients' && <ClientsView />}
+          {currentTab === 'clients' && (
+            can('clients.view') ? (
+              <ClientsView onNavigateTab={handleNavigateTab} onNavigateToBuilder={handleNavigateToBuilder} currentUser={currentUser} />
+            ) : (
+              <AccessDeniedView
+                resourceName="Clients Directory"
+                permissionCode="clients.view"
+                onNavigateHome={() => handleNavigateTab('home')}
+              />
+            )
+          )}
 
-              {currentTab === 'messages' && <MessagesView />}
+          {/* PAYMENTS & MESSAGES TEMPORARILY COMMENTED OUT AS PER USER REQUEST */}
+          {/* {currentTab === 'payments' && <PaymentsBillingView currentUser={currentUser} />} */}
 
-              {currentTab === 'vault' && <DocumentVaultView />}
+          {/* {currentTab === 'messages' && <MessagesView currentUser={currentUser} />} */}
 
-              {currentTab === 'guide' && <RemunerationGuideView />}
+          {currentTab === 'vault' && (
+            can('vault.view') ? (
+              <DocumentVaultView currentUser={currentUser} />
+            ) : (
+              <AccessDeniedView
+                resourceName="Document Vault"
+                permissionCode="vault.view"
+                onNavigateHome={() => handleNavigateTab('home')}
+              />
+            )
+          )}
 
-              {currentTab === 'company' && <CompanyProfileView />}
+          {currentTab === 'guide' && (
+            can('guide.view') ? (
+              <RemunerationGuideView />
+            ) : (
+              <AccessDeniedView
+                resourceName="Remuneration Guide"
+                permissionCode="guide.view"
+                onNavigateHome={() => handleNavigateTab('home')}
+              />
+            )
+          )}
 
-              {currentTab === 'profile' && <MyProfileView currentUser={currentUser} />}
+          {currentTab === 'company' && <CompanyProfileView currentUser={currentUser} />}
 
-              {currentTab === 'settings' && (
-                <ProfileSettingsView isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
-              )}
+          {currentTab === 'profile' && (
+            <ProfileSettingsView 
+              currentUser={currentUser} 
+              isDarkMode={isDarkMode} 
+              toggleTheme={toggleTheme} 
+              initialTab="profile" 
+            />
+          )}
 
-              {currentTab === 'support' && <TechSupportView />}
+          {currentTab === 'settings' && (
+            can('settings.view') ? (
+              <ProfileSettingsView 
+                currentUser={currentUser} 
+                isDarkMode={isDarkMode} 
+                toggleTheme={toggleTheme} 
+                initialTab="firm" 
+              />
+            ) : (
+              <AccessDeniedView
+                resourceName="Firm Settings"
+                permissionCode="settings.view"
+                onNavigateHome={() => handleNavigateTab('home')}
+              />
+            )
+          )}
 
-              {/* 11 PACKED ADMIN CONTROL PANEL VIEWS (DEVELOPER ROLE ONLY) */}
-              {currentTab === 'admin_boc' && <AdminBocSettingsView />}
-              {currentTab === 'admin_firms' && <AdminFirmsView />}
-              {currentTab === 'admin_documents' && <AdminDocumentsPolicyView />}
-              {currentTab === 'admin_support' && <AdminSupportSettingsView />}
-              {currentTab === 'admin_python' && <AdminPythonEngineView />}
-              {currentTab === 'admin_permissions' && <AdminPermissionsView />}
-              {currentTab === 'admin_users' && <AdminUsersRolesView />}
-              {currentTab === 'admin_notifications' && <AdminNotificationsDispatchView />}
-              {currentTab === 'admin_ticketing' && <AdminTicketingView />}
-              {currentTab === 'admin_database' && <AdminDatabaseHealthView />}
-              {currentTab === 'admin_server' && <AdminServerControlView />}
-            </>
+          {currentTab === 'support' && (
+            can('support.view') ? (
+              <TechSupportView currentUser={currentUser} />
+            ) : (
+              <AccessDeniedView
+                resourceName="Support & Help"
+                permissionCode="support.view"
+                onNavigateHome={() => handleNavigateTab('home')}
+              />
+            )
+          )}
+
+          {/* DOCUMENT AUTHENTICITY VERIFICATION VIEW */}
+          {currentTab === 'verify' && (
+            <DocumentVerifyView onNavigateHome={() => handleNavigateTab('home')} />
+          )}
+
+          {/* MANAGING PARTNER SUITE PAGES: EXECUTIVE HUB COMMENTED OUT AS PER USER REQUEST */}
+          {/*
+          {currentTab === 'managing_hub' && (
+            can('managing_hub.view') ? (
+              <ManagingPartnerHubView 
+                onNavigateTab={handleNavigateTab} 
+                onNavigateToBuilder={handleNavigateToBuilder}
+                currentUser={currentUser} 
+              />
+            ) : (
+              <AccessDeniedView
+                resourceName="Executive Hub"
+                permissionCode="managing_hub.view"
+                onNavigateHome={() => handleNavigateTab('home')}
+              />
+            )
+          )}
+          */}
+
+          {currentTab === 'managing_approvals' && (
+            can('feenotes.approve') ? (
+              <ApprovalQueueView
+                onNavigateToBuilder={handleNavigateToBuilder}
+                onNavigateTab={handleNavigateTab}
+                currentUser={currentUser}
+              />
+            ) : (
+              <AccessDeniedView
+                resourceName="Fee Note Approvals Queue"
+                permissionCode="feenotes.approve"
+                onNavigateHome={() => handleNavigateTab('home')}
+              />
+            )
+          )}
+
+          {currentTab === 'managing_revenue' && (
+            can('managing_hub.financial_summary') ? (
+              <RevenueAnalyticsView currentUser={currentUser} />
+            ) : (
+              <AccessDeniedView
+                resourceName="Revenue Analytics"
+                permissionCode="managing_hub.financial_summary"
+                onNavigateHome={() => handleNavigateTab('home')}
+              />
+            )
+          )}
+
+          {(currentTab === 'managing_permissions' || currentTab === 'permissions') && (
+            can('permissions.view') ? (
+              <AdvocatePermissionsView currentUser={currentUser} initialUserId={selectedPermissionUserId} />
+            ) : (
+              <AccessDeniedView
+                resourceName="Advocate Permissions & Role Templates"
+                permissionCode="permissions.view"
+                onNavigateHome={() => handleNavigateTab('home')}
+              />
+            )
+          )}
+
+          {currentTab === 'managing_audit' && (
+            can('managing_hub.activity_logs') ? (
+              <LiveActivityFeedView />
+            ) : (
+              <AccessDeniedView
+                resourceName="Firm Activity Audit Log"
+                permissionCode="managing_hub.activity_logs"
+                onNavigateHome={() => handleNavigateTab('home')}
+              />
+            )
+          )}
+
+          {/* MASTER DEVELOPER CONSOLE */}
+          {currentTab === 'admin' && (
+            (currentUser?.role === 'Admin' || currentUser?.role === 'Developer' || can('permissions.manage_roles')) ? (
+              <ManagingPartnerGodMode
+                onNavigateToBuilder={handleNavigateToBuilder}
+                onNavigateTab={handleNavigateTab}
+              />
+            ) : (
+              <AccessDeniedView
+                resourceName="Platform Administration"
+                permissionCode="permissions.manage_roles"
+                onNavigateHome={() => handleNavigateTab('home')}
+              />
+            )
           )}
         </main>
       </div>
@@ -250,6 +538,7 @@ export const App: React.FC = () => {
         onNavigateToBuilder={handleNavigateToBuilder}
         currentUser={currentUser}
       />
+      <ToastContainer />
     </div>
   );
 };

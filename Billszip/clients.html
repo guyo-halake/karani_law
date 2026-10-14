@@ -1,47 +1,122 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Clients Directory — Billszip</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clients Directory — Billszip</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .modal-dialog-box {
+      max-width: 480px;
+      background: var(--dropdown-bg);
+      border: var(--glass-border);
+      padding: 24px;
+      border-radius: var(--radius-md);
+      margin: 60px auto;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    }
+  </style>
 </head>
+
 <body>
 
-<div class="app" id="app"></div>
+  <div class="app" id="app"></div>
 
-<script src="data.js"></script>
-<script src="remuneration.js"></script>
-<script src="shell.js"></script>
-<script>
-  renderShell({
-    page: "clients",
-    title: "Firm Clients Directory",
-    searchPlaceholder: "Search client name, email, or phone...",
-    primaryAction: { href: "client-detail.html?id=c1", label: "+ Add Client" }
-  });
+  <!-- Modal: Register New Client -->
+  <div class="modal-backdrop" id="clientModal" style="display:none;" onclick="if(event.target===this) closeClientModal()">
+    <div class="modal-dialog-box">
+      <h3 style="font-family:var(--font-brand); font-size:16px; color:var(--ink-primary); margin-bottom:14px; display:flex; align-items:center; gap:8px;">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--accent-gold)" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+        Register New Law Firm Client
+      </h3>
+      
+      <div id="clientErrorMsg" style="display:none; color:var(--accent-rose); font-size:11.5px; margin-bottom:10px; font-weight:600;"></div>
 
-  const data = window.APP_DATA;
-  const rem = window.REMUNERATION;
-  const content = document.getElementById("pageContent");
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div class="form-group" style="grid-column: span 2;">
+          <label>Client or Entity Name</label>
+          <input type="text" class="form-control" id="newClientName" placeholder="e.g. Acme Kenya Limited">
+        </div>
 
-  let query = "";
+        <div class="form-group" style="grid-column: span 2;">
+          <label>Client Category</label>
+          <select class="form-control" id="newClientCat">
+            <option value="Corporate or Institutional">Corporate or Institutional</option>
+            <option value="Individual Client">Individual Client</option>
+          </select>
+        </div>
 
-  function render() {
-    let clientList = [...data.clients];
+        <div class="form-group">
+          <label>KRA PIN (for Tax Invoices)</label>
+          <input type="text" class="form-control num" id="newClientKra" placeholder="e.g. P051988273K">
+        </div>
 
-    if (query.trim()) {
-      const q = query.trim().toLowerCase();
-      clientList = clientList.filter(c =>
-        c.name.toLowerCase().includes(q) ||
-        c.email.toLowerCase().includes(q) ||
-        c.phone.toLowerCase().includes(q)
-      );
-    }
+        <div class="form-group">
+          <label>WhatsApp Phone</label>
+          <input type="text" class="form-control num" id="newClientPhone" placeholder="e.g. +254 722 000 000">
+        </div>
 
-    content.innerHTML = `
+        <div class="form-group" style="grid-column: span 2;">
+          <label>Email Address</label>
+          <input type="email" class="form-control" id="newClientEmail" placeholder="e.g. legal@acmekenya.co.ke">
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:18px;">
+        <button class="btn-pill secondary" onclick="closeClientModal()">Cancel</button>
+        <button class="btn-pill primary" onclick="submitNewClient()">Save Client</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="remuneration.js"></script>
+  <script src="shell.js"></script>
+  <script>
+    renderShell({
+      page: "clients",
+      title: "Firm Clients Directory",
+      searchPlaceholder: "Search client name, email, or phone...",
+      primaryAction: { href: "#", label: "+ Register Client" }
+    });
+
+    // Override header button to trigger modal directly
+    setTimeout(() => {
+      const topBtn = document.querySelector(".main-topbar .btn-pill.primary");
+      if (topBtn && topBtn.innerText.includes("Register Client")) {
+        topBtn.onclick = (e) => { e.preventDefault(); openClientModal(); };
+      }
+    }, 100);
+
+    const data = window.APP_DATA;
+    const rem = window.REMUNERATION;
+    const content = document.getElementById("pageContent");
+
+    let query = "";
+
+    function render() {
+      let clientList = [...data.clients];
+
+      if (query.trim()) {
+        const q = query.trim().toLowerCase();
+        clientList = clientList.filter(c =>
+          c.name.toLowerCase().includes(q) ||
+          c.email.toLowerCase().includes(q) ||
+          c.phone.toLowerCase().includes(q)
+        );
+      }
+
+      content.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <span style="font-size:12px; color:var(--ink-muted); font-weight:600;">Total Active Client Entities: ${clientList.length}</span>
+        <button class="btn-pill primary" onclick="openClientModal()">+ Onboard New Client</button>
+      </div>
+
       <div class="table-card">
         <table class="data-table">
           <thead>
@@ -56,11 +131,11 @@
           </thead>
           <tbody>
             ${clientList.map(c => {
-              const cleanPhone = c.phone.replace(/[^0-9]/g, '');
-              const totalBilled = c.id === 'c1' ? 30820193.28 : c.id === 'c2' ? 3986663.93 : 145000;
-              const balance = c.id === 'c1' ? 30820193.28 : 0;
+        const cleanPhone = c.phone.replace(/[^0-9]/g, '');
+        const totalBilled = c.id === 'c1' ? 30820193.28 : c.id === 'c2' ? 3986663.93 : 145000;
+        const balance = c.id === 'c1' ? 30820193.28 : 0;
 
-              return `
+        return `
                 <tr>
                   <td>
                     <a href="client-detail.html?id=${c.id}" class="primary-cell" style="color:var(--ink-primary); font-weight:700; text-decoration:underline; text-underline-offset:3px;">
@@ -96,7 +171,7 @@
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                       </a>
 
-                      <!-- Client Profile Hub -->
+                      <!-- Client Profile Link -->
                       <a class="action-icon-btn" href="client-detail.html?id=${c.id}" title="Client Profile Hub">
                         ${TOP_ICONS.eye}
                       </a>
@@ -104,26 +179,63 @@
                   </td>
                 </tr>
               `;
-            }).join("")}
+      }).join("")}
           </tbody>
         </table>
         <div class="table-footer">
-          <span>Showing ${clientList.length} clients in firm database</span>
+          <span>Showing ${clientList.length} corporate & individual clients</span>
         </div>
       </div>
     `;
-  }
+    }
 
-  render();
+    window.openClientModal = function() {
+      document.getElementById("clientModal").style.display = "flex";
+    };
 
-  const topSearch = document.getElementById("topSearch");
-  if (topSearch) {
-    topSearch.addEventListener("input", (e) => {
-      query = e.target.value;
+    window.closeClientModal = function() {
+      document.getElementById("clientModal").style.display = "none";
+    };
+
+    window.submitNewClient = function() {
+      const name = document.getElementById("newClientName").value;
+      const cat = document.getElementById("newClientCat").value;
+      const kra = document.getElementById("newClientKra").value;
+      const phone = document.getElementById("newClientPhone").value || "+254 700 000 000";
+      const email = document.getElementById("newClientEmail").value || "info@client.co.ke";
+      const errBox = document.getElementById("clientErrorMsg");
+
+      if (!name) {
+        errBox.innerText = "Error: Please enter the Client Name.";
+        errBox.style.display = "block";
+        return;
+      }
+
+      data.clients.unshift({
+        id: "c" + Date.now(),
+        name,
+        email,
+        phone,
+        matters: 1
+      });
+
+      closeClientModal();
       render();
-    });
-  }
-</script>
+      alert(`Success: Client "${name}" onboarded successfully!`);
+    };
+
+    render();
+
+    const topSearch = document.getElementById("topSearch");
+    if (topSearch) {
+      topSearch.addEventListener("input", (e) => {
+        query = e.target.value;
+        render();
+      });
+    }
+  </script>
+  <script src="tour.js"></script>
 
 </body>
+
 </html>

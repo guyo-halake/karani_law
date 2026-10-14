@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { EXACT_VAULT_FILES, ExactVaultFileRecord } from '../../services/supabase';
+import React, { useEffect, useState } from 'react';
+import { ExactVaultFileRecord, SystemUser } from '../../services/supabase';
+import { createDocumentDownloadUrl, deleteDocument, fetchDocuments, uploadDocument } from '../../services/data';
+import { hasPermission } from '../../services/rbac';
 import {
   Search,
   Upload,
@@ -26,12 +28,20 @@ import {
   Calculator
 } from 'lucide-react';
 
-export const DocumentVaultView: React.FC = () => {
+interface DocumentVaultViewProps {
+  currentUser?: SystemUser | null;
+}
+
+export const DocumentVaultView: React.FC<DocumentVaultViewProps> = ({ currentUser }) => {
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | 'pdfs' | 'excels' | 'multimedia'>('all');
   const [sortBy, setSortBy] = useState<'date' | 'name' | 'size'>('date');
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
-  const [fileList, setFileList] = useState<ExactVaultFileRecord[]>(EXACT_VAULT_FILES);
+  const [fileList, setFileList] = useState<ExactVaultFileRecord[]>([]);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [, setPermissionTick] = useState(0);
+
+  const can = (code: string) => hasPermission(currentUser, code);
   
   // Active Context Menu State
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
@@ -39,40 +49,41 @@ export const DocumentVaultView: React.FC = () => {
   // File Preview Modal State
   const [previewFile, setPreviewFile] = useState<ExactVaultFileRecord | null>(null);
 
+  useEffect(() => {
+    const handlePermissions = () => {
+      setPermissionTick(t => t + 1);
+    };
+    window.addEventListener('permissionsUpdated', handlePermissions);
+    window.addEventListener('storage', handlePermissions);
+    return () => {
+      window.removeEventListener('permissionsUpdated', handlePermissions);
+      window.removeEventListener('storage', handlePermissions);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser?.firmId) return;
+    const loadDocuments = () => fetchDocuments(currentUser.firmId!).then(setFileList).catch(error => setErrorMessage(error.message || 'Unable to load documents.'));
+    void loadDocuments();
+    const handleRealtime = (event: Event) => {
+      const detail = (event as CustomEvent<{ table?: string }>).detail;
+      if (detail?.table === 'documents') void loadDocuments();
+    };
+    window.addEventListener('databaseRealtimeUpdate', handleRealtime);
+    return () => window.removeEventListener('databaseRealtimeUpdate', handleRealtime);
+  }, [currentUser?.firmId]);
+
   // File Upload Handler (Connected to Supabase Storage state)
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.csv');
-      const isPdf = file.name.endsWith('.pdf');
-      const isMedia = file.type.startsWith('image/') || file.type.startsWith('video/') || file.type.startsWith('audio/');
-
-      let categoryType = 'PDF Document (.pdf)';
-      if (isExcel) categoryType = 'Excel Spreadsheet (.xlsx)';
-      else if (isMedia) categoryType = 'Multimedia Asset';
-
-      const newRecord: ExactVaultFileRecord = {
-        id: 'v' + (fileList.length + 1),
-        filename: file.name,
-        path: `supabase://storage/legal-vault/${file.name}`,
-        matter: 'Seyani Brothers & Co. (K) Ltd v Greenhills Investment Ltd (HCCC E104/2025)',
-        client: 'Seyani Brothers & Co. (K) Limited',
-        fileType: categoryType,
-        size: `${Math.round(file.size / 1024 || 42)} KB`,
-        updatedAt: new Date().toISOString().split('T')[0],
-        extractedMetrics: {
-          claimValue: 18500000,
-          instructionFee: 165000,
-          gettingUpFee: 55000,
-          itemizedFees: 165000,
-          arbitratorCosts: 0,
-          grandTotal: 165000
-        },
-        verifiedTruth: true
-      };
-
-      setFileList([newRecord, ...fileList]);
-      alert(`✓ File "${file.name}" uploaded successfully to encrypted Supabase Storage bucket!`);
+      if (!currentUser?.firmId || !currentUser.id) return;
+      try {
+        const newRecord = await uploadDocument(currentUser.firmId, currentUser.id, file);
+        setFileList(prev => [newRecord, ...prev]);
+      } catch (error: any) {
+        setErrorMessage(error.message || `Unable to upload ${file.name}.`);
+      }
     }
   };
 
@@ -102,20 +113,35 @@ export const DocumentVaultView: React.FC = () => {
     setActiveMenuId(null);
   };
 
-  const handleDownload = (f: ExactVaultFileRecord) => {
-    alert(`✓ Downloading "${f.filename}" from Supabase Storage...`);
+  const handleDownload = async (f: ExactVaultFileRecord) => {
+    try {
+      const url = await createDocumentDownloadUrl(f.path);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (error: any) {
+      setErrorMessage(error.message || `Unable to download ${f.filename}.`);
+    }
     setActiveMenuId(null);
   };
 
-  const handleShare = (f: ExactVaultFileRecord) => {
-    navigator.clipboard.writeText(`https://karanilaw.supabase.co/storage/v1/object/public/vault/${encodeURIComponent(f.filename)}`);
-    alert(`✓ Direct download link for "${f.filename}" copied to clipboard!`);
+  const handleShare = async (f: ExactVaultFileRecord) => {
+    try {
+      const url = await createDocumentDownloadUrl(f.path);
+      await navigator.clipboard.writeText(url);
+    } catch (error: any) {
+      setErrorMessage(error.message || `Unable to share ${f.filename}.`);
+    }
     setActiveMenuId(null);
   };
 
-  const handleDelete = (f: ExactVaultFileRecord) => {
+  const handleDelete = async (f: ExactVaultFileRecord) => {
     if (confirm(`Are you sure you want to delete "${f.filename}" from Supabase storage?`)) {
-      setFileList(prev => prev.filter(item => item.id !== f.id));
+      if (!currentUser?.firmId) return;
+      try {
+        await deleteDocument(currentUser.firmId, f.id, f.path);
+        setFileList(prev => prev.filter(item => item.id !== f.id));
+      } catch (error: any) {
+        setErrorMessage(error.message || `Unable to delete ${f.filename}.`);
+      }
     }
     setActiveMenuId(null);
   };
@@ -154,15 +180,17 @@ export const DocumentVaultView: React.FC = () => {
         </div>
 
         {/* Upload Button connected to Supabase storage */}
-        <label className="btn-black px-4 py-2 text-xs font-semibold flex items-center gap-1.5 shrink-0 shadow-sm cursor-pointer">
-          <Upload className="w-4 h-4" /> Upload New File
-          <input
-            type="file"
-            onChange={handleFileUpload}
-            className="hidden"
-            accept=".pdf,.xlsx,.csv,.docx,.png,.jpg,.jpeg,.mp4"
-          />
-        </label>
+        {can('vault.upload') && (
+          <label className="btn-black px-4 py-2 text-xs font-semibold flex items-center gap-1.5 shrink-0 shadow-sm cursor-pointer">
+            <Upload className="w-4 h-4" /> Upload New File
+            <input
+              type="file"
+              onChange={handleFileUpload}
+              className="hidden"
+              accept=".pdf,.xlsx,.csv,.docx,.png,.jpg,.jpeg,.mp4"
+            />
+          </label>
+        )}
       </div>
 
       {/* Controls Bar */}
@@ -245,8 +273,10 @@ export const DocumentVaultView: React.FC = () => {
           {filtered.map((f: ExactVaultFileRecord) => (
             <div
               key={f.id}
-              onClick={() => handleOpenFile(f)}
-              className="vercel-card-interactive p-5 space-y-4 flex flex-col justify-between relative group min-w-0"
+              onClick={() => {
+                if (can('vault.preview')) handleOpenFile(f);
+              }}
+              className={`vercel-card-interactive p-5 space-y-4 flex flex-col justify-between relative group min-w-0 ${!can('vault.preview') ? 'cursor-default' : 'cursor-pointer'}`}
             >
               <div className="flex items-start gap-3 min-w-0">
                 {getFileIcon(f)}
@@ -265,7 +295,7 @@ export const DocumentVaultView: React.FC = () => {
 
               <div className="pt-3 border-t border-[var(--border-color)] flex items-center justify-between text-[11px] font-mono">
                 <span className="text-[var(--text-muted)]">{f.size} &bull; {f.updatedAt}</span>
-                <span className="font-bold text-[var(--text-main)] group-hover:underline">Preview & Metrics →</span>
+                {can('vault.preview') && <span className="font-bold text-[var(--text-main)] group-hover:underline">Preview & Metrics →</span>}
               </div>
             </div>
           ))}
@@ -288,7 +318,13 @@ export const DocumentVaultView: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-[var(--border-color)]">
                 {filtered.map((f: ExactVaultFileRecord) => (
-                  <tr key={f.id} className="hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer" onClick={() => handleOpenFile(f)}>
+                  <tr 
+                    key={f.id} 
+                    className={`hover:bg-[var(--bg-subtle)] transition-colors ${can('vault.preview') ? 'cursor-pointer' : 'cursor-default'}`} 
+                    onClick={() => {
+                      if (can('vault.preview')) handleOpenFile(f);
+                    }}
+                  >
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-2.5">
                         {getFileIcon(f)}
@@ -306,20 +342,24 @@ export const DocumentVaultView: React.FC = () => {
                     <td className="px-4 py-3.5 font-mono text-[11px] text-[var(--text-muted)]">{f.updatedAt}</td>
                     <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => handleOpenFile(f)}
-                          className="p-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
-                          title="Preview Metrics"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDownload(f)}
-                          className="p-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
-                          title="Download"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                        </button>
+                        {can('vault.preview') && (
+                          <button
+                            onClick={() => handleOpenFile(f)}
+                            className="p-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
+                            title="Preview Metrics"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {can('vault.download') && (
+                          <button
+                            onClick={() => handleDownload(f)}
+                            className="p-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
+                            title="Download"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

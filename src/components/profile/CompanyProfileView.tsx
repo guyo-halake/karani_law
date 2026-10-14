@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { EXACT_FIRM_INFO } from '../../services/supabase';
+import React, { useEffect, useState } from 'react';
+import { supabase, SystemUser } from '../../services/supabase';
 import {
   Building2,
   MapPin,
@@ -12,13 +12,37 @@ import {
   CheckCircle2
 } from 'lucide-react';
 
-export const CompanyProfileView: React.FC = () => {
+interface CompanyProfileViewProps { currentUser?: SystemUser | null; }
+
+export const CompanyProfileView: React.FC<CompanyProfileViewProps> = ({ currentUser }) => {
+  const [firmProfile, setFirmProfile] = useState({ name: '', fullLocation: '', firmRegNo: '', kraPin: '', address: '', poBox: '', website: '', email: '', taxationEmail: '', billingEmail: '', phone: '', logoUrl: '' });
   // Legal Calculations & Work Settings (Moved to Company Profile per specifications)
   const [defaultSchedule, setDefaultSchedule] = useState('schedule_6_high_court');
   const [defaultCurrency, setDefaultCurrency] = useState('KSHS');
   const [autoGettingUp, setAutoGettingUp] = useState(true);
   const [autoVat, setAutoVat] = useState(true);
   const [isSaved, setIsSaved] = useState(false);
+
+  useEffect(() => {
+    if (!currentUser?.firmId) return;
+    void supabase.from('firms').select('*').eq('id', currentUser.firmId).single().then(({ data }) => {
+      if (!data) return;
+      setFirmProfile({
+        name: data.name || '',
+        fullLocation: data.address || '',
+        firmRegNo: data.firm_reg_no || '',
+        kraPin: data.kra_pin || '',
+        address: data.address || '',
+        poBox: data.po_box || '',
+        website: data.website || '',
+        email: data.email || '',
+        taxationEmail: data.taxation_email || data.email || '',
+        billingEmail: data.billing_email || data.email || '',
+        phone: data.phone || '',
+        logoUrl: data.logo_url || '',
+      });
+    });
+  }, [currentUser?.firmId]);
 
   const handleSaveLegalSettings = () => {
     setIsSaved(true);
@@ -37,7 +61,7 @@ export const CompanyProfileView: React.FC = () => {
 
         <div>
           <h1 className="font-brand font-extrabold text-3xl text-[var(--text-main)] tracking-tight uppercase">
-            {EXACT_FIRM_INFO.name}
+            {firmProfile.name}
           </h1>
           <p className="text-xs sm:text-sm font-bold text-amber-700 dark:text-amber-400 uppercase tracking-widest mt-1">
             ADVOCATES OF THE HIGH COURT OF KENYA
@@ -164,41 +188,41 @@ export const CompanyProfileView: React.FC = () => {
             <div>
               <span className="text-[var(--text-muted)] block text-[11px] uppercase font-semibold">Full Location:</span>
               <p className="font-semibold text-sm text-[var(--text-main)] mt-0.5 leading-relaxed">
-                {EXACT_FIRM_INFO.fullLocation}
+                {firmProfile.fullLocation}
               </p>
             </div>
 
             <div>
               <span className="text-[var(--text-muted)] block text-[11px] uppercase font-semibold">Firm LSK Registration Number:</span>
               <p className="font-mono font-bold text-base text-[var(--text-main)] mt-0.5">
-                {EXACT_FIRM_INFO.firmRegNo}
+                {firmProfile.firmRegNo}
               </p>
             </div>
 
             <div>
               <span className="text-[var(--text-muted)] block text-[11px] uppercase font-semibold">KRA Tax PIN:</span>
               <p className="font-mono font-bold text-base text-[var(--text-main)] mt-0.5">
-                {EXACT_FIRM_INFO.kraPin}
+                {firmProfile.kraPin}
               </p>
             </div>
 
             <div>
               <span className="text-[var(--text-muted)] block text-[11px] uppercase font-semibold">Physical & Postal Address:</span>
               <p className="text-xs sm:text-sm text-[var(--text-main)] mt-0.5 leading-relaxed font-sans">
-                {EXACT_FIRM_INFO.address}<br />
-                {EXACT_FIRM_INFO.poBox}
+                {firmProfile.address}<br />
+                {firmProfile.poBox}
               </p>
             </div>
 
             <div>
               <span className="text-[var(--text-muted)] block text-[11px] uppercase font-semibold">Official Website:</span>
               <a
-                href={`https://${EXACT_FIRM_INFO.website}`}
+                  href={firmProfile.website ? `https://${firmProfile.website}` : '#'}
                 target="_blank"
                 rel="noreferrer"
                 className="font-mono font-semibold text-sm text-blue-500 hover:underline mt-0.5 flex items-center gap-1.5"
               >
-                <Globe className="w-4 h-4" /> {EXACT_FIRM_INFO.website}
+                <Globe className="w-4 h-4" /> {firmProfile.website}
               </a>
             </div>
           </div>
@@ -217,9 +241,9 @@ export const CompanyProfileView: React.FC = () => {
             <div>
               <span className="text-[var(--text-muted)] block text-[11px] uppercase font-semibold">Official Email Addresses:</span>
               <div className="font-mono space-y-1.5 mt-1 text-xs">
-                <p><span className="text-[var(--text-muted)]">General Enquiries:</span> <strong className="text-[var(--text-main)]">{EXACT_FIRM_INFO.email}</strong></p>
-                <p><span className="text-[var(--text-muted)]">Taxation Dept:</span> <strong className="text-[var(--text-main)]">{EXACT_FIRM_INFO.taxationEmail}</strong></p>
-                <p><span className="text-[var(--text-muted)]">Billing & Accounts:</span> <strong className="text-[var(--text-main)]">{EXACT_FIRM_INFO.billingEmail}</strong></p>
+                <p><span className="text-[var(--text-muted)]">General Enquiries:</span> <strong className="text-[var(--text-main)]">{firmProfile.email}</strong></p>
+                <p><span className="text-[var(--text-muted)]">Taxation Dept:</span> <strong className="text-[var(--text-main)]">{firmProfile.taxationEmail}</strong></p>
+                <p><span className="text-[var(--text-muted)]">Billing & Accounts:</span> <strong className="text-[var(--text-main)]">{firmProfile.billingEmail}</strong></p>
               </div>
             </div>
 
@@ -227,7 +251,7 @@ export const CompanyProfileView: React.FC = () => {
               <span className="text-[var(--text-muted)] block text-[11px] uppercase font-semibold">Telephone & Hotlines:</span>
               <div className="font-mono space-y-0.5 mt-1">
                 <p className="text-sm font-bold text-[var(--text-main)] flex items-center gap-1.5">
-                  <Phone className="w-4 h-4 text-[var(--text-muted)]" /> {EXACT_FIRM_INFO.phone}
+                  <Phone className="w-4 h-4 text-[var(--text-muted)]" /> {firmProfile.phone}
                 </p>
               </div>
             </div>

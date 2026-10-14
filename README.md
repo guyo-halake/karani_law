@@ -74,3 +74,14 @@ docker-compose up --build -d
 ```
 - **Billszip Web App**: http://localhost:3000
 - **FastAPI API Swagger Docs**: http://localhost:8000/docs
+
+---
+
+## 🌐 Production Cloud Deployment & Enterprise Operations
+
+- **Production Cloud Host**: Microsoft Azure App Service for Containers
+- **Target Production URL**: `https://nyagahkithinji.advocates.azurewebsites.net`
+- **Container Registry**: Azure Container Registry (ACR)
+- **IT Support & Operations Desk**: Managed by **P3L Developers** (Razak Guyo & Victor Karani)
+- **Digital Security**: Micro-QR Cryptographic Stamping and SHA-256 Tamper Verification Engine
+- **Statutory Remuneration**: Advocates (Remuneration) Order (LN 64/1962 & LN 35/2014) Schedules 1 through 12

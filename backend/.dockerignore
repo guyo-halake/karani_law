@@ -1,0 +1,10 @@
+# Backend .dockerignore
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.env*
+!.env.example
+*.log
+data/users.json

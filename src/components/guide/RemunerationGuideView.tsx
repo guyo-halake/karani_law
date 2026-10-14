@@ -1,1100 +1,1260 @@
-import React, { useState } from 'react';
+// Republic of Kenya — The Advocates (Remuneration) Order (Legal Notice 64 of 1962)
+// Consolidated up to L.N. 221 of 2023 (24th Annual Supplement)
+// Official Kenya Law Digital Publication & Statutory Scale Math Engine
+
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
-  FileText,
-  Search,
-  Printer,
-  ZoomIn,
-  ZoomOut,
-  ChevronLeft,
-  ChevronRight,
-  Calculator,
-  ExternalLink,
-  BookOpen,
   Scale,
-  Plus,
-  Trash2,
-  AlertTriangle,
-  CheckCircle2,
-  Info,
-  Layers,
+  Calculator,
+  Search,
+  BookOpen,
+  FileText,
+  Printer,
+  Copy,
+  Check,
   ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  X,
+  Info,
+  Calendar,
+  Layers,
   ArrowRight,
-  ArrowLeft
+  Building,
+  Gavel,
+  Shield,
+  HelpCircle
 } from 'lucide-react';
 
 import {
-  calculate_bill_of_costs,
-  check_one_sixth_taxed_off_rule,
-  ITEM_RATES,
-  BillItem
-} from '../../engine/remuneration_engine';
+  STATUTORY_METADATA,
+  STATUTORY_PARTS,
+  STATUTORY_SECTIONS,
+  STATUTORY_SCHEDULES_FULL,
+  StatutorySection,
+  StatutoryScheduleDetail
+} from './statutory_order_data';
 
 export const RemunerationGuideView: React.FC = () => {
-  // Navigation & View State
-  const [activeTab, setActiveTab] = useState<'gazette' | 'toc' | 'simulator' | 'schedules'>('gazette');
-  const [selectedSection, setSelectedSection] = useState<string>('part_I');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [zoomLevel, setZoomLevel] = useState(100);
-  const [currentPage, setCurrentPage] = useState(1);
+  // Navigation & Search State
+  const [tocSearch, setTocSearch] = useState('');
+  const [activeSectionId, setActiveSectionId] = useState<string>('sec-1');
+  const [expandedParts, setExpandedParts] = useState<{ [key: string]: boolean }>({
+    part_I: true,
+    part_II: true,
+    part_III: true,
+    schedules: true
+  });
+  const [activeHeaderTab, setActiveHeaderTab] = useState<'reader' | 'detail' | 'history' | 'citations' | 'related'>('reader');
+  const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg'>('base');
 
-  // Math Simulator State
-  const [simClaimValue, setSimClaimValue] = useState<number>(30820193.28);
-  const [simSchedule, setSimSchedule] = useState<'schedule_6_high_court' | 'schedule_5_magistrate' | 'schedule_1_conveyancing' | 'schedule_3_probate'>('schedule_6_high_court');
-  const [simIsDefendant, setSimIsDefendant] = useState(false);
-  const [simIncludeGettingUp, setSimIncludeGettingUp] = useState(true);
-  const [simComplexityMultiplier, setSimComplexityMultiplier] = useState<number>(1.0);
-  const [simMonthsOverdue, setSimMonthsOverdue] = useState<number>(3); // Sec. 7 Interest (14% p.a.)
-  const [simDisbursements, setSimDisbursements] = useState<number>(15000);
-  const [simTaxedOffAmount, setSimTaxedOffAmount] = useState<number>(85000);
+  // Slide-over Math Engine Calculator State
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
+  const [calcSchedule, setCalcSchedule] = useState<string>('sched1_sale');
+  const [calcValue, setCalcValue] = useState<number>(10000000);
+  const [isAdvocateClient, setIsAdvocateClient] = useState<boolean>(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Dynamic Line-Item Folios Manager State
-  const [simFolios, setSimFolios] = useState<BillItem[]>([
-    { description: 'Drawing Pleadings, Plaint & Plain Statements', type: 'drawing_folio', qty: 25 },
-    { description: 'Copying Documents for Court & Adverse Parties', type: 'copying_folio', qty: 120 },
-    { description: 'Attending High Court Hearing (2 Hours)', type: 'attendance_court_hr', qty: 2 },
-    { description: 'Office Consultation & Instructions Conference', type: 'attendance_office_hr', qty: 1.5 },
-    { description: 'Formal Demand & Statutory Notice Letters', type: 'letter_formal', qty: 2 },
-    { description: 'Search at Land Registry & Companies Registry', type: 'search_registry', qty: 1 }
-  ]);
+  // References for smooth scrolling
+  const sectionRefs = useRef<{ [key: string]: HTMLElement | null }>({});
 
-  // Folio Item Form State
-  const [newItemDesc, setNewItemDesc] = useState('');
-  const [newItemType, setNewItemType] = useState('drawing_folio');
-  const [newItemQty, setNewItemQty] = useState<number>(1);
+  const togglePart = (partId: string) => {
+    setExpandedParts(prev => ({ ...prev, [partId]: !prev[partId] }));
+  };
 
-  const handleAddFolioItem = () => {
-    if (!newItemDesc.trim()) return;
-    setSimFolios((prev) => [
-      ...prev,
-      {
-        description: newItemDesc.trim(),
-        type: newItemType,
-        qty: Number(newItemQty) || 1
+  const scrollToSection = (id: string) => {
+    setActiveSectionId(id);
+    setActiveHeaderTab('reader');
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const copyText = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  // Filter sections by search query
+  const filteredSections = useMemo(() => {
+    if (!tocSearch.trim()) return STATUTORY_SECTIONS;
+    const q = tocSearch.toLowerCase();
+    return STATUTORY_SECTIONS.filter(
+      s => s.number.toLowerCase().includes(q) ||
+           s.title.toLowerCase().includes(q) ||
+           s.content.toLowerCase().includes(q)
+    );
+  }, [tocSearch]);
+
+  const filteredSchedules = useMemo(() => {
+    if (!tocSearch.trim()) return STATUTORY_SCHEDULES_FULL;
+    const q = tocSearch.toLowerCase();
+    return STATUTORY_SCHEDULES_FULL.filter(
+      s => s.title.toLowerCase().includes(q) ||
+           s.shortTitle.toLowerCase().includes(q) ||
+           s.scales.some(sc => sc.name.toLowerCase().includes(q) || sc.rules.some(r => r.toLowerCase().includes(q)))
+    );
+  }, [tocSearch]);
+
+  // Real Mathematical Scale Calculator Engine
+  const calculationResult = useMemo(() => {
+    const val = Number(calcValue) || 0;
+    let baseFee = 0;
+    let formulaSteps: string[] = [];
+    let statutoryRef = '';
+
+    switch (calcSchedule) {
+      case 'sched1_sale': {
+        // Schedule 1 First Scale: Sales and Purchases
+        statutoryRef = 'Schedule 1, First Scale (Sales & Purchases)';
+        if (val <= 5000000) {
+          const raw = val * 0.02;
+          baseFee = Math.max(35000, raw);
+          formulaSteps.push(`Tier 1 (Up to KES 5,000,000): 2% of KES ${val.toLocaleString()} = KES ${raw.toLocaleString()}`);
+          if (raw < 35000) formulaSteps.push(`Statutory minimum floor applied: KES 35,000`);
+        } else if (val <= 100000000) {
+          const t1 = 5000000 * 0.02; // 100,000
+          const rem = val - 5000000;
+          const t2 = rem * 0.015;
+          baseFee = t1 + t2;
+          formulaSteps.push(`Tier 1 (First KES 5M @ 2%): KES ${t1.toLocaleString()}`);
+          formulaSteps.push(`Tier 2 (KES ${rem.toLocaleString()} @ 1.5%): KES ${t2.toLocaleString()}`);
+        } else if (val <= 250000000) {
+          const t1 = 100000;
+          const t2 = 95000000 * 0.015; // 1,425,000 (total = 1,525,000)
+          const rem = val - 100000000;
+          const t3 = rem * 0.0125;
+          baseFee = t1 + t2 + t3;
+          formulaSteps.push(`Tiers 1 & 2 (Up to KES 100M): KES 1,525,000`);
+          formulaSteps.push(`Tier 3 (KES ${rem.toLocaleString()} @ 1.25%): KES ${t3.toLocaleString()}`);
+        } else if (val <= 1000000000) {
+          const prior = 1525000 + (150000000 * 0.0125); // 1,525,000 + 1,875,000 = 3,400,000
+          const rem = val - 250000000;
+          const t4 = rem * 0.01;
+          baseFee = prior + t4;
+          formulaSteps.push(`Prior Tiers (Up to KES 250M): KES 3,400,000`);
+          formulaSteps.push(`Tier 4 (KES ${rem.toLocaleString()} @ 1.0%): KES ${t4.toLocaleString()}`);
+        } else {
+          const prior = 3400000 + (750000000 * 0.01); // 10,900,000
+          const rem = val - 1000000000;
+          const t5 = rem * 0.001;
+          baseFee = prior + t5;
+          formulaSteps.push(`Prior Tiers (Up to KES 1 Billion): KES 10,900,000`);
+          formulaSteps.push(`Tier 5 (Excess KES ${rem.toLocaleString()} @ 0.1%): KES ${t5.toLocaleString()}`);
+        }
+        break;
       }
-    ]);
-    setNewItemDesc('');
-    setNewItemQty(1);
+
+      case 'sched1_mortgage_grantee': {
+        // Schedule 1 Second Scale: Creation of Security (Grantee Advocate)
+        statutoryRef = 'Schedule 1, Second Scale, Paragraph 2(b) (Grantee Creation)';
+        if (val <= 2500000) {
+          const raw = val * 0.02;
+          baseFee = Math.max(28000, raw);
+          formulaSteps.push(`Tier 1 (Up to KES 2.5M @ 2%): KES ${raw.toLocaleString()}`);
+          if (raw < 28000) formulaSteps.push(`Statutory minimum floor applied: KES 28,000`);
+        } else if (val <= 5000000) {
+          const t1 = 2500000 * 0.02; // 50,000
+          const t2 = (val - 2500000) * 0.0175;
+          baseFee = t1 + t2;
+          formulaSteps.push(`Tier 1 (First KES 2.5M @ 2%): KES ${t1.toLocaleString()}`);
+          formulaSteps.push(`Tier 2 (Balance @ 1.75%): KES ${t2.toLocaleString()}`);
+        } else if (val <= 100000000) {
+          const t12 = 50000 + (2500000 * 0.0175); // 93,750
+          const t3 = (val - 5000000) * 0.01;
+          baseFee = t12 + t3;
+          formulaSteps.push(`Tiers 1 & 2 (Up to KES 5M): KES 93,750`);
+          formulaSteps.push(`Tier 3 (Balance @ 1.0%): KES ${t3.toLocaleString()}`);
+        } else if (val <= 250000000) {
+          const prior = 93750 + (95000000 * 0.01); // 1,043,750
+          const t4 = (val - 100000000) * 0.0075;
+          baseFee = prior + t4;
+          formulaSteps.push(`Prior Tiers (Up to KES 100M): KES 1,043,750`);
+          formulaSteps.push(`Tier 4 (Balance @ 0.75%): KES ${t4.toLocaleString()}`);
+        } else if (val <= 1000000000) {
+          const prior = 1043750 + (150000000 * 0.0075); // 2,168,750
+          const t5 = (val - 250000000) * 0.0015;
+          baseFee = prior + t5;
+          formulaSteps.push(`Prior Tiers (Up to KES 250M): KES 2,168,750`);
+          formulaSteps.push(`Tier 5 (Balance @ 0.15%): KES ${t5.toLocaleString()}`);
+        } else {
+          const prior = 2168750 + (750000000 * 0.0015); // 3,293,750
+          const t6 = (val - 1000000000) * 0.001;
+          baseFee = prior + t6;
+          formulaSteps.push(`Prior Tiers (Up to KES 1 Billion): KES 3,293,750`);
+          formulaSteps.push(`Tier 6 (Excess Balance @ 0.1%): KES ${t6.toLocaleString()}`);
+        }
+        break;
+      }
+
+      case 'sched1_mortgage_grantor': {
+        // Schedule 1 Second Scale, Paragraph 2(d): Grantor creation is 50% of grantee fee
+        statutoryRef = 'Schedule 1, Second Scale, Paragraph 2(d) (Grantor Creation: 50%)';
+        // Compute grantee fee first
+        let granteeFee = 0;
+        if (val <= 2500000) granteeFee = Math.max(28000, val * 0.02);
+        else if (val <= 5000000) granteeFee = 50000 + (val - 2500000) * 0.0175;
+        else if (val <= 100000000) granteeFee = 93750 + (val - 5000000) * 0.01;
+        else if (val <= 250000000) granteeFee = 1043750 + (val - 100000000) * 0.0075;
+        else if (val <= 1000000000) granteeFee = 2168750 + (val - 250000000) * 0.0015;
+        else granteeFee = 3293750 + (val - 1000000000) * 0.001;
+
+        baseFee = granteeFee * 0.5;
+        formulaSteps.push(`Grantee Creation Base Scale Fee: KES ${granteeFee.toLocaleString()}`);
+        formulaSteps.push(`Grantor Advocate Entitlement (50% of Grantee): KES ${baseFee.toLocaleString()}`);
+        break;
+      }
+
+      case 'sched2_lease': {
+        // Schedule 2: Leases at a Rack Rent
+        statutoryRef = 'Schedule 2, Paragraph 1 (Preparation of Lease)';
+        if (val <= 500000) {
+          const raw = val * 0.15;
+          baseFee = Math.max(20000, raw);
+          formulaSteps.push(`Band 1 (Up to KES 500,000 @ 15%): KES ${raw.toLocaleString()}`);
+          if (raw < 20000) formulaSteps.push(`Statutory minimum floor applied: KES 20,000`);
+        } else if (val <= 3000000) {
+          const t1 = 500000 * 0.15; // 75,000
+          const t2 = (val - 500000) * 0.03;
+          baseFee = t1 + t2;
+          formulaSteps.push(`Band 1 (First KES 500,000 @ 15%): KES ${t1.toLocaleString()}`);
+          formulaSteps.push(`Band 2 (KES ${(val - 500000).toLocaleString()} @ 3%): KES ${t2.toLocaleString()}`);
+        } else {
+          const prior = (500000 * 0.15) + (2500000 * 0.03); // 75,000 + 75,000 = 150,000
+          const t3 = (val - 3000000) * 0.01;
+          baseFee = prior + t3;
+          formulaSteps.push(`Bands 1 & 2 (Up to KES 3,000,000): KES 150,000`);
+          formulaSteps.push(`Band 3 (Excess KES ${(val - 3000000).toLocaleString()} @ 1%): KES ${t3.toLocaleString()}`);
+        }
+        break;
+      }
+
+      case 'sched6_hc_defended': {
+        // Schedule 6: High Court Instruction Fee (Defended)
+        statutoryRef = 'Schedule 6, Item 1(b) (High Court Defended Suit)';
+        if (val <= 500000) {
+          baseFee = 75000;
+          formulaSteps.push(`Value up to KES 500,000: Fixed scale fee KES 75,000`);
+        } else if (val <= 750000) {
+          baseFee = 90000;
+          formulaSteps.push(`Value KES 500,001 - 750,000: Fixed scale fee KES 90,000`);
+        } else if (val <= 1000000) {
+          baseFee = 120000;
+          formulaSteps.push(`Value KES 750,001 - 1,000,000: Fixed scale fee KES 120,000`);
+        } else if (val <= 20000000) {
+          const t1 = 120000;
+          const rem = val - 1000000;
+          const t2 = rem * 0.02;
+          baseFee = t1 + t2;
+          formulaSteps.push(`Base fee for KES 1,000,000: KES 120,000`);
+          formulaSteps.push(`Additional 2.0% on balance (KES ${rem.toLocaleString()}): KES ${t2.toLocaleString()}`);
+        } else {
+          const prior = 120000 + (19000000 * 0.02); // 120,000 + 380,000 = 500,000
+          const rem = val - 20000000;
+          const t3 = rem * 0.015;
+          baseFee = prior + t3;
+          formulaSteps.push(`Base fee for KES 20,000,000: KES 500,000`);
+          formulaSteps.push(`Additional 1.5% on balance over 20M (KES ${rem.toLocaleString()}): KES ${t3.toLocaleString()}`);
+        }
+        break;
+      }
+
+      case 'sched7_sub_defended': {
+        // Schedule 7: Subordinate Courts Higher Scale (Defended)
+        statutoryRef = 'Schedule 7, Item 1 (Subordinate Court Defended Higher Scale)';
+        if (val <= 50000) baseFee = 15000;
+        else if (val <= 100000) baseFee = 30000;
+        else if (val <= 200000) baseFee = 40000;
+        else if (val <= 500000) baseFee = 65000;
+        else if (val <= 1000000) baseFee = 90000;
+        else if (val <= 2000000) baseFee = 120000;
+        else {
+          const rem = val - 2000000;
+          baseFee = 120000 + (rem * 0.025);
+          formulaSteps.push(`Base fee for KES 2,000,000: KES 120,000`);
+          formulaSteps.push(`Additional 2.5% on balance (KES ${rem.toLocaleString()}): KES ${(rem * 0.025).toLocaleString()}`);
+        }
+        if (formulaSteps.length === 0) {
+          formulaSteps.push(`Value KES ${val.toLocaleString()} falls in statutory band: KES ${baseFee.toLocaleString()}`);
+        }
+        break;
+      }
+
+      case 'sched10_probate': {
+        // Schedule 10: Probate Gross Capital Value
+        statutoryRef = 'Schedule 10, Item 1(a) (Probate / Administration Grant)';
+        if (val <= 1000000) {
+          baseFee = val * 0.05;
+          formulaSteps.push(`Gross Capital Value up to KES 1,000,000: 5% of KES ${val.toLocaleString()} = KES ${baseFee.toLocaleString()}`);
+        } else {
+          const t1 = 1000000 * 0.05; // 50,000
+          const rem = val - 1000000;
+          const t2 = rem * 0.01;
+          baseFee = t1 + t2;
+          formulaSteps.push(`First KES 1,000,000 @ 5%: KES 50,000`);
+          formulaSteps.push(`Excess over KES 1,000,000 @ 1%: KES ${t2.toLocaleString()}`);
+        }
+        break;
+      }
+
+      default:
+        baseFee = 0;
+    }
+
+    const finalFee = isAdvocateClient ? baseFee * 1.5 : baseFee;
+    if (isAdvocateClient) {
+      formulaSteps.push(`Advocate & Client Statutory Uplift (+50% under Part B): KES ${(baseFee * 0.5).toLocaleString()}`);
+    }
+
+    return {
+      baseFee,
+      finalFee,
+      statutoryRef,
+      formulaSteps
+    };
+  }, [calcSchedule, calcValue, isAdvocateClient]);
+
+  const openCalculatorForSchedule = (schedKey: string, initialVal?: number) => {
+    setCalcSchedule(schedKey);
+    if (initialVal) setCalcValue(initialVal);
+    setIsCalculatorOpen(true);
   };
-
-  const handleRemoveFolioItem = (index: number) => {
-    setSimFolios((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  // Live Math Computation
-  const simResult = calculate_bill_of_costs(
-    simClaimValue,
-    simSchedule,
-    simIsDefendant,
-    simIncludeGettingUp,
-    simFolios,
-    simDisbursements,
-    simComplexityMultiplier,
-    simMonthsOverdue
-  );
-
-  // Sec. 77 Rule Audit
-  const taxedOffAudit = check_one_sixth_taxed_off_rule(simResult.grand_total, simTaxedOffAmount);
-
-  const totalPages = 6;
 
   return (
-    <div className="space-y-6 pb-16">
-      {/* Top Minimalist Navigation & Toolbar */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-2.5 sm:p-3 shadow-sm flex flex-col md:flex-row items-center justify-between gap-3">
-        
-        {/* Navigation Tabs */}
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800 p-1 rounded-lg text-xs w-full md:w-auto justify-center overflow-x-auto">
-          <button
-            onClick={() => setActiveTab('gazette')}
-            className={`px-3.5 py-1.5 rounded-md font-semibold transition-all cursor-pointer ${
-              activeTab === 'gazette'
-                ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-sm font-bold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            PDF Gazette Document
-          </button>
-          <button
-            onClick={() => setActiveTab('toc')}
-            className={`px-3.5 py-1.5 rounded-md font-semibold transition-all cursor-pointer ${
-              activeTab === 'toc'
-                ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-sm font-bold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Statutory Index (79 Secs)
-          </button>
-          <button
-            onClick={() => setActiveTab('schedules')}
-            className={`px-3.5 py-1.5 rounded-md font-semibold transition-all cursor-pointer ${
-              activeTab === 'schedules'
-                ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-sm font-bold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Schedules 1 – 11 Full Scales
-          </button>
-          <button
-            onClick={() => setActiveTab('simulator')}
-            className={`px-3.5 py-1.5 rounded-md font-semibold transition-all cursor-pointer ${
-              activeTab === 'simulator'
-                ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-sm font-bold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Math Simulator Engine
-          </button>
-        </div>
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#090d16] text-[#0f172a] dark:text-[#f1f5f9] font-sans antialiased">
+      {/* Top Kenya Law Metadata Masthead */}
+      <header className="bg-white dark:bg-[#0d131f] border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 shadow-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between py-3 gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Laws of Kenya · Advocates Act (Cap. 16)
+                </span>
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                  Latest Version (L.N. 221/2023)
+                </span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-serif font-bold text-slate-900 dark:text-white mt-0.5">
+                {STATUTORY_METADATA.title}
+              </h1>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                {STATUTORY_METADATA.legalNotice} · {STATUTORY_METADATA.gazette}
+              </p>
+            </div>
 
-        {/* Search Bar */}
-        <div className="relative w-full md:w-64">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search Gazette / Statutory Rules..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400 dark:text-white placeholder-slate-400 font-medium"
-          />
-        </div>
+            {/* Quick Action Tools */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsCalculatorOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md bg-slate-900 text-white dark:bg-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors shadow-xs"
+                title="Open Live Scale Fee Calculator"
+              >
+                <Calculator className="w-3.5 h-3.5" />
+                <span>Statutory Calculator</span>
+              </button>
 
-        {/* Controls */}
-        <div className="flex items-center gap-2 shrink-0 w-full md:w-auto justify-end">
-          {/* Zoom */}
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800 px-2 py-1 rounded-lg border border-slate-200 dark:border-zinc-700 text-xs text-slate-700 dark:text-slate-300">
-            <button
-              onClick={() => setZoomLevel(Math.max(75, zoomLevel - 10))}
-              className="p-0.5 hover:text-slate-900 dark:hover:text-white rounded cursor-pointer"
-              title="Zoom Out"
-            >
-              <ZoomOut className="w-3.5 h-3.5" />
-            </button>
-            <span className="font-mono text-[11px] px-1 font-bold">{zoomLevel}%</span>
-            <button
-              onClick={() => setZoomLevel(Math.min(130, zoomLevel + 10))}
-              className="p-0.5 hover:text-slate-900 dark:hover:text-white rounded cursor-pointer"
-              title="Zoom In"
-            >
-              <ZoomIn className="w-3.5 h-3.5" />
-            </button>
+              <button
+                onClick={handlePrint}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                title="Print statutory text"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Print</span>
+              </button>
+
+              <div className="hidden sm:flex items-center border border-slate-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 px-1 py-0.5 text-xs">
+                <button
+                  onClick={() => setFontSize('sm')}
+                  className={`px-1.5 py-0.5 rounded ${fontSize === 'sm' ? 'bg-slate-200 dark:bg-slate-700 font-bold' : 'text-slate-500'}`}
+                  title="Small text"
+                >
+                  A-
+                </button>
+                <button
+                  onClick={() => setFontSize('base')}
+                  className={`px-1.5 py-0.5 rounded ${fontSize === 'base' ? 'bg-slate-200 dark:bg-slate-700 font-bold' : 'text-slate-500'}`}
+                  title="Normal text"
+                >
+                  A
+                </button>
+                <button
+                  onClick={() => setFontSize('lg')}
+                  className={`px-1.5 py-0.5 rounded ${fontSize === 'lg' ? 'bg-slate-200 dark:bg-slate-700 font-bold' : 'text-slate-500'}`}
+                  title="Large text"
+                >
+                  A+
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* Print */}
-          <button
-            onClick={() => window.print()}
-            className="p-1.5 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-lg border border-slate-200 dark:border-zinc-700 cursor-pointer"
-            title="Print Gazette Document"
-          >
-            <Printer className="w-4 h-4" />
-          </button>
+          {/* Kenya Law Style Metadata Tabs */}
+          <div className="flex items-center gap-6 border-t border-slate-100 dark:border-slate-800/80 pt-2 text-xs font-medium">
+            <button
+              onClick={() => setActiveHeaderTab('reader')}
+              className={`pb-2 border-b-2 transition-colors ${
+                activeHeaderTab === 'reader'
+                  ? 'border-slate-900 dark:border-white text-slate-900 dark:text-white font-semibold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              Document Content
+            </button>
+            <button
+              onClick={() => setActiveHeaderTab('detail')}
+              className={`pb-2 border-b-2 transition-colors ${
+                activeHeaderTab === 'detail'
+                  ? 'border-slate-900 dark:border-white text-slate-900 dark:text-white font-semibold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              Document Detail
+            </button>
+            <button
+              onClick={() => setActiveHeaderTab('history')}
+              className={`pb-2 border-b-2 transition-colors ${
+                activeHeaderTab === 'history'
+                  ? 'border-slate-900 dark:border-white text-slate-900 dark:text-white font-semibold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              History ({STATUTORY_METADATA.amendmentHistory.length} Amendments)
+            </button>
+            <button
+              onClick={() => setActiveHeaderTab('citations')}
+              className={`pb-2 border-b-2 transition-colors ${
+                activeHeaderTab === 'citations'
+                  ? 'border-slate-900 dark:border-white text-slate-900 dark:text-white font-semibold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              Citations ({STATUTORY_METADATA.citationsCount})
+            </button>
+            <button
+              onClick={() => setActiveHeaderTab('related')}
+              className={`pb-2 border-b-2 transition-colors ${
+                activeHeaderTab === 'related'
+                  ? 'border-slate-900 dark:border-white text-slate-900 dark:text-white font-semibold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              Related Documents ({STATUTORY_METADATA.relatedDocuments.length})
+            </button>
+          </div>
+        </div>
+      </header>
 
-          {/* Visit Official Kenya Law Web Button */}
-          <a
-            href="https://new.kenyalaw.org/akn/ke/act/ln/1962/64/eng@2022-12-31"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-            title="Open official Kenya Law web page (L.N. 64/1962 ed. 2022)"
-          >
-            <ExternalLink className="w-3.5 h-3.5" /> Visit Kenya Law Gazette
-          </a>
+      {/* Tab Panels: Document Detail, History, Citations, Related */}
+      {activeHeaderTab === 'detail' && (
+        <section className="bg-white dark:bg-[#0f172a] border-b border-slate-200 dark:border-slate-800 py-6">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-base font-serif font-bold text-slate-900 dark:text-white mb-4">Official Document Metadata</h2>
+            <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded border border-slate-200 dark:border-slate-700">
+                <dt className="text-slate-500 dark:text-slate-400 font-medium">Citation</dt>
+                <dd className="font-semibold text-slate-900 dark:text-white mt-1">{STATUTORY_METADATA.legalNotice}</dd>
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded border border-slate-200 dark:border-slate-700">
+                <dt className="text-slate-500 dark:text-slate-400 font-medium">Primary Enabling Act</dt>
+                <dd className="font-semibold text-slate-900 dark:text-white mt-1">{STATUTORY_METADATA.primaryWork}</dd>
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded border border-slate-200 dark:border-slate-700">
+                <dt className="text-slate-500 dark:text-slate-400 font-medium">Commencement Date</dt>
+                <dd className="font-semibold text-slate-900 dark:text-white mt-1">30 January 1962</dd>
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded border border-slate-200 dark:border-slate-700">
+                <dt className="text-slate-500 dark:text-slate-400 font-medium">Latest Statutory Revision</dt>
+                <dd className="font-semibold text-slate-900 dark:text-white mt-1">24th Annual Supplement (L.N. 221/2023)</dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+      )}
+
+      {activeHeaderTab === 'history' && (
+        <section className="bg-white dark:bg-[#0f172a] border-b border-slate-200 dark:border-slate-800 py-6">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-base font-serif font-bold text-slate-900 dark:text-white mb-2">Legislative Amendment History</h2>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
+              Chronological record of official Legal Notices amending Legal Notice 64 of 1962 as gazetted by the Rules Committee of the High Court of Kenya.
+            </p>
+            <div className="max-h-72 overflow-y-auto rounded border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+              {STATUTORY_METADATA.amendmentHistory.map((item, idx) => (
+                <div key={idx} className="p-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 flex items-start gap-2">
+                  <span className="font-mono text-slate-400 w-6 shrink-0">{idx + 1}.</span>
+                  <span className="text-slate-800 dark:text-slate-200 font-mono">{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {activeHeaderTab === 'citations' && (
+        <section className="bg-white dark:bg-[#0f172a] border-b border-slate-200 dark:border-slate-800 py-6">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-base font-serif font-bold text-slate-900 dark:text-white mb-2">Key Judicial Authorities & Precedents</h2>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
+              Leading Superior Court decisions establishing binding legal principles on taxation of costs under the Advocates (Remuneration) Order:
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="p-3 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                <div className="font-serif font-bold text-slate-900 dark:text-white">Premchand Raichand Ltd v. Quarry Services of East Africa Ltd [1972] EA 162</div>
+                <p className="mt-1 text-slate-600 dark:text-slate-300">
+                  Established the governing principles for assessing instruction fees: costs should not be so low as to deter reputable practitioners nor so high as to make justice inaccessible.
+                </p>
+                <div className="mt-2 text-[11px] text-slate-500 font-mono">Governs Schedule 6 & 7 Instruction Fees</div>
+              </div>
+              <div className="p-3 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                <div className="font-serif font-bold text-slate-900 dark:text-white">Thomas James Arthur v. Nyeri Electricity Undertaking [1961] EA 492</div>
+                <p className="mt-1 text-slate-600 dark:text-slate-300">
+                  Defines the taxing officer's discretionary powers under paragraph 16: interference by a judge on reference under paragraph 11 is only warranted upon an error of principle.
+                </p>
+                <div className="mt-2 text-[11px] text-slate-500 font-mono">Governs Paragraphs 11, 16 & Schedule 6</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {activeHeaderTab === 'related' && (
+        <section className="bg-white dark:bg-[#0f172a] border-b border-slate-200 dark:border-slate-800 py-6">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-base font-serif font-bold text-slate-900 dark:text-white mb-2">Related Statutory Frameworks</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+              {STATUTORY_METADATA.relatedDocuments.map((doc, idx) => (
+                <div key={idx} className="p-3 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
+                  <div className="font-semibold text-slate-900 dark:text-white">{doc.title}</div>
+                  <div className="text-slate-500 text-[11px] mt-0.5">{doc.type}</div>
+                  <div className="text-slate-400 font-mono text-[11px] mt-1">{doc.ref}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Main Two-Column Kenya Law Document Layout */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Left Column: Kenya Law Style Table of Contents (Sticky) */}
+          <aside className="lg:col-span-4 xl:col-span-3">
+            <div className="sticky top-24 bg-white dark:bg-[#0d131f] rounded-lg border border-slate-200 dark:border-slate-800 p-4 shadow-2xs max-h-[calc(100vh-7rem)] flex flex-col">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  Table of contents
+                </span>
+                <span className="text-[11px] text-slate-400 font-mono">
+                  {filteredSections.length} secs · {filteredSchedules.length} scheds
+                </span>
+              </div>
+
+              {/* Search Table of Contents Input */}
+              <div className="mt-3 relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={tocSearch}
+                  onChange={(e) => setTocSearch(e.target.value)}
+                  placeholder="Search table of contents..."
+                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:ring-1 focus:ring-slate-900 dark:focus:ring-white"
+                />
+                {tocSearch && (
+                  <button
+                    onClick={() => setTocSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+
+              {/* Scrollable Navigation Tree */}
+              <nav className="mt-3 overflow-y-auto space-y-4 pr-1 text-xs">
+                {/* Part I Tree */}
+                <div>
+                  <button
+                    onClick={() => togglePart('part_I')}
+                    className="w-full flex items-center justify-between py-1 text-left font-serif font-bold text-slate-900 dark:text-slate-100 hover:text-slate-600 dark:hover:text-slate-300"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-slate-400">{expandedParts.part_I ? '▼' : '►'}</span>
+                      <span>Part I – GENERAL MATTERS</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400 font-normal">§1–17</span>
+                  </button>
+                  {expandedParts.part_I && (
+                    <ul className="mt-1 pl-4 space-y-1 border-l border-slate-200 dark:border-slate-800 text-[11px]">
+                      {filteredSections.filter(s => s.part === 'part_I').map(s => (
+                        <li key={s.number}>
+                          <button
+                            onClick={() => scrollToSection(`sec-${s.number}`)}
+                            className={`w-full text-left py-1 px-1.5 rounded transition-colors truncate flex items-center justify-between ${
+                              activeSectionId === `sec-${s.number}`
+                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                            }`}
+                          >
+                            <span className="truncate">{s.number}. {s.title}</span>
+                            {s.engineRule && (
+                              <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 shrink-0 ml-1">
+                                📐
+                              </span>
+                            )}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {/* Part II Tree */}
+                <div>
+                  <button
+                    onClick={() => togglePart('part_II')}
+                    className="w-full flex items-center justify-between py-1 text-left font-serif font-bold text-slate-900 dark:text-slate-100 hover:text-slate-600 dark:hover:text-slate-300"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-slate-400">{expandedParts.part_II ? '▼' : '►'}</span>
+                      <span>Part II – NON-CONTENTIOUS</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400 font-normal">§18–48</span>
+                  </button>
+                  {expandedParts.part_II && (
+                    <ul className="mt-1 pl-4 space-y-1 border-l border-slate-200 dark:border-slate-800 text-[11px]">
+                      {filteredSections.filter(s => s.part === 'part_II').map(s => (
+                        <li key={s.number}>
+                          <button
+                            onClick={() => scrollToSection(`sec-${s.number}`)}
+                            className={`w-full text-left py-1 px-1.5 rounded transition-colors truncate flex items-center justify-between ${
+                              activeSectionId === `sec-${s.number}`
+                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                            }`}
+                          >
+                            <span className="truncate">{s.number}. {s.title}</span>
+                            {s.engineRule && (
+                              <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 shrink-0 ml-1">
+                                📐
+                              </span>
+                            )}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {/* Part III Tree */}
+                <div>
+                  <button
+                    onClick={() => togglePart('part_III')}
+                    className="w-full flex items-center justify-between py-1 text-left font-serif font-bold text-slate-900 dark:text-slate-100 hover:text-slate-600 dark:hover:text-slate-300"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-slate-400">{expandedParts.part_III ? '▼' : '►'}</span>
+                      <span>Part III – TAXATION OF COSTS</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400 font-normal">§49–79</span>
+                  </button>
+                  {expandedParts.part_III && (
+                    <ul className="mt-1 pl-4 space-y-1 border-l border-slate-200 dark:border-slate-800 text-[11px]">
+                      {filteredSections.filter(s => s.part === 'part_III').map(s => (
+                        <li key={s.number}>
+                          <button
+                            onClick={() => scrollToSection(`sec-${s.number}`)}
+                            className={`w-full text-left py-1 px-1.5 rounded transition-colors truncate flex items-center justify-between ${
+                              activeSectionId === `sec-${s.number}`
+                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                            }`}
+                          >
+                            <span className="truncate">{s.number}. {s.title}</span>
+                            {s.engineRule && (
+                              <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 shrink-0 ml-1">
+                                📐
+                              </span>
+                            )}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {/* Schedules Tree */}
+                <div>
+                  <button
+                    onClick={() => togglePart('schedules')}
+                    className="w-full flex items-center justify-between py-1 text-left font-serif font-bold text-slate-900 dark:text-slate-100 hover:text-slate-600 dark:hover:text-slate-300"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-slate-400">{expandedParts.schedules ? '▼' : '►'}</span>
+                      <span>SCHEDULES (1 to 12)</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400 font-normal">12 Scheds</span>
+                  </button>
+                  {expandedParts.schedules && (
+                    <ul className="mt-1 pl-4 space-y-1 border-l border-slate-200 dark:border-slate-800 text-[11px]">
+                      {filteredSchedules.map(sched => (
+                        <li key={sched.scheduleNumber}>
+                          <button
+                            onClick={() => scrollToSection(`sched-${sched.scheduleNumber}`)}
+                            className={`w-full text-left py-1 px-1.5 rounded transition-colors truncate flex items-center justify-between ${
+                              activeSectionId === `sched-${sched.scheduleNumber}`
+                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                            }`}
+                          >
+                            <span className="truncate">Schedule {sched.scheduleNumber}: {sched.shortTitle.split(':')[1] || sched.shortTitle}</span>
+                            <span className="text-[9px] font-mono text-slate-400 shrink-0">Scale</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </nav>
+            </div>
+          </aside>
+
+          {/* Right Column: Clean, Minimalist, Official Statutory Reader */}
+          <main className="lg:col-span-8 xl:col-span-9">
+            <article className="bg-white dark:bg-[#0d131f] rounded-lg border border-slate-200 dark:border-slate-800 p-6 sm:p-10 shadow-2xs">
+              {/* Document Masthead */}
+              <div className="text-center pb-8 border-b border-slate-200 dark:border-slate-800">
+                <div className="font-serif tracking-widest text-xs font-bold uppercase text-slate-500 dark:text-slate-400">
+                  LAWS OF KENYA
+                </div>
+                <div className="font-serif tracking-wider text-sm font-semibold uppercase text-slate-700 dark:text-slate-300 mt-1">
+                  ADVOCATES ACT
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-serif font-bold text-slate-900 dark:text-white mt-2">
+                  THE ADVOCATES (REMUNERATION) ORDER
+                </h1>
+                <div className="text-xs font-mono font-medium text-slate-600 dark:text-slate-400 mt-2">
+                  LEGAL NOTICE 64 OF 1962
+                </div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Published in Kenya Gazette Vol. LXIV—No. 5 on 30 January 1962 · Commenced on 30 January 1962
+                </div>
+                <div className="text-[11px] text-slate-400 dark:text-slate-500 italic mt-1">
+                  [As consolidated with all amendments up to Legal Notice 221 of 2023]
+                </div>
+              </div>
+
+              {/* Reading Size Utility Wrapper */}
+              <div className={`mt-8 space-y-12 ${
+                fontSize === 'sm' ? 'text-xs leading-relaxed' :
+                fontSize === 'lg' ? 'text-base leading-relaxed' :
+                'text-sm leading-relaxed'
+              }`}>
+                {/* Part I: General Matters */}
+                <section>
+                  <div className="pb-3 mb-6 border-b border-slate-200 dark:border-slate-800">
+                    <span className="text-xs font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
+                      Part I
+                    </span>
+                    <h2 className="text-lg sm:text-xl font-serif font-bold text-slate-900 dark:text-white">
+                      GENERAL MATTERS
+                    </h2>
+                  </div>
+
+                  <div className="space-y-8">
+                    {STATUTORY_SECTIONS.filter(s => s.part === 'part_I').map(sec => (
+                      <div
+                        key={sec.number}
+                        id={`sec-${sec.number}`}
+                        className={`p-4 rounded-md transition-colors ${
+                          activeSectionId === `sec-${sec.number}`
+                            ? 'bg-slate-50 dark:bg-slate-800/40 border-l-3 border-slate-900 dark:border-white'
+                            : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <h3 className="font-serif font-bold text-slate-900 dark:text-white">
+                              {sec.number}. {sec.title}
+                            </h3>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {sec.engineRule && (
+                              <button
+                                onClick={() => {
+                                  if (sec.number === '7') openCalculatorForSchedule('sched1_sale');
+                                  else setIsCalculatorOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors"
+                                title="View calculation rule in engine"
+                              >
+                                <span>📐</span>
+                                <span className="hidden sm:inline font-sans">{sec.engineRule.rule}</span>
+                              </button>
+                            )}
+                            <button
+                              onClick={() => copyText(`${sec.number}. ${sec.title}\n${sec.content}`, `sec-${sec.number}`)}
+                              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                              title="Copy section citation"
+                            >
+                              {copiedId === `sec-${sec.number}` ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Statutory Body Text with proper formatting */}
+                        <div className="mt-3 text-slate-800 dark:text-slate-200 whitespace-pre-line font-serif leading-relaxed">
+                          {sec.content}
+                        </div>
+
+                        {sec.notes && (
+                          <div className="mt-2 text-xs font-mono text-slate-500 dark:text-slate-400">
+                            {sec.notes}
+                          </div>
+                        )}
+
+                        {sec.engineRule && (
+                          <div className="mt-3 p-2.5 rounded bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 text-xs">
+                            <div className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white">
+                              <span>📐 Karani Engine Statutory Rule:</span>
+                              <span className="font-mono text-slate-700 dark:text-slate-300">{sec.engineRule.formula}</span>
+                            </div>
+                            <div className="text-slate-600 dark:text-slate-400 mt-0.5">
+                              {sec.engineRule.description}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                {/* Part II: Non-Contentious Matters */}
+                <section className="pt-8 border-t border-slate-200 dark:border-slate-800">
+                  <div className="pb-3 mb-6 border-b border-slate-200 dark:border-slate-800">
+                    <span className="text-xs font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
+                      Part II
+                    </span>
+                    <h2 className="text-lg sm:text-xl font-serif font-bold text-slate-900 dark:text-white">
+                      NON-CONTENTIOUS MATTERS
+                    </h2>
+                  </div>
+
+                  <div className="space-y-8">
+                    {STATUTORY_SECTIONS.filter(s => s.part === 'part_II').map(sec => (
+                      <div
+                        key={sec.number}
+                        id={`sec-${sec.number}`}
+                        className={`p-4 rounded-md transition-colors ${
+                          activeSectionId === `sec-${sec.number}`
+                            ? 'bg-slate-50 dark:bg-slate-800/40 border-l-3 border-slate-900 dark:border-white'
+                            : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <h3 className="font-serif font-bold text-slate-900 dark:text-white">
+                              {sec.number}. {sec.title}
+                            </h3>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {sec.engineRule && (
+                              <button
+                                onClick={() => {
+                                  if (sec.number === '18' || sec.number === '29') openCalculatorForSchedule('sched1_sale');
+                                  else if (sec.number === '33' || sec.number === '34') openCalculatorForSchedule('sched1_mortgage_grantee');
+                                  else if (sec.number === '45') openCalculatorForSchedule('sched2_lease');
+                                  else setIsCalculatorOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors"
+                                title="View calculation rule in engine"
+                              >
+                                <span>📐</span>
+                                <span className="hidden sm:inline font-sans">{sec.engineRule.rule}</span>
+                              </button>
+                            )}
+                            <button
+                              onClick={() => copyText(`${sec.number}. ${sec.title}\n${sec.content}`, `sec-${sec.number}`)}
+                              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                              title="Copy section citation"
+                            >
+                              {copiedId === `sec-${sec.number}` ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 text-slate-800 dark:text-slate-200 whitespace-pre-line font-serif leading-relaxed">
+                          {sec.content}
+                        </div>
+
+                        {sec.notes && (
+                          <div className="mt-2 text-xs font-mono text-slate-500 dark:text-slate-400">
+                            {sec.notes}
+                          </div>
+                        )}
+
+                        {sec.engineRule && (
+                          <div className="mt-3 p-2.5 rounded bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 text-xs">
+                            <div className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white">
+                              <span>📐 Karani Engine Statutory Rule:</span>
+                              <span className="font-mono text-slate-700 dark:text-slate-300">{sec.engineRule.formula}</span>
+                            </div>
+                            <div className="text-slate-600 dark:text-slate-400 mt-0.5">
+                              {sec.engineRule.description}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                {/* Part III: Taxation of Costs */}
+                <section className="pt-8 border-t border-slate-200 dark:border-slate-800">
+                  <div className="pb-3 mb-6 border-b border-slate-200 dark:border-slate-800">
+                    <span className="text-xs font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
+                      Part III
+                    </span>
+                    <h2 className="text-lg sm:text-xl font-serif font-bold text-slate-900 dark:text-white">
+                      TAXATION OF COSTS IN CONTENTIOUS AND OTHER MATTERS
+                    </h2>
+                  </div>
+
+                  <div className="space-y-8">
+                    {STATUTORY_SECTIONS.filter(s => s.part === 'part_III').map(sec => (
+                      <div
+                        key={sec.number}
+                        id={`sec-${sec.number}`}
+                        className={`p-4 rounded-md transition-colors ${
+                          activeSectionId === `sec-${sec.number}`
+                            ? 'bg-slate-50 dark:bg-slate-800/40 border-l-3 border-slate-900 dark:border-white'
+                            : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <h3 className="font-serif font-bold text-slate-900 dark:text-white">
+                              {sec.number}. {sec.title}
+                            </h3>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {sec.engineRule && (
+                              <button
+                                onClick={() => {
+                                  if (sec.number === '50' || sec.number === '50A') openCalculatorForSchedule('sched6_hc_defended');
+                                  else if (sec.number === '51') openCalculatorForSchedule('sched7_sub_defended');
+                                  else setIsCalculatorOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors"
+                                title="View calculation rule in engine"
+                              >
+                                <span>📐</span>
+                                <span className="hidden sm:inline font-sans">{sec.engineRule.rule}</span>
+                              </button>
+                            )}
+                            <button
+                              onClick={() => copyText(`${sec.number}. ${sec.title}\n${sec.content}`, `sec-${sec.number}`)}
+                              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                              title="Copy section citation"
+                            >
+                              {copiedId === `sec-${sec.number}` ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 text-slate-800 dark:text-slate-200 whitespace-pre-line font-serif leading-relaxed">
+                          {sec.content}
+                        </div>
+
+                        {sec.notes && (
+                          <div className="mt-2 text-xs font-mono text-slate-500 dark:text-slate-400">
+                            {sec.notes}
+                          </div>
+                        )}
+
+                        {sec.engineRule && (
+                          <div className="mt-3 p-2.5 rounded bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 text-xs">
+                            <div className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white">
+                              <span>📐 Karani Engine Statutory Rule:</span>
+                              <span className="font-mono text-slate-700 dark:text-slate-300">{sec.engineRule.formula}</span>
+                            </div>
+                            <div className="text-slate-600 dark:text-slate-400 mt-0.5">
+                              {sec.engineRule.description}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                {/* Schedules 1 through 12 */}
+                <section className="pt-8 border-t border-slate-200 dark:border-slate-800">
+                  <div className="pb-3 mb-6 border-b border-slate-200 dark:border-slate-800">
+                    <span className="text-xs font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
+                      Statutory Scales
+                    </span>
+                    <h2 className="text-lg sm:text-xl font-serif font-bold text-slate-900 dark:text-white">
+                      SCHEDULES 1 TO 12
+                    </h2>
+                  </div>
+
+                  <div className="space-y-12">
+                    {STATUTORY_SCHEDULES_FULL.map(sched => (
+                      <div
+                        key={sched.scheduleNumber}
+                        id={`sched-${sched.scheduleNumber}`}
+                        className="p-5 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 gap-3">
+                          <div>
+                            <span className="text-xs font-mono text-slate-400 font-medium">
+                              {sched.category} · {sched.legalRef}
+                            </span>
+                            <h3 className="text-base sm:text-lg font-serif font-bold text-slate-900 dark:text-white">
+                              {sched.title}
+                            </h3>
+                          </div>
+                          <button
+                            onClick={() => {
+                              if (sched.scheduleNumber === 1) openCalculatorForSchedule('sched1_sale');
+                              else if (sched.scheduleNumber === 2) openCalculatorForSchedule('sched2_lease');
+                              else if (sched.scheduleNumber === 6) openCalculatorForSchedule('sched6_hc_defended');
+                              else if (sched.scheduleNumber === 7) openCalculatorForSchedule('sched7_sub_defended');
+                              else if (sched.scheduleNumber === 10) openCalculatorForSchedule('sched10_probate');
+                              else setIsCalculatorOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shrink-0"
+                          >
+                            <Calculator className="w-3.5 h-3.5" />
+                            <span>Test in Engine</span>
+                          </button>
+                        </div>
+
+                        {/* Scales within Schedule */}
+                        <div className="mt-4 space-y-6">
+                          {sched.scales.map((scale, sIdx) => (
+                            <div key={sIdx} className="bg-white dark:bg-slate-800/80 p-4 rounded border border-slate-200 dark:border-slate-700">
+                              <h4 className="font-serif font-bold text-slate-900 dark:text-white text-sm">
+                                {scale.name}
+                              </h4>
+
+                              <div className="mt-2 space-y-1.5 font-mono text-xs text-slate-700 dark:text-slate-300">
+                                {scale.rules.map((r, rIdx) => (
+                                  <div key={rIdx} className="p-1.5 bg-slate-50 dark:bg-slate-900/60 rounded border border-slate-100 dark:border-slate-800 whitespace-pre-line">
+                                    {r}
+                                  </div>
+                                ))}
+                              </div>
+
+                              {scale.notes && (
+                                <p className="mt-3 text-xs text-slate-500 dark:text-slate-400 italic">
+                                  Note: {scale.notes}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </div>
+
+              {/* Official Kenya Law Repository Footer */}
+              <footer className="mt-16 pt-8 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div>
+                    <p className="font-semibold text-slate-700 dark:text-slate-300">
+                      National Council for Law Reporting (Kenya Law) · ISO 9001:2015 Certified
+                    </p>
+                    <p className="mt-0.5">
+                      Except for material expressly stated under Creative Commons, contents are in public domain.
+                    </p>
+                  </div>
+                  <div className="text-right text-[11px] font-mono">
+                    The Advocates (Remuneration) Order (Legal Notice 64 of 1962)
+                  </div>
+                </div>
+              </footer>
+            </article>
+          </main>
         </div>
       </div>
 
-      {/* TAB 1: FULL SCROLLABLE PDF GAZETTE DOCUMENT READER */}
-      {activeTab === 'gazette' && (
-        <div className="flex flex-col items-center space-y-6">
+      {/* Slide-over Statutory Scale Math Engine Calculator Drawer */}
+      {isCalculatorOpen && (
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          {/* Backdrop */}
           <div
-            className="bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 shadow-xl rounded-sm p-6 sm:p-12 text-slate-900 dark:text-slate-100 font-serif leading-relaxed transition-all duration-200"
-            style={{
-              width: `${(zoomLevel / 100) * 850}px`,
-              minHeight: '1100px',
-              maxWidth: '100%'
-            }}
-          >
-            {/* Gazette Official Header Stamp */}
-            <div className="text-center border-b-2 border-slate-900 dark:border-slate-100 pb-6 mb-8">
-              <div className="text-xs uppercase tracking-widest font-sans font-bold text-slate-500 mb-1">
-                REPUBLIC OF KENYA
-              </div>
-              <h1 className="text-xl sm:text-2xl font-bold uppercase tracking-tight font-sans">
-                THE KENYA GAZETTE SUPPLEMENT
-              </h1>
-              <div className="text-xs font-mono text-slate-600 dark:text-slate-400 mt-1">
-                LEGAL NOTICE NO. 64 OF 1962 (ed. 2022) & L.N. 35 OF 2014
-              </div>
-              <div className="text-xs italic font-sans text-slate-500 mt-2 flex flex-wrap items-center justify-center gap-2">
-                <span>Published by Authority of the High Court of Kenya & National Council for Law Reporting</span>
-                <a
-                  href="https://new.kenyalaw.org/akn/ke/act/ln/1962/64/eng@2022-12-31"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-[11px] font-sans font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+            className="absolute inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
+            onClick={() => setIsCalculatorOpen(false)}
+          />
+
+          <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+            <div className="w-screen max-w-md bg-white dark:bg-[#0d131f] border-l border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col">
+              {/* Drawer Header */}
+              <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calculator className="w-4 h-4 text-slate-900 dark:text-white" />
+                  <h3 className="font-serif font-bold text-slate-900 dark:text-white text-base">
+                    Statutory Scale Calculator
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setIsCalculatorOpen(false)}
+                  className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 >
-                  (View Source on Kenya Law <ExternalLink className="w-3 h-3" />)
-                </a>
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-            </div>
 
-            {/* PAGE 1 CONTENT */}
-            {currentPage === 1 && (
-              <div className="space-y-6 text-sm">
-                <div className="text-center font-bold font-sans uppercase tracking-wider text-base mb-4">
-                  PART I — GENERAL MATTERS (SECTIONS 1 TO 17)
-                </div>
-
-                <p className="text-justify indent-6">
-                  <strong>IN EXERCISE</strong> of the powers conferred by section 48 of the Advocates Act, the Chief Justice, on the recommendation of the Council of the Law Society of Kenya, makes the following Order:—
-                </p>
-
-                <div className="space-y-6 font-sans text-xs">
-                  <div className="border-l-2 border-slate-900 dark:border-slate-100 pl-4 py-1">
-                    <h3 className="font-bold uppercase tracking-wider text-slate-900 dark:text-white">
-                      1. Citation & Commencement
-                    </h3>
-                    <p className="text-justify text-slate-700 dark:text-slate-300 mt-1 leading-relaxed font-serif text-sm">
-                      This Order may be cited as the Advocates (Remuneration) Order, and shall apply to all bills of costs taxed or rendered after the commencement hereof in respect of contentious and non-contentious legal business.
-                    </p>
-                  </div>
-
-                  <div className="border-l-2 border-slate-900 dark:border-slate-100 pl-4 py-1">
-                    <h3 className="font-bold uppercase tracking-wider text-slate-900 dark:text-white">
-                      2 & 3. Application of Order & Scales of Fees
-                    </h3>
-                    <p className="text-justify text-slate-700 dark:text-slate-300 mt-1 leading-relaxed font-serif text-sm">
-                      The remuneration of an advocate in respect of business transacted by him shall be regulated strictly according to Schedules 1 to 6. No advocate shall charge, and no Taxing Officer shall allow, an instruction fee lower than the prescribed statutory minimum.
-                    </p>
-                  </div>
-
-                  <div className="border-l-2 border-slate-900 dark:border-slate-100 pl-4 py-1">
-                    <h3 className="font-bold uppercase tracking-wider text-slate-900 dark:text-white">
-                      5. Special Fee for Exceptional Importance & Complexity
-                    </h3>
-                    <p className="text-justify text-slate-700 dark:text-slate-300 mt-1 leading-relaxed font-serif text-sm">
-                      Where a suit or application involves extraordinary complexity, novel questions of constitutional or commercial law, or exceptional financial stakes, the Taxing Officer or Judge may certify an additional instruction fee multiplier of up to 1.5x (50% increase).
-                    </p>
-                  </div>
-
-                  <div className="border-l-2 border-slate-900 dark:border-slate-100 pl-4 py-1">
-                    <h3 className="font-bold uppercase tracking-wider text-slate-900 dark:text-white">
-                      7. Statutory Interest Charged on Overdue Bills (14% p.a.)
-                    </h3>
-                    <p className="text-justify text-slate-700 dark:text-slate-300 mt-1 leading-relaxed font-serif text-sm">
-                      An advocate may charge interest at the statutory rate of <strong>14% per annum</strong> on his disbursements and remuneration from the expiration of one month from the date of delivery of his bill of costs to the client.
-                    </p>
-                  </div>
-
-                  <div className="border-l-2 border-slate-900 dark:border-slate-100 pl-4 py-1">
-                    <h3 className="font-bold uppercase tracking-wider text-slate-900 dark:text-white">
-                      17. Statutory Length of Folio Definition
-                    </h3>
-                    <p className="text-justify text-slate-700 dark:text-slate-300 mt-1 leading-relaxed font-serif text-sm">
-                      A folio is defined under statutory law as consisting of <strong>100 words</strong> (or 72 figures). Every fraction of a folio beyond a full folio shall be charged as a full folio.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* PAGE 2 CONTENT */}
-            {currentPage === 2 && (
-              <div className="space-y-6 text-sm">
-                <div className="text-center font-bold font-sans uppercase tracking-wider text-sm mb-4">
-                  SCHEDULE 6 — CONTENTIOUS BUSINESS (HIGH COURT & SUPERIOR COURTS)
-                </div>
-
-                <p className="text-justify indent-6">
-                  Instruction fees to sue or defend in civil proceedings in the High Court, Environment & Land Court (ELC), Employment & Labour Relations Court (ELRC), Court of Appeal, or Supreme Court:
-                </p>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs font-sans border-collapse border border-slate-300 dark:border-zinc-700">
-                    <thead>
-                      <tr className="bg-slate-100 dark:bg-zinc-800">
-                        <th className="border border-slate-300 dark:border-zinc-700 p-2 text-left">Value of Subject Matter (Kshs)</th>
-                        <th className="border border-slate-300 dark:border-zinc-700 p-2 text-left">Plaintiff Instruction Fee Scale Formula</th>
-                        <th className="border border-slate-300 dark:border-zinc-700 p-2 text-left">Minimum Prescribed Fee</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2">Up to 500,000</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 45,000 fixed</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 75,000</td>
-                      </tr>
-                      <tr>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2">500,001 to 1,000,000</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 75,000 fixed</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 75,000</td>
-                      </tr>
-                      <tr>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2">1,000,001 to 5,000,000</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 75,000 + 1.75% of excess over 1M</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 75,000</td>
-                      </tr>
-                      <tr>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2">5,000,001 to 10,000,000</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 145,000 + 1.50% of excess over 5M</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 145,000</td>
-                      </tr>
-                      <tr>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2">10,000,001 to 20,000,000</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 220,000 + 1.00% of excess over 10M</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 220,000</td>
-                      </tr>
-                      <tr>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2">Over 20,000,000</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 320,000 + 0.75% of excess over 20M</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 320,000</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="space-y-4 font-sans text-xs pt-2">
-                  <div className="p-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg">
-                    <div className="font-bold text-slate-900 dark:text-white uppercase">Defendant's Instruction Fee Rule:</div>
-                    <div className="text-slate-600 dark:text-slate-300 mt-1 font-serif text-sm">
-                      Calculated at <strong>85%</strong> of the Plaintiff's instruction fee scale, subject to a statutory minimum defendant fee of <strong>Kshs 50,000</strong>.
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg">
-                    <div className="font-bold text-slate-900 dark:text-white uppercase">Getting-Up Fee (Schedule 6 Item 2):</div>
-                    <div className="text-slate-600 dark:text-slate-300 mt-1 font-serif text-sm">
-                      An additional <strong>Getting-Up Fee</strong> equal to <strong>33.33% (1/3)</strong> of the allowed instruction fee shall be allowed once notice of trial or hearing date has been served.
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* PAGE 3 CONTENT */}
-            {currentPage === 3 && (
-              <div className="space-y-6 text-sm">
-                <div className="text-center font-bold font-sans uppercase tracking-wider text-sm mb-4">
-                  PART II — NON-CONTENTIOUS BUSINESS & SCHEDULE 1 CONVEYANCING
-                </div>
-
-                <p className="text-justify indent-6">
-                  Remuneration of advocates in sales, transfers, mortgages, charges, and leases of immovable property:
-                </p>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs font-sans border-collapse border border-slate-300 dark:border-zinc-700">
-                    <thead>
-                      <tr className="bg-slate-100 dark:bg-zinc-800">
-                        <th className="border border-slate-300 dark:border-zinc-700 p-2 text-left">Property Value / Consideration (Kshs)</th>
-                        <th className="border border-slate-300 dark:border-zinc-700 p-2 text-left">Purchaser Advocate Fee Formula</th>
-                        <th className="border border-slate-300 dark:border-zinc-700 p-2 text-left">Vendor Advocate Fee</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2">Up to 1,000,000</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 35,000 fixed minimum</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">75% of Purchaser fee</td>
-                      </tr>
-                      <tr>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2">1,000,001 to 5,000,000</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 35,000 + 2.0% of excess over 1M</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">75% of Purchaser fee</td>
-                      </tr>
-                      <tr>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2">5,000,001 to 10,000,000</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 115,000 + 1.5% of excess over 5M</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">75% of Purchaser fee</td>
-                      </tr>
-                      <tr>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2">10,000,001 to 20,000,000</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 190,000 + 1.0% of excess over 10M</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">75% of Purchaser fee</td>
-                      </tr>
-                      <tr>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2">Over 20,000,000</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">Kshs 290,000 + 0.75% of excess over 20M</td>
-                        <td className="border border-slate-300 dark:border-zinc-700 p-2 font-mono">75% of Purchaser fee</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="space-y-3 font-sans text-xs">
-                  <h4 className="font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                    Negotiation Commission (Section 27):
-                  </h4>
-                  <p className="text-justify indent-4">
-                    For negotiating a sale or purchase of property, an advocate is entitled to an additional commission of <strong>1.5%</strong> of the purchase price up to Kshs 5,000,000, and <strong>1.0%</strong> on the excess over Kshs 5,000,000.
+              {/* Drawer Content */}
+              <div className="p-5 flex-1 overflow-y-auto space-y-5 text-xs">
+                {/* Select Statutory Scale */}
+                <div>
+                  <label className="block font-semibold text-slate-800 dark:text-slate-200 mb-1.5">
+                    Statutory Scale / Transaction
+                  </label>
+                  <select
+                    value={calcSchedule}
+                    onChange={(e) => setCalcSchedule(e.target.value)}
+                    className="w-full p-2 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-slate-900"
+                  >
+                    <option value="sched1_sale">Schedule 1: Conveyance (Sale / Purchase)</option>
+                    <option value="sched1_mortgage_grantee">Schedule 1: Mortgage / Charge (Grantee Creation)</option>
+                    <option value="sched1_mortgage_grantor">Schedule 1: Mortgage / Charge (Grantor Creation: 50%)</option>
+                    <option value="sched2_lease">Schedule 2: Lease at Rack Rent (Lessor)</option>
+                    <option value="sched6_hc_defended">Schedule 6: High Court Instruction Fee (Defended)</option>
+                    <option value="sched7_sub_defended">Schedule 7: Subordinate Court (Defended)</option>
+                    <option value="sched10_probate">Schedule 10: Probate / Estate Administration</option>
+                  </select>
+                  <p className="mt-1 text-[11px] text-slate-500 font-mono">
+                    Ref: {calculationResult.statutoryRef}
                   </p>
                 </div>
-              </div>
-            )}
 
-            {/* PAGE 4 CONTENT */}
-            {currentPage >= 4 && (
-              <div className="space-y-6 text-sm">
-                <div className="text-center font-bold font-sans uppercase tracking-wider text-sm mb-4">
-                  PART III — TAXATION PROCEDURES & SECTION 77 PENALTY
+                {/* Input: Consideration / Capital Value */}
+                <div>
+                  <label className="block font-semibold text-slate-800 dark:text-slate-200 mb-1.5">
+                    Consideration / Subject Matter Value (KES)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-slate-400">
+                      KES
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="50000"
+                      value={calcValue}
+                      onChange={(e) => setCalcValue(Number(e.target.value))}
+                      className="w-full pl-12 pr-3 py-2 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono text-slate-900 dark:text-white"
+                    />
+                  </div>
+                  <div className="mt-1 flex items-center gap-1.5 text-[11px]">
+                    <span className="text-slate-400">Presets:</span>
+                    <button
+                      onClick={() => setCalcValue(2500000)}
+                      className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 hover:text-slate-900"
+                    >
+                      2.5M
+                    </button>
+                    <button
+                      onClick={() => setCalcValue(10000000)}
+                      className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 hover:text-slate-900"
+                    >
+                      10M
+                    </button>
+                    <button
+                      onClick={() => setCalcValue(50000000)}
+                      className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 hover:text-slate-900"
+                    >
+                      50M
+                    </button>
+                    <button
+                      onClick={() => setCalcValue(150000000)}
+                      className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 hover:text-slate-900"
+                    >
+                      150M
+                    </button>
+                  </div>
                 </div>
 
-                <div className="space-y-4 font-sans text-xs">
-                  <div className="p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl">
-                    <h3 className="font-bold text-red-700 dark:text-red-300 uppercase tracking-wider mb-1">
-                      Sec. 77. The One-Sixth (1/6th) Taxed-Off Statutory Penalty Rule
-                    </h3>
-                    <p className="text-justify text-slate-700 dark:text-slate-300 leading-relaxed font-serif text-sm">
-                      If on taxation more than <strong>one-sixth (16.67%)</strong> of the total amount of the advocate's bill of costs is taxed off by the Taxing Officer, the advocate shall be disallowable from receiving the costs of taxation and shall pay the costs of taxation incurred by the client or adverse party.
-                    </p>
-                  </div>
+                {/* Advocate & Client Uplift Checkbox */}
+                <div className="p-3 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isAdvocateClient}
+                      onChange={(e) => setIsAdvocateClient(e.target.checked)}
+                      className="mt-0.5 rounded text-slate-900 focus:ring-0"
+                    />
+                    <div>
+                      <span className="font-semibold text-slate-900 dark:text-white">
+                        Advocate and Client Basis (+50%)
+                      </span>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Statutory 50% uplift under Schedule 6 Part B / Schedule 7 Part B / Schedule 10 Part B.
+                      </p>
+                    </div>
+                  </label>
+                </div>
 
+                {/* Calculation Breakdown Result Box */}
+                <div className="p-4 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900 space-y-3">
                   <div>
-                    <h3 className="font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-1">
-                      Sec. 69. 5-Column Preparation of Bills of Costs
-                    </h3>
-                    <p className="text-justify indent-4 leading-relaxed font-serif text-sm">
-                      Bills for taxation lodged under Part III must be prepared with 5 distinct columns: dates, itemized legal work descriptions, folios, disbursements, and professional charges.
-                    </p>
+                    <span className="text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-semibold">
+                      Statutory Minimum Prescribed Fee
+                    </span>
+                    <div className="text-2xl font-serif font-bold mt-0.5">
+                      KES {Math.round(calculationResult.finalFee).toLocaleString()}
+                    </div>
                   </div>
-                </div>
-              </div>
-            )}
 
-            {/* PAGE NAVIGATION DOCK AT BOTTOM OF GAZETTE SHEET */}
-            <div className="mt-12 pt-6 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between font-sans">
-              <button
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="px-4 py-2 bg-slate-100 dark:bg-zinc-800 disabled:opacity-30 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-800 dark:text-white rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer"
-              >
-                <ArrowLeft className="w-4 h-4" /> Previous Page
-              </button>
+                  <div className="pt-3 border-t border-slate-800 dark:border-slate-200 space-y-1.5 font-mono text-[11px]">
+                    <div className="text-slate-400 dark:text-slate-600 font-sans font-semibold">
+                      Statutory Tier Computation:
+                    </div>
+                    {calculationResult.formulaSteps.map((step, idx) => (
+                      <div key={idx} className="flex items-start gap-1.5">
+                        <span className="text-slate-500">•</span>
+                        <span>{step}</span>
+                      </div>
+                    ))}
+                  </div>
 
-              <div className="text-xs font-mono font-bold text-slate-600 dark:text-slate-400">
-                PAGE {currentPage} OF {totalPages}
-              </div>
-
-              <button
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                className="px-4 py-2 bg-slate-900 dark:bg-zinc-100 disabled:opacity-30 hover:bg-slate-800 dark:hover:bg-zinc-200 text-white dark:text-slate-900 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
-              >
-                Next Page <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: STATUTORY INDEX (79 SECTIONS) */}
-      {activeTab === 'toc' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono mb-3">
-              Kenya Law Statutory Index (79 Sections)
-            </h3>
-
-            <div className="space-y-1 text-xs">
-              <button
-                onClick={() => setSelectedSection('part_I')}
-                className={`w-full text-left px-3 py-2 rounded-lg font-semibold transition-all cursor-pointer ${
-                  selectedSection === 'part_I'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                Part I — General Matters (Sec. 1 - 17)
-              </button>
-              <button
-                onClick={() => setSelectedSection('part_II')}
-                className={`w-full text-left px-3 py-2 rounded-lg font-semibold transition-all cursor-pointer ${
-                  selectedSection === 'part_II'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                Part II — Non-Contentious Matters (Sec. 18 - 48)
-              </button>
-              <button
-                onClick={() => setSelectedSection('part_III')}
-                className={`w-full text-left px-3 py-2 rounded-lg font-semibold transition-all cursor-pointer ${
-                  selectedSection === 'part_III'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                Part III — Taxation of Costs (Sec. 49 - 79)
-              </button>
-            </div>
-          </div>
-
-          <div className="md:col-span-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
-            {selectedSection === 'part_I' && (
-              <div className="space-y-4">
-                <h3 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-zinc-800 pb-2">
-                  Part I — General Matters (Sections 1 to 17)
-                </h3>
-                <div className="space-y-3 text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-serif text-sm">
-                  <p><strong>Sec. 1: Citation</strong> — The Advocates (Remuneration) Order.</p>
-                  <p><strong>Sec. 3: Scale of fees</strong> — Remuneration governed strictly by Schedules 1 to 6.</p>
-                  <p><strong>Sec. 5: Special fee for complexity</strong> — Allows up to 1.5x increased instruction fees for complex matters.</p>
-                  <p><strong>Sec. 7: Interest on unpaid fees (14% p.a.)</strong> — Interest accrues after 30 days from delivery of bill.</p>
-                  <p><strong>Sec. 10: Taxing Officer</strong> — Registrar or Deputy Registrar of the High Court.</p>
-                  <p><strong>Sec. 11: Appeals & Objections</strong> — Procedure for chamber summons objections to taxation.</p>
-                  <p><strong>Sec. 17: Length of Folio</strong> — Defined as 100 words (or 72 figures).</p>
-                </div>
-              </div>
-            )}
-
-            {selectedSection === 'part_II' && (
-              <div className="space-y-4">
-                <h3 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-zinc-800 pb-2">
-                  Part II — Non-Contentious Business (Sections 18 to 48)
-                </h3>
-                <div className="space-y-3 text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-serif text-sm">
-                  <p><strong>Sec. 18: Remuneration scope</strong> — Applies to conveyancing, leases, mortgages, and debentures.</p>
-                  <p><strong>Sec. 26: Application of Schedule 1</strong> — Tiered percentage fees on land sales and purchases.</p>
-                  <p><strong>Sec. 27: Negotiation commissions</strong> — Commission charged for negotiating land sales or purchases.</p>
-                  <p><strong>Sec. 31: Borrower pays mortgage costs</strong> — Mortgagor liable for lender's advocate scale fees.</p>
-                  <p><strong>Sec. 42: Schedule 2 Debentures</strong> — Corporate loan security scale charges.</p>
-                </div>
-              </div>
-            )}
-
-            {selectedSection === 'part_III' && (
-              <div className="space-y-4">
-                <h3 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-zinc-800 pb-2">
-                  Part III — Taxation of Costs in Contentious Matters (Sections 49 to 79)
-                </h3>
-                <div className="space-y-3 text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-serif text-sm">
-                  <p><strong>Sec. 50: High Court costs</strong> — Taxed under Schedule 6.</p>
-                  <p><strong>Sec. 51: Subordinate Court costs</strong> — Taxed under Schedule 5 / 7.</p>
-                  <p><strong>Sec. 51C: Probate costs</strong> — Grants of probate taxed under Schedule 3.</p>
-                  <p><strong>Sec. 69: Manner of preparing bills</strong> — 5-column layout required for lodging bills.</p>
-                  <p><strong>Sec. 77: One-Sixth (1/6th) Penalty Rule</strong> — If &gt;1/6th taxed off, advocate pays taxation costs.</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: SCHEDULES 1 TO 11 FULL STATUTORY SCALES */}
-      {activeTab === 'schedules' && (
-        <div className="space-y-6">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-8">
-            <div className="border-b border-slate-200 dark:border-zinc-800 pb-4">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                Full Statutory Scale Tables for All 11 Schedules
-              </h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Ref: The Advocates (Remuneration) Order (Kenya Subsidiary Legislation L.N. 64/1962, ed. 2022 & L.N. 35/2014)
-              </p>
-            </div>
-
-            {/* SCHEDULE 1 */}
-            <div className="space-y-3 border-b border-slate-200 dark:border-zinc-800 pb-6">
-              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
-                SCHEDULE 1 — Conveyancing, Sales, Purchases, Mortgages & Leases
-              </h4>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                Governs legal fees for transfers of immovable property. Purchaser's Advocate scale: Minimum fee Kshs 35,000 for value up to Kshs 1,000,000.
-              </p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs font-sans border-collapse border border-slate-300 dark:border-zinc-700">
-                  <thead>
-                    <tr className="bg-slate-100 dark:bg-zinc-800">
-                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Property Value / Consideration</th>
-                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Purchaser Advocate Scale</th>
-                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Vendor Advocate Scale</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Up to Kshs 1,000,000</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 35,000 fixed minimum</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">75% of Purchaser Fee</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700">1,000,001 – 5,000,000</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 35,000 + 2.0% of excess over 1M</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">75% of Purchaser Fee</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700">5,000,001 – 10,000,000</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 115,000 + 1.5% of excess over 5M</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">75% of Purchaser Fee</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700">10,000,001 – 20,000,000</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 190,000 + 1.0% of excess over 10M</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">75% of Purchaser Fee</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Over 20,000,000</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 290,000 + 0.75% of excess over 20M</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">75% of Purchaser Fee</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* SCHEDULE 2 */}
-            <div className="space-y-3 border-b border-slate-200 dark:border-zinc-800 pb-6">
-              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
-                SCHEDULE 2 — Debentures, Mortgages & Corporate Security Charges
-              </h4>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                Governs legal fees for preparing, approving, and registering commercial debentures and loan securities. Minimum Fee: Kshs 50,000.
-              </p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs font-sans border-collapse border border-slate-300 dark:border-zinc-700">
-                  <thead>
-                    <tr className="bg-slate-100 dark:bg-zinc-800">
-                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Principal Sum Secured</th>
-                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Lender Advocate Scale</th>
-                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Borrower Advocate Scale</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Up to Kshs 1,000,000</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 50,000 fixed minimum</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">50% of Lender Fee</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700">1,000,001 – 10,000,000</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 50,000 + 1.5% of excess over 1M</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">50% of Lender Fee</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Over 10,000,000</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 185,000 + 1.0% of excess over 10M</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">50% of Lender Fee</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* SCHEDULE 3 */}
-            <div className="space-y-3 border-b border-slate-200 dark:border-zinc-800 pb-6">
-              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
-                SCHEDULE 3 — Grants of Probate & Estate Administration
-              </h4>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                Governs petition for grant of probate, letters of administration, and distribution of deceased estates.
-              </p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs font-sans border-collapse border border-slate-300 dark:border-zinc-700">
-                  <thead>
-                    <tr className="bg-slate-100 dark:bg-zinc-800">
-                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Gross Estate Value</th>
-                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Probate Scale Fee</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Up to Kshs 500,000</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 40,000 fixed minimum</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700">500,001 – 5,000,000</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 40,000 + 2.5% of excess over 500k</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Over 5,000,000</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 152,500 + 1.5% of excess over 5M</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* SCHEDULE 4 */}
-            <div className="space-y-3 border-b border-slate-200 dark:border-zinc-800 pb-6">
-              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
-                SCHEDULE 4 — Trademarks, Patents, Designs & Copyright Registration
-              </h4>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                Governs intellectual property filings, oppositions, assignments, and renewals at KIPI.
-              </p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs font-sans border-collapse border border-slate-300 dark:border-zinc-700">
-                  <thead>
-                    <tr className="bg-slate-100 dark:bg-zinc-800">
-                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">IP Legal Service</th>
-                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Statutory Fee Rate</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Trademark Registration Application</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 25,000 per class</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Filing Notice of Opposition</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 45,000 fixed</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Assignment / Transfer of Registration</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 20,000 fixed</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* SCHEDULE 5 */}
-            <div className="space-y-3 border-b border-slate-200 dark:border-zinc-800 pb-6">
-              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
-                SCHEDULE 5 — Subordinate (Magistrate's) Court Civil Litigation
-              </h4>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                Governs civil suits in Magistrate's Courts. Minimum Instruction Fee: Kshs 30,000.
-              </p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs font-sans border-collapse border border-slate-300 dark:border-zinc-700">
-                  <thead>
-                    <tr className="bg-slate-100 dark:bg-zinc-800">
-                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Claim Value (Kshs)</th>
-                      <th className="p-2 border border-slate-300 dark:border-zinc-700 text-left">Magistrate Scale Formula</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Up to Kshs 100,000</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 20,000 (Floored at Kshs 30,000 minimum)</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700">100,001 – 500,000</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 30,000 + 5.0% of excess over 100k</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700">500,001 – 1,000,000</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 50,000 + 3.0% of excess over 500k</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700">Over 1,000,000</td>
-                      <td className="p-2 border border-slate-300 dark:border-zinc-700 font-mono">Kshs 65,000 + 2.0% of excess over 1M</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* SCHEDULE 6 */}
-            <div className="space-y-3 border-b border-slate-200 dark:border-zinc-800 pb-6">
-              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
-                SCHEDULE 6 — Superior Courts Litigation (High Court, ELC, ELRC, Court of Appeal, Supreme Court)
-              </h4>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                Minimum Plaintiff Fee: Kshs 75,000 | Minimum Defendant Fee: Kshs 50,000 | Getting-Up Fee: 33.33% (1/3).
-              </p>
-            </div>
-
-            {/* SCHEDULE 7 */}
-            <div className="space-y-3 border-b border-slate-200 dark:border-zinc-800 pb-6">
-              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
-                SCHEDULE 7 — Subordinate Courts Secondary Scale & Default Costs
-              </h4>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                Governs un-contested interlocutory applications, executions, and default judgments in Magistrate's Courts.
-              </p>
-            </div>
-
-            {/* SCHEDULE 8 */}
-            <div className="space-y-3 border-b border-slate-200 dark:border-zinc-800 pb-6">
-              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
-                SCHEDULE 8 — Rent Tribunals (Cap 301) & Business Premises Tribunals (Cap 296)
-              </h4>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                Governs tenancy disputes, distress for rent applications, and tribunal assessment hearings.
-              </p>
-            </div>
-
-            {/* SCHEDULE 9 */}
-            <div className="space-y-3 border-b border-slate-200 dark:border-zinc-800 pb-6">
-              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
-                SCHEDULE 9 — Arbitrations & Statutory Arbitral Proceedings
-              </h4>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                Governs representation under the Arbitration Act 1995. Scale calculated at 100% of Schedule 6 High Court scale.
-              </p>
-            </div>
-
-            {/* SCHEDULE 10 */}
-            <div className="space-y-3 border-b border-slate-200 dark:border-zinc-800 pb-6">
-              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
-                SCHEDULE 10 — Criminal Proceedings & Special Defense Retainers
-              </h4>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                Governs criminal defense instruction fees in High Court trials, Magistrate Courts, and bail applications. Minimum Retainer: Kshs 50,000.
-              </p>
-            </div>
-
-            {/* SCHEDULE 11 */}
-            <div className="space-y-3">
-              <h4 className="font-bold text-sm text-blue-600 dark:text-blue-400 font-mono">
-                SCHEDULE 11 — Itemized Folio Scale Rates, Attendances, Perusals & Searches
-              </h4>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                Drawing pleadings: Kshs 500/fol | Copying: Kshs 50/fol | Court Attendance: Kshs 2,500/hr | Registry Searches: Kshs 1,500.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 4: UNIVERSAL MATH SIMULATOR */}
-      {activeTab === 'simulator' && (
-        <div className="space-y-6">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-zinc-800 pb-4">
-              <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Universal Remuneration Math Simulator Engine
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Full statutory calculation for High Court, Magistrate Court, Conveyancing, Probate, 14% Interest, & 1/6th Penalty Rule.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono font-bold bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800">
-                  Sec. 7 Interest: 14% p.a.
-                </span>
-                <span className="text-xs font-mono font-bold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700">
-                  VAT: 16% Statutory
-                </span>
-              </div>
-            </div>
-
-            {/* Inputs Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Subject Value / Claim Amount (Kshs)
-                </label>
-                <input
-                  type="number"
-                  value={simClaimValue}
-                  onChange={(e) => setSimClaimValue(Number(e.target.value))}
-                  className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400 font-mono font-bold text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Jurisdiction & Schedule Domain
-                </label>
-                <select
-                  value={simSchedule}
-                  onChange={(e) => setSimSchedule(e.target.value as any)}
-                  className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400 text-slate-900 dark:text-white font-medium"
-                >
-                  <option value="schedule_6_high_court">Schedule 6 — High Court / ELC / ELRC / Court of Appeal</option>
-                  <option value="schedule_5_magistrate">Schedule 5 — Magistrate / Subordinate Court</option>
-                  <option value="schedule_1_conveyancing">Schedule 1 — Conveyancing & Land Sales</option>
-                  <option value="schedule_3_probate">Schedule 3 — Probate & Estate Administration</option>
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Sec. 5 Complexity Multiplier
-                </label>
-                <select
-                  value={simComplexityMultiplier}
-                  onChange={(e) => setSimComplexityMultiplier(Number(e.target.value))}
-                  className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400 text-slate-900 dark:text-white font-medium"
-                >
-                  <option value={1.0}>1.0x — Standard Scale</option>
-                  <option value={1.25}>1.25x — High Complexity (+25%)</option>
-                  <option value={1.5}>1.5x — Exceptional Importance (+50%)</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Checkbox Options & Interest Inputs */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
-              <div className="space-y-3">
-                <label className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={simIsDefendant}
-                    onChange={(e) => setSimIsDefendant(e.target.checked)}
-                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 dark:border-zinc-700"
-                  />
-                  <span>Representing Defendant (85% Scale)</span>
-                </label>
-
-                <label className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={simIncludeGettingUp}
-                    onChange={(e) => setSimIncludeGettingUp(e.target.checked)}
-                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 dark:border-zinc-700"
-                  />
-                  <span>Include Getting-Up Fee (33.33% / 1/3)</span>
-                </label>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Sec. 7 Months Overdue (14% Interest)
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  value={simMonthsOverdue}
-                  onChange={(e) => setSimMonthsOverdue(Number(e.target.value))}
-                  className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400 font-mono text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Sec. 77 Taxed Off Amount (Kshs)
-                </label>
-                <input
-                  type="number"
-                  value={simTaxedOffAmount}
-                  onChange={(e) => setSimTaxedOffAmount(Number(e.target.value))}
-                  className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400 font-mono text-slate-900 dark:text-white"
-                />
-              </div>
-            </div>
-
-            {/* DYNAMIC LINE-ITEM FOLIOS MANAGER */}
-            <div className="border-t border-slate-200 dark:border-zinc-800 pt-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                  Dynamic Itemized Folios & Attendances Manager ({simFolios.length} items)
-                </h4>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-slate-50 dark:bg-zinc-800/60 p-3 rounded-xl border border-slate-200 dark:border-zinc-700">
-                <input
-                  type="text"
-                  placeholder="Item Description (e.g., Drawing Affidavit...)"
-                  value={newItemDesc}
-                  onChange={(e) => setNewItemDesc(e.target.value)}
-                  className="sm:col-span-2 px-3 py-1.5 text-xs bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg dark:text-white"
-                />
-                <select
-                  value={newItemType}
-                  onChange={(e) => setNewItemType(e.target.value)}
-                  className="px-3 py-1.5 text-xs bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg dark:text-white"
-                >
-                  <option value="drawing_folio">Drawing Pleadings (Kshs 500/fol)</option>
-                  <option value="copying_folio">Copying Documents (Kshs 50/fol)</option>
-                  <option value="attendance_court_hr">Court Attendance (Kshs 2,500/hr)</option>
-                  <option value="attendance_office_hr">Office Consultation (Kshs 1,500/hr)</option>
-                  <option value="letter_formal">Formal Letter (Kshs 500)</option>
-                  <option value="search_registry">Registry Search (Kshs 1,500)</option>
-                </select>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={1}
-                    value={newItemQty}
-                    onChange={(e) => setNewItemQty(Number(e.target.value))}
-                    className="w-16 px-2 py-1.5 text-xs bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg dark:text-white text-center font-mono"
-                  />
                   <button
-                    onClick={handleAddFolioItem}
-                    className="flex-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1 cursor-pointer"
+                    onClick={() => {
+                      const text = `Statutory Fee: KES ${Math.round(calculationResult.finalFee).toLocaleString()}\nReference: ${calculationResult.statutoryRef}\nBreakdown:\n${calculationResult.formulaSteps.join('\n')}`;
+                      copyText(text, 'calc-result');
+                    }}
+                    className="w-full mt-2 py-1.5 px-3 rounded text-center text-xs font-semibold bg-slate-800 dark:bg-slate-100 hover:bg-slate-700 dark:hover:bg-slate-200 transition-colors flex items-center justify-center gap-1.5"
                   >
-                    <Plus className="w-3.5 h-3.5" /> Add
+                    {copiedId === 'calc-result' ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Copied Breakdown!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Statutory Calculation</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs font-sans border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-400">
-                      <th className="p-2 text-left">Description</th>
-                      <th className="p-2 text-left">Rate Type</th>
-                      <th className="p-2 text-center">Qty</th>
-                      <th className="p-2 text-right">Unit Rate</th>
-                      <th className="p-2 text-right">Subtotal</th>
-                      <th className="p-2 text-center">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 dark:divide-zinc-800">
-                    {simResult.items.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-zinc-800/50">
-                        <td className="p-2 font-medium text-slate-900 dark:text-white">{item.description}</td>
-                        <td className="p-2 text-slate-500 font-mono text-[11px]">{item.type}</td>
-                        <td className="p-2 text-center font-mono">{item.qty}</td>
-                        <td className="p-2 text-right font-mono">Kshs {item.unit_rate?.toLocaleString()}</td>
-                        <td className="p-2 text-right font-mono font-bold">Kshs {item.subtotal?.toLocaleString()}</td>
-                        <td className="p-2 text-center">
-                          <button
-                            onClick={() => handleRemoveFolioItem(idx)}
-                            className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
-                            title="Remove item"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Calculations Breakdown Card */}
-            <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-xl p-6 border border-slate-200 dark:border-zinc-700/80 space-y-4">
-              <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
-                Taxation Results & Statutory Formula Applied
-              </h4>
-
-              <div className="text-xs text-slate-700 dark:text-slate-300 font-mono bg-white dark:bg-zinc-800 p-3 rounded-lg border border-slate-200 dark:border-zinc-700">
-                <strong>Formula:</strong> {simResult.formula}
-              </div>
-
-              {/* Sec. 77 Audit Banner */}
-              <div className={`p-3.5 rounded-xl border text-xs font-mono flex items-center gap-3 ${
-                taxedOffAudit.is_penalty
-                  ? 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900 text-red-700 dark:text-red-300'
-                  : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300'
-              }`}>
-                {taxedOffAudit.is_penalty ? <AlertTriangle className="w-5 h-5 shrink-0" /> : <CheckCircle2 className="w-5 h-5 shrink-0" />}
-                <div>{taxedOffAudit.message}</div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
-                <div className="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-slate-200 dark:border-zinc-800">
-                  <div className="text-xs text-slate-500 font-medium">Instruction Fee</div>
-                  <div className="text-lg font-bold font-mono text-slate-900 dark:text-white mt-1">
-                    Kshs {simResult.instruction_fee.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-slate-200 dark:border-zinc-800">
-                  <div className="text-xs text-slate-500 font-medium">Getting-Up Fee (1/3)</div>
-                  <div className="text-lg font-bold font-mono text-slate-900 dark:text-white mt-1">
-                    Kshs {simResult.getting_up_fee.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-slate-200 dark:border-zinc-800">
-                  <div className="text-xs text-slate-500 font-medium">Sec. 7 Interest (14% p.a.)</div>
-                  <div className="text-lg font-bold font-mono text-blue-600 dark:text-blue-400 mt-1">
-                    Kshs {simResult.interest_14_percent.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-slate-200 dark:border-zinc-800">
-                  <div className="text-xs text-slate-500 font-medium">Total Bill + Interest</div>
-                  <div className="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1">
-                    Kshs {simResult.grand_total_with_interest.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                  </div>
-                </div>
+              {/* Drawer Footer */}
+              <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 text-[11px] text-slate-500">
+                Governed by Paragraph 3 of the Order: no advocate may charge less than this scale fee.
               </div>
             </div>
           </div>
@@ -1103,3 +1263,5 @@ export const RemunerationGuideView: React.FC = () => {
     </div>
   );
 };
+
+export default RemunerationGuideView;

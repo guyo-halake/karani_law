@@ -1,45 +1,56 @@
-import React, { useState } from 'react';
-import {
-  EXACT_CLIENTS,
-  EXACT_MATTERS,
-  EXACT_FEE_NOTES,
-  ExactClientRecord,
-  ExactMatterRecord,
-  ExactFeeNoteRecord
-} from '../../services/supabase';
+import React, { useState, useEffect } from 'react';
+import { ExactClientRecord } from '../../services/supabase';
+import { createClient, deleteClient, fetchClients } from '../../services/data';
+import { SystemUser } from '../../services/supabase';
+import { sendEmail } from '../../services/email';
+import { hasPermission } from '../../services/rbac';
 import {
   UserPlus,
   Search,
   Phone,
   Mail,
-  MessageSquare,
   MessageCircle,
-  LayoutGrid,
-  Table as TableIcon,
   X,
-  Paperclip,
-  Send,
+  Trash2,
   Building2,
   Briefcase,
-  FileText,
-  ExternalLink,
+  MoreVertical,
   Eye,
-  CheckCircle2,
-  Trash2
+  FileText,
+  Plus,
+  Receipt,
+  Scale,
+  Calendar,
+  AlertTriangle
 } from 'lucide-react';
 
-export const ClientsView: React.FC = () => {
-  const [clientsList, setClientsList] = useState<ExactClientRecord[]>(EXACT_CLIENTS);
-  const [search, setSearch] = useState('');
-  const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
-  
-  // Client Detail Modal / Drawer State
-  const [selectedClientDetail, setSelectedClientDetail] = useState<ExactClientRecord | null>(null);
+interface ClientsViewProps {
+  onNavigateTab?: (tab: string, targetUserId?: string) => void;
+  onNavigateToBuilder?: (initialNote?: any, isPreview?: boolean) => void;
+  currentUser?: SystemUser | null;
+}
 
-  // New Client Registration Modal State
+export const ClientsView: React.FC<ClientsViewProps> = ({
+  onNavigateTab,
+  onNavigateToBuilder,
+  currentUser
+}) => {
+  const [clientsList, setClientsList] = useState<ExactClientRecord[]>([]);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [, setPermissionTick] = useState(0);
+
+  // Client 360° Financial Dossier Drawer State
+  const [selectedDossierClient, setSelectedDossierClient] = useState<ExactClientRecord | null>(null);
+
+  // Registration Modal State
   const [showNewClientModal, setShowNewClientModal] = useState(false);
   const [newName, setNewName] = useState('');
   const [newCompany, setNewCompany] = useState('');
+  const [newKraPin, setNewKraPin] = useState('');
+  const [newAddress, setNewAddress] = useState('');
   const [newCategory, setNewCategory] = useState('Corporate or Institutional');
   const [newEmail, setNewEmail] = useState('');
   const [newPhonePrimary, setNewPhonePrimary] = useState('');
@@ -52,376 +63,554 @@ export const ClientsView: React.FC = () => {
   const [emailBody, setEmailBody] = useState('');
   const [isSending, setIsSending] = useState(false);
 
-  const filtered = clientsList.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.email.toLowerCase().includes(search.toLowerCase()) ||
-    c.phonePrimary.toLowerCase().includes(search.toLowerCase()) ||
-    c.category.toLowerCase().includes(search.toLowerCase())
-  );
+  const can = (code: string) => hasPermission(currentUser, code);
 
-  const handleRegisterClient = (e: React.FormEvent) => {
+  useEffect(() => {
+    const handlePermissions = () => {
+      setPermissionTick(t => t + 1);
+    };
+    window.addEventListener('permissionsUpdated', handlePermissions);
+    window.addEventListener('storage', handlePermissions);
+    return () => {
+      window.removeEventListener('permissionsUpdated', handlePermissions);
+      window.removeEventListener('storage', handlePermissions);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser?.firmId) return;
+    const loadClients = () =>
+      fetchClients(currentUser.firmId!)
+        .then(setClientsList)
+        .catch(error => setErrorMessage(error.message || 'Unable to load clients.'));
+    void loadClients();
+    const handleRealtime = (event: Event) => {
+      const detail = (event as CustomEvent<{ table?: string }>).detail;
+      if (detail?.table === 'clients') void loadClients();
+    };
+    const handleClientsUpdated = (event: any) => {
+      if (event?.detail && Array.isArray(event.detail)) {
+        setClientsList(event.detail);
+      } else {
+        void loadClients();
+      }
+    };
+    window.addEventListener('databaseRealtimeUpdate', handleRealtime);
+    window.addEventListener('clientsUpdated', handleClientsUpdated);
+    window.addEventListener('storage', loadClients);
+    return () => {
+      window.removeEventListener('databaseRealtimeUpdate', handleRealtime);
+      window.removeEventListener('clientsUpdated', handleClientsUpdated);
+      window.removeEventListener('storage', loadClients);
+    };
+  }, [currentUser?.firmId]);
+
+  // Debounced search & category filtering
+  const filtered = clientsList.filter(c => {
+    const query = search.toLowerCase();
+    const matchesQuery =
+      c.name.toLowerCase().includes(query) ||
+      (c.company && c.company.toLowerCase().includes(query)) ||
+      (c.kraPin && c.kraPin.toLowerCase().includes(query)) ||
+      (c.email && c.email.toLowerCase().includes(query)) ||
+      (c.phonePrimary && c.phonePrimary.toLowerCase().includes(query));
+
+    if (!matchesQuery) return false;
+    if (selectedCategory === 'all') return true;
+    if (selectedCategory === 'corporate') return c.category.includes('Corporate') || c.category.includes('Institutional');
+    if (selectedCategory === 'individual') return c.category.includes('Individual');
+    if (selectedCategory === 'financial') return c.category.includes('Financial') || c.category.includes('Bank');
+    if (selectedCategory === 'government') return c.category.includes('Government') || c.category.includes('State');
+    return true;
+  });
+
+  const handleRegisterClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
+    if (!currentUser?.firmId) return;
 
-    const newRecord: ExactClientRecord = {
-      id: 'c-' + (clientsList.length + 1),
-      name: newName.trim(),
-      company: newCompany.trim() || newName.trim(),
-      category: newCategory,
-      email: newEmail.trim() || 'client@firm.co.ke',
-      phone: newPhonePrimary.trim() || '+254 700 000 000',
-      phonePrimary: newPhonePrimary.trim() || '+254 700 000 000',
-      phoneSecondary: newPhoneSecondary.trim() || '+254 20 000 0000',
-      matters: 0,
-      mattersList: []
-    };
+    try {
+      const newRecord = await createClient(currentUser.firmId, {
+        name: newName.trim(),
+        company: newCompany.trim() || newName.trim(),
+        category: newCategory as ExactClientRecord['category'],
+        email: newEmail.trim(),
+        phonePrimary: newPhonePrimary.trim(),
+        phoneSecondary: newPhoneSecondary.trim(),
+        kraPin: newKraPin.trim().toUpperCase(),
+        address: newAddress.trim(),
+      });
+      setClientsList(prev => [newRecord, ...prev]);
+    } catch (error: any) {
+      setErrorMessage(error.message || 'Unable to register client.');
+      return;
+    }
 
-    setClientsList([newRecord, ...clientsList]);
     setShowNewClientModal(false);
     setNewName('');
     setNewCompany('');
+    setNewKraPin('');
+    setNewAddress('');
     setNewEmail('');
     setNewPhonePrimary('');
     setNewPhoneSecondary('');
-    alert(`✓ Client "${newRecord.name}" registered successfully!`);
   };
 
-  const handleDeleteClient = (id: string, name: string) => {
-    if (confirm(`Are you sure you want to delete client "${name}" from the database?`)) {
-      setClientsList(prev => prev.filter(c => c.id !== id));
-      if (selectedClientDetail?.id === id) {
-        setSelectedClientDetail(null);
+  const handleDeleteClient = async (client: ExactClientRecord) => {
+    setActiveMenuId(null);
+    const activeCauses = client.activeMattersCount ?? client.matters ?? 0;
+    if (activeCauses > 0) {
+      const proceed = confirm(
+        `WARNING: Client "${client.name}" has ${activeCauses} active matter(s) registered in the court docket.\n\nDeleting this client record may orphan active litigation records.\n\nAre you sure you want to permanently delete this client?`
+      );
+      if (!proceed) return;
+    } else {
+      if (!confirm(`Are you sure you want to delete client "${client.name}" from the database?`)) {
+        return;
       }
+    }
+
+    if (!currentUser?.firmId) return;
+    try {
+      await deleteClient(currentUser.firmId, client.id);
+      setClientsList(prev => prev.filter(c => c.id !== client.id));
+      if (selectedDossierClient?.id === client.id) {
+        setSelectedDossierClient(null);
+      }
+    } catch (error: any) {
+      setErrorMessage(error.message || 'Unable to delete client.');
     }
   };
 
   const handleOpenEmail = (client: ExactClientRecord) => {
+    setActiveMenuId(null);
     setEmailClient(client);
-    setEmailSubject(`Nyagah B. Kithinji & Co. Advocates - Notice regarding Matter Filings`);
-    setEmailBody(`Dear ${client.name},\n\nPlease find attached the official legal documentation and statement of account from Nyagah B. Kithinji & Co. Advocates.\n\nKindly acknowledge receipt.\n\nYours faithfully,\nNyagah B. Kithinji & Co. Advocates`);
+    setEmailSubject(`Nyagah B. Kithinji & Co. Advocates - Legal Statement of Account`);
+    setEmailBody(`Dear ${client.name},\n\nPlease find attached the official legal correspondence, statement of account, and fee note records from Nyagah B. Kithinji & Co. Advocates.\n\nKindly acknowledge receipt at your earliest convenience.\n\nYours faithfully,\nNyagah B. Kithinji & Co. Advocates\nHigh Court of Kenya`);
     setShowEmailModal(true);
   };
 
-  const handleSendEmail = (e: React.FormEvent) => {
+  const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!emailClient?.email) return;
     setIsSending(true);
-    setTimeout(() => {
+    try {
+      await sendEmail({
+        to: [emailClient.email],
+        subject: emailSubject,
+        body: emailBody,
+        category: 'firm_to_client',
+      });
       setIsSending(false);
       setShowEmailModal(false);
-      alert(`✓ Email sent successfully to ${emailClient?.email}!`);
-    }, 1000);
+    } catch (error: any) {
+      setErrorMessage(error.message || 'Unable to send email.');
+      setIsSending(false);
+    }
   };
 
-  // Helper to find matters belonging to selected client
-  const getMattersForClient = (client: ExactClientRecord): ExactMatterRecord[] => {
-    return EXACT_MATTERS.filter(m =>
-      m.title.toLowerCase().includes(client.name.toLowerCase()) ||
-      m.applicant.toLowerCase().includes(client.name.toLowerCase()) ||
-      client.mattersList.some(mName => m.title.toLowerCase().includes(mName.toLowerCase()))
-    );
+  const handleWhatsApp = (phone: string, name: string) => {
+    setActiveMenuId(null);
+    const cleanPhone = phone.replace(/[^\d]/g, '');
+    const message = encodeURIComponent(`Hello ${name}, this is Nyagah B. Kithinji & Co. Advocates regarding your legal matter.`);
+    window.open(`https://wa.me/${cleanPhone}?text=${message}`, '_blank');
   };
 
-  // Helper to find fee notes belonging to selected client
-  const getFeeNotesForClient = (client: ExactClientRecord): ExactFeeNoteRecord[] => {
-    return EXACT_FEE_NOTES.filter(fn =>
-      fn.clientName.toLowerCase().includes(client.name.toLowerCase()) ||
-      client.name.toLowerCase().includes(fn.clientName.toLowerCase())
-    );
+  const handleNewBillForClient = (client: ExactClientRecord) => {
+    if (onNavigateToBuilder) {
+      onNavigateToBuilder({
+        clientName: client.name,
+        matterTitle: `Matter: ${client.name}`,
+        claimValue: 0,
+        courtSchedule: 'schedule_6_high_court',
+      }, false);
+    } else if (onNavigateTab) {
+      onNavigateTab('boc');
+    }
   };
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* Title Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-2 border-b border-[var(--border-color)]/50 pb-6">
+    <div className="space-y-6 pb-12 w-full">
+      {/* Title & Action Toolbar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2 border-b border-[var(--border-color)]/60 pb-5">
         <div>
           <h1 className="font-brand font-extrabold text-2xl sm:text-3xl text-slate-900 dark:text-white tracking-tight">
-            My Clients & Contact Directory
+            Clients Directory
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-1 font-sans">
-            Corporate, Institutional & Private Client Database — Nyagah B. Kithinji & Co. Advocates
+            Registered Firm Clients & E-TIMS Tax Accounts ({clientsList.length} Active Records)
           </p>
         </div>
 
-        <button
-          onClick={() => setShowNewClientModal(true)}
-          className="btn-gold px-4 py-2 text-xs font-bold flex items-center gap-1.5 shrink-0 cursor-pointer"
-        >
-          <UserPlus className="w-4 h-4" /> Register New Client
-        </button>
+        {can('clients.create') && (
+          <button
+            onClick={() => setShowNewClientModal(true)}
+            className="px-4 py-2.5 bg-slate-900 hover:bg-black dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs cursor-pointer shrink-0"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Add Client</span>
+          </button>
+        )}
       </div>
 
-      {/* Controls Bar: Search & View Toggle */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
-        <div className="relative w-full sm:w-96">
-          <Search className="w-4 h-4 absolute left-3.5 top-2.5 text-[var(--text-muted)]" />
+      {/* Filter Chips & Search Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        {/* Category Filter Pills */}
+        <div className="inline-flex p-1 rounded-xl bg-slate-200/70 dark:bg-zinc-800 border border-[var(--border-color)]/50 shrink-0 overflow-x-auto">
+          {[
+            { id: 'all', label: 'All Clients', count: clientsList.length },
+            { id: 'corporate', label: 'Corporate & Institutional' },
+            { id: 'individual', label: 'Individual' },
+            { id: 'financial', label: 'Financial Institutions' },
+          ].map(tab => {
+            const isActive = selectedCategory === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setSelectedCategory(tab.id)}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                  isActive
+                    ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                {tab.label} {tab.count !== undefined ? `(${tab.count})` : ''}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Real-time Search Input */}
+        <div className="relative w-full md:w-80">
+          <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search client name, company, email, phone..."
-            className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl pl-10 pr-3.5 py-2 text-xs text-[var(--text-main)] focus:outline-none"
+            placeholder="Search name, company, KRA PIN, email..."
+            className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl pl-9 pr-3.5 py-2 text-xs text-[var(--text-main)] placeholder:text-slate-400 focus:outline-none focus:border-slate-400 transition-colors"
           />
-        </div>
-
-        <div className="flex items-center gap-3">
-          <span className="text-[var(--text-muted)] font-mono text-xs hidden md:inline">{filtered.length} Clients Registered</span>
-          
-          <div className="flex items-center gap-1 bg-[var(--bg-subtle)] p-1 rounded-xl border border-[var(--border-color)] shrink-0">
-            <button
-              onClick={() => setViewMode('table')}
-              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium transition-all cursor-pointer ${
-                viewMode === 'table'
-                  ? 'bg-[var(--btn-bg)] text-[var(--btn-text)] shadow-xs'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-              }`}
-            >
-              <TableIcon className="w-3.5 h-3.5" /> Table View
-            </button>
-            <button
-              onClick={() => setViewMode('card')}
-              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium transition-all cursor-pointer ${
-                viewMode === 'card'
-                  ? 'bg-[var(--btn-bg)] text-[var(--btn-text)] shadow-xs'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-              }`}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" /> Card View
-            </button>
-          </div>
         </div>
       </div>
 
-      {/* TABLE VIEW MODE */}
-      {viewMode === 'table' && (
-        <div className="vercel-card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-[var(--text-main)]">
-              <thead className="bg-[var(--bg-subtle)] text-[var(--text-muted)] uppercase text-[10px] tracking-wider border-b border-[var(--border-color)] font-semibold">
-                <tr>
-                  <th className="px-5 py-3.5">Client Entity & Company</th>
-                  <th className="px-5 py-3.5">Category</th>
-                  <th className="px-5 py-3.5">Official Email</th>
-                  <th className="px-5 py-3.5">Telephone Numbers</th>
-                  <th className="px-5 py-3.5 text-center">Matters</th>
-                  <th className="px-5 py-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-color)]">
-                {filtered.map((c: ExactClientRecord) => (
-                  <tr key={c.id} className="hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer" onClick={() => setSelectedClientDetail(c)}>
-                    <td className="px-5 py-3.5">
+      {errorMessage && (
+        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 text-xs flex items-center justify-between">
+          <span>{errorMessage}</span>
+          <button onClick={() => setErrorMessage('')} className="cursor-pointer font-bold">&times;</button>
+        </div>
+      )}
+
+      {/* EXECUTIVE FULL-WIDTH LINE / TABLE VIEW (Clean line format with consistent h-[42px] geometry) */}
+      <div className="modulix-card p-0 overflow-hidden border border-[var(--border-color)] bg-white dark:bg-zinc-900 shadow-xs w-full">
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-[var(--border-color)] text-[11px] font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider bg-[var(--bg-subtle)] h-[42px]">
+                <th className="py-3.5 px-4 min-w-[220px]">Client / Organization</th>
+                <th className="py-3.5 px-4 min-w-[140px] font-mono">KRA PIN / Tax</th>
+                <th className="py-3.5 px-4 min-w-[150px]">Category</th>
+                <th className="py-3.5 px-4 min-w-[200px]">Direct Contact</th>
+                <th className="py-3.5 px-4 font-mono text-center min-w-[100px]">Active Causes</th>
+                <th className="py-3.5 px-4 font-mono text-right min-w-[140px]">Total Billed</th>
+                <th className="py-3.5 px-4 text-right min-w-[200px]">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--border-color)]/60 font-sans">
+              {filtered.map((client) => {
+                const initials = client.name
+                  .split(' ')
+                  .filter(Boolean)
+                  .map(n => n[0])
+                  .slice(0, 2)
+                  .join('')
+                  .toUpperCase();
+
+                const isMenuOpen = activeMenuId === client.id;
+                const activeCauses = client.activeMattersCount ?? client.matters ?? 0;
+                const totalBilled = client.totalBilledAmount ?? 0;
+
+                return (
+                  <tr
+                    key={client.id}
+                    onClick={() => setSelectedDossierClient(client)}
+                    className="hover:bg-slate-50/80 dark:hover:bg-zinc-800/40 transition-colors cursor-pointer group"
+                  >
+                    {/* 1. Client & Organization */}
+                    <td className="py-3.5 px-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-slate-900 text-white font-mono font-bold text-xs flex items-center justify-center shrink-0 shadow-xs uppercase">
-                          {c.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                        <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-bold text-xs flex items-center justify-center shrink-0 border border-[var(--border-color)] uppercase shadow-2xs">
+                          {initials}
                         </div>
                         <div className="min-w-0">
-                          <strong className="font-bold text-[var(--text-main)] block truncate">{c.name}</strong>
-                          <span className="text-[10.5px] text-[var(--text-muted)] font-mono block truncate">{c.company}</span>
+                          <span className="font-semibold text-slate-900 dark:text-white block truncate leading-snug group-hover:text-blue-600 transition-colors">
+                            {client.name}
+                          </span>
+                          <span className="text-[11px] text-slate-500 dark:text-zinc-400 block truncate font-sans">
+                            {client.company || client.name} &bull; <span className="font-mono text-[10px] text-slate-400">{client.code}</span>
+                          </span>
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-3.5 text-[var(--text-muted)]">
-                      <span className="px-2.5 py-0.5 rounded-full bg-[var(--bg-subtle)] border border-[var(--border-color)] text-[10.5px] font-semibold">
-                        {c.category}
+
+                    {/* 2. KRA PIN */}
+                    <td className="py-3.5 px-4 font-mono text-xs">
+                      {client.kraPin ? (
+                        <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 border border-[var(--border-color)] font-bold text-[11px]">
+                          {client.kraPin}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 text-[11px] italic">Not on file</span>
+                      )}
+                    </td>
+
+                    {/* 3. Category */}
+                    <td className="py-3.5 px-4">
+                      <span className={`inline-block px-2.5 py-0.5 rounded-lg text-xs font-semibold ${
+                        client.category.includes('Corporate') || client.category.includes('Institutional')
+                          ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200/80 dark:border-blue-800'
+                          : client.category.includes('Individual')
+                          ? 'bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300 border border-[var(--border-color)]'
+                          : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800'
+                      }`}>
+                        {client.category}
                       </span>
                     </td>
-                    <td className="px-5 py-3.5 font-mono">{c.email}</td>
-                    <td className="px-5 py-3.5 font-mono text-[11px]">
-                      <div>{c.phonePrimary}</div>
-                      {c.phoneSecondary && <div className="text-[var(--text-muted)]">{c.phoneSecondary}</div>}
+
+                    {/* 4. Direct Contact */}
+                    <td className="py-3.5 px-4 text-xs font-mono">
+                      <div className="text-slate-800 dark:text-zinc-200 truncate flex items-center gap-1.5 leading-snug">
+                        <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span className="truncate">{client.email || '—'}</span>
+                      </div>
+                      <div className="text-slate-500 dark:text-zinc-400 text-[11px] mt-0.5 flex items-center gap-1.5 leading-tight">
+                        <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span>{client.phonePrimary || client.phone || '—'}</span>
+                      </div>
                     </td>
-                    <td className="px-5 py-3.5 text-center font-mono font-bold">{c.matters}</td>
-                    <td className="px-5 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-1.5">
+
+                    {/* 5. Active Causes */}
+                    <td className="py-3.5 px-4 font-mono font-bold text-center text-slate-900 dark:text-white">
+                      {activeCauses}
+                    </td>
+
+                    {/* 6. Total Billed */}
+                    <td className="py-3.5 px-4 font-mono font-bold text-right text-emerald-600 dark:text-emerald-400">
+                      KES {totalBilled.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
+                    </td>
+
+                    {/* 7. Unified Actions */}
+                    <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-2">
+                        {/* Dossier button */}
                         <button
-                          onClick={() => setSelectedClientDetail(c)}
-                          className="p-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors cursor-pointer"
-                          title="View Full Profile"
+                          type="button"
+                          onClick={() => setSelectedDossierClient(client)}
+                          className="px-3 py-1.5 text-xs font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+                          title="View 360° Client Financial Dossier"
                         >
                           <Eye className="w-3.5 h-3.5" />
+                          <span>Dossier</span>
                         </button>
-                        <button
-                          onClick={() => handleOpenEmail(c)}
-                          className="p-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors cursor-pointer"
-                          title="Send Email"
-                        >
-                          <Mail className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteClient(c.id, c.name)}
-                          className="p-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-muted)] hover:text-red-500 transition-colors cursor-pointer"
-                          title="Delete Client"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+
+                        {/* New Bill CTA */}
+                        {can('boc.create') && (
+                          <button
+                            type="button"
+                            onClick={() => handleNewBillForClient(client)}
+                            className="px-3 py-1.5 text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-black dark:hover:bg-slate-100 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+                            title="Draft New Bill of Costs for this Client"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>New Bill</span>
+                          </button>
+                        )}
+
+                        {/* Dropdown Menu */}
+                        <div className="relative inline-block text-left">
+                          <button
+                            type="button"
+                            onClick={() => setActiveMenuId(isMenuOpen ? null : client.id)}
+                            className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
+                            title="More actions"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+
+                          {isMenuOpen && (
+                            <div className="absolute right-0 mt-1 w-48 rounded-xl bg-white dark:bg-zinc-900 border border-[var(--border-color)] shadow-xl py-1 z-30 font-sans text-left">
+                              {can('clients.email') && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEmail(client)}
+                                  className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Mail className="w-3.5 h-3.5 text-blue-500" />
+                                  <span>Email Statement</span>
+                                </button>
+                              )}
+                              {can('clients.whatsapp') && client.phonePrimary && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleWhatsApp(client.phonePrimary, client.name)}
+                                  className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2 cursor-pointer"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5 text-emerald-500" />
+                                  <span>WhatsApp Message</span>
+                                </button>
+                              )}
+                              {can('clients.delete') && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteClient(client)}
+                                  className="w-full px-3 py-2 text-left text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer border-t border-[var(--border-color)]/60"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                  <span>Delete Client</span>
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {filtered.length === 0 && (
+          <div className="p-12 text-center">
+            <p className="text-slate-400 text-sm">No clients found matching "{search}"</p>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* CARD VIEW MODE */}
-      {viewMode === 'card' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((c: ExactClientRecord) => (
-            <div
-              key={c.id}
-              onClick={() => setSelectedClientDetail(c)}
-              className="vercel-card-interactive p-6 space-y-4 flex flex-col justify-between"
-            >
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono font-bold text-[var(--text-muted)] uppercase tracking-wider">
-                    {c.category}
+      {/* CLIENT FINANCIAL DOSSIER (360° Slide-over Drawer / Modal) */}
+      {selectedDossierClient && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-[var(--bg-main)] border border-[var(--border-color)] rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden text-xs">
+            {/* Header */}
+            <div className="p-5 border-b border-[var(--border-color)] flex items-start justify-between bg-[var(--bg-subtle)]/50">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-sm flex items-center justify-center font-mono">
+                  {selectedDossierClient.name.slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="font-brand font-bold text-base text-slate-900 dark:text-white">
+                    {selectedDossierClient.name}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    {selectedDossierClient.company || selectedDossierClient.name} &bull; PIN: {selectedDossierClient.kraPin || 'Pending'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedDossierClient(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+              {/* Financial Snapshot KPI Tiles */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
+                  <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-zinc-400 block font-mono">
+                    Total Billed
                   </span>
-                  <span className="font-mono font-bold text-xs text-[var(--text-main)]">{c.matters} Active Matters</span>
+                  <p className="text-base font-extrabold text-emerald-600 dark:text-emerald-400 font-mono mt-1">
+                    KES {(selectedDossierClient.totalBilledAmount ?? 0).toLocaleString('en-KE', { minimumFractionDigits: 2 })}
+                  </p>
                 </div>
 
-                <h3 className="font-bold text-sm text-[var(--text-main)]">{c.name}</h3>
-                <p className="text-xs text-[var(--text-muted)] font-mono">{c.company}</p>
+                <div className="p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
+                  <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-zinc-400 block font-mono">
+                    Active Causes
+                  </span>
+                  <p className="text-base font-extrabold text-slate-900 dark:text-white font-mono mt-1">
+                    {selectedDossierClient.activeMattersCount ?? selectedDossierClient.matters ?? 0} Matters
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
+                  <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-zinc-400 block font-mono">
+                    Taxation Status
+                  </span>
+                  <p className="text-base font-extrabold text-blue-600 dark:text-blue-400 font-mono mt-1">
+                    Good Standing
+                  </p>
+                </div>
               </div>
 
-              <div className="pt-3 border-t border-[var(--border-color)] space-y-1.5 text-xs font-mono">
-                <p className="flex items-center gap-1.5 text-[var(--text-main)]"><Mail className="w-3.5 h-3.5 text-[var(--text-muted)]" /> {c.email}</p>
-                <p className="flex items-center gap-1.5 text-[var(--text-main)]"><Phone className="w-3.5 h-3.5 text-[var(--text-muted)]" /> {c.phonePrimary}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* CLIENT DETAIL DRAWER / MODAL */}
-      {selectedClientDetail && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="vercel-card p-6 sm:p-8 max-w-3xl w-full space-y-6 my-8 max-h-[90vh] overflow-y-auto text-xs shadow-2xl">
-            <div className="flex items-start justify-between gap-4 border-b border-[var(--border-color)] pb-4">
-              <div>
-                <span className="text-[11px] font-mono font-bold text-[var(--text-muted)] uppercase">
-                  {selectedClientDetail.category}
-                </span>
-                <h2 className="font-brand font-extrabold text-xl text-[var(--text-main)] mt-0.5">
-                  {selectedClientDetail.name}
-                </h2>
-                <p className="text-xs text-[var(--text-muted)] font-mono mt-0.5">
-                  Company Entity: {selectedClientDetail.company}
-                </p>
-              </div>
-
-              <button
-                onClick={() => setSelectedClientDetail(null)}
-                className="p-1.5 rounded-xl border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-main)]"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Contact Information Chips */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono">
-              <div className="p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
-                <span className="text-[10px] text-[var(--text-muted)] block font-semibold uppercase">Official Email</span>
-                <strong className="text-xs font-bold text-[var(--text-main)] block truncate">
-                  {selectedClientDetail.email}
-                </strong>
+              {/* Client Profile Details */}
+              <div className="p-4 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)] space-y-2">
+                <div className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5 mb-2">
+                  <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Contact & Registration Profile</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-mono">Official Email</span>
+                    <span className="font-medium text-slate-800 dark:text-zinc-200 font-mono">{selectedDossierClient.email || 'Not provided'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-mono">Telephone</span>
+                    <span className="font-medium text-slate-800 dark:text-zinc-200 font-mono">{selectedDossierClient.phonePrimary || selectedDossierClient.phone || 'Not provided'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-mono">Category</span>
+                    <span className="font-medium text-slate-800 dark:text-zinc-200">{selectedDossierClient.category}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-mono">Client Code</span>
+                    <span className="font-mono text-slate-800 dark:text-zinc-200 font-bold">{selectedDossierClient.code}</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
-                <span className="text-[10px] text-[var(--text-muted)] block font-semibold uppercase">Primary Telephone</span>
-                <strong className="text-xs font-bold text-[var(--text-main)] block">
-                  {selectedClientDetail.phonePrimary}
-                </strong>
-              </div>
-
-              <div className="p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
-                <span className="text-[10px] text-[var(--text-muted)] block font-semibold uppercase">Secondary Telephone</span>
-                <strong className="text-xs font-bold text-[var(--text-main)] block">
-                  {selectedClientDetail.phoneSecondary || 'N/A'}
-                </strong>
-              </div>
-            </div>
-
-            {/* Client Matters List */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-2">
-                <h3 className="font-brand font-bold text-xs uppercase text-[var(--text-main)] tracking-wider flex items-center gap-2">
-                  <Briefcase className="w-4 h-4 text-blue-500" /> Active Legal Matters for {selectedClientDetail.name}
-                </h3>
-                <span className="font-mono text-[10.5px] text-[var(--text-muted)]">
-                  {getMattersForClient(selectedClientDetail).length} Matters Registered
-                </span>
-              </div>
-
-              {getMattersForClient(selectedClientDetail).length === 0 ? (
-                <p className="text-[11px] text-[var(--text-muted)] italic">No specific matters recorded under this client entity.</p>
-              ) : (
-                <div className="space-y-2">
-                  {getMattersForClient(selectedClientDetail).map((m) => (
-                    <div
-                      key={m.id}
-                      className="p-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] flex items-center justify-between gap-3"
+              {/* Action Toolbar inside Dossier */}
+              <div className="pt-2 flex items-center justify-between border-t border-[var(--border-color)]">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEmail(selectedDossierClient)}
+                    className="px-3 py-1.5 rounded-xl border border-[var(--border-color)] hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-blue-500" />
+                    <span>Send Statement</span>
+                  </button>
+                  {selectedDossierClient.phonePrimary && (
+                    <button
+                      type="button"
+                      onClick={() => handleWhatsApp(selectedDossierClient.phonePrimary, selectedDossierClient.name)}
+                      className="px-3 py-1.5 rounded-xl border border-[var(--border-color)] hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
                     >
-                      <div>
-                        <strong className="font-bold text-[var(--text-main)] block">{m.title}</strong>
-                        <span className="text-[10.5px] text-[var(--text-muted)] font-mono">
-                          {m.caseNo} &bull; {m.forum} &bull; Status: {m.status}
-                        </span>
-                      </div>
-
-                      <span className="font-mono font-bold text-xs text-[var(--text-main)] shrink-0">
-                        Kshs {m.amount.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  ))}
+                      <MessageCircle className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>WhatsApp</span>
+                    </button>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {/* Client Fee Notes List */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-2">
-                <h3 className="font-brand font-bold text-xs uppercase text-[var(--text-main)] tracking-wider flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-emerald-500" /> Fee Notes & Bills Issued to Client
-                </h3>
-                <span className="font-mono text-[10.5px] text-[var(--text-muted)]">
-                  {getFeeNotesForClient(selectedClientDetail).length} Fee Notes Found
-                </span>
+                {can('boc.create') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedDossierClient(null);
+                      handleNewBillForClient(selectedDossierClient);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold text-xs hover:bg-black dark:hover:bg-slate-100 transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Draft Bill of Costs</span>
+                  </button>
+                )}
               </div>
-
-              {getFeeNotesForClient(selectedClientDetail).length === 0 ? (
-                <p className="text-[11px] text-[var(--text-muted)] italic">No fee notes generated for this client yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {getFeeNotesForClient(selectedClientDetail).map((fn) => (
-                    <div
-                      key={fn.id}
-                      className="p-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] flex items-center justify-between gap-3"
-                    >
-                      <div>
-                        <strong className="font-mono font-bold text-[var(--text-main)]">{fn.billNumber}</strong>
-                        <span className="text-[10.5px] text-[var(--text-muted)] block mt-0.5">
-                          {fn.courtSchedule} &bull; Status: {fn.status}
-                        </span>
-                      </div>
-
-                      <span className="font-mono font-bold text-sm text-[var(--text-main)] shrink-0">
-                        Kshs {fn.grandTotal.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end pt-2 border-t border-[var(--border-color)]">
-              <button
-                onClick={() => setSelectedClientDetail(null)}
-                className="btn-black px-5 py-2 text-xs font-semibold cursor-pointer"
-              >
-                Close Client Profile
-              </button>
             </div>
           </div>
         </div>
@@ -429,86 +618,132 @@ export const ClientsView: React.FC = () => {
 
       {/* REGISTER NEW CLIENT MODAL */}
       {showNewClientModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="vercel-card p-6 max-w-md w-full space-y-4 shadow-2xl text-xs">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-[var(--bg-main)] border border-[var(--border-color)] rounded-2xl p-6 max-w-lg w-full space-y-4 shadow-2xl text-xs">
             <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
-              <h3 className="font-brand font-bold text-sm text-[var(--text-main)] uppercase tracking-wider">
-                Register New Law Firm Client
+              <h3 className="font-brand font-bold text-sm text-[var(--text-main)] flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-slate-800 dark:text-zinc-200" /> Register Client Account
               </h3>
-              <button onClick={() => setShowNewClientModal(false)} className="text-[var(--text-muted)]">
+              <button
+                type="button"
+                onClick={() => setShowNewClientModal(false)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleRegisterClient} className="space-y-3">
+            <form onSubmit={handleRegisterClient} className="space-y-3.5">
               <div>
-                <label className="block text-[var(--text-muted)] mb-1 font-semibold">Client Name / Full Entity</label>
+                <label className="block text-[var(--text-main)] font-semibold mb-1">
+                  Client Name / Authorized Contact Person
+                </label>
                 <input
                   type="text"
                   required
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="e.g. Seyani Brothers & Co. (K) Limited"
-                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[var(--text-muted)] mb-1 font-semibold">Company Registered Name</label>
-                <input
-                  type="text"
-                  value={newCompany}
-                  onChange={(e) => setNewCompany(e.target.value)}
-                  placeholder="e.g. Seyani Construction Group"
-                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[var(--text-muted)] mb-1 font-semibold">Client Category</label>
-                <select
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
-                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)]"
-                >
-                  <option value="Corporate or Institutional">Corporate or Institutional</option>
-                  <option value="Individual Client">Individual Client</option>
-                  <option value="Family Trust / Estate">Family Trust / Estate</option>
-                  <option value="Government Entity">Government Entity</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[var(--text-muted)] mb-1 font-semibold">Official Email</label>
-                <input
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="info@seyani.co.ke"
-                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-mono"
+                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] focus:outline-none focus:border-slate-400"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[var(--text-muted)] mb-1 font-semibold">Primary Phone</label>
+                  <label className="block text-[var(--text-main)] font-semibold mb-1">
+                    Company / Entity Name
+                  </label>
                   <input
                     type="text"
-                    value={newPhonePrimary}
-                    onChange={(e) => setNewPhonePrimary(e.target.value)}
-                    placeholder="+254 720 100 200"
-                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-mono"
+                    value={newCompany}
+                    onChange={(e) => setNewCompany(e.target.value)}
+                    placeholder="e.g. Seyani Brothers Ltd"
+                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] focus:outline-none focus:border-slate-400"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[var(--text-muted)] mb-1 font-semibold">Secondary Phone</label>
+                  <label className="block text-[var(--text-main)] font-semibold mb-1">
+                    KRA PIN (E-TIMS Fiscal ID)
+                  </label>
+                  <input
+                    type="text"
+                    value={newKraPin}
+                    onChange={(e) => setNewKraPin(e.target.value)}
+                    placeholder="e.g. P051234567Z"
+                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-mono uppercase focus:outline-none focus:border-slate-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[var(--text-main)] font-semibold mb-1">
+                    Client Category
+                  </label>
+                  <select
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] focus:outline-none focus:border-slate-400 cursor-pointer"
+                  >
+                    <option value="Corporate or Institutional">Corporate or Institutional</option>
+                    <option value="Individual Client">Individual Client</option>
+                    <option value="Financial Institution">Financial Institution / Bank</option>
+                    <option value="Government Entity">Government Entity / Parastatal</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[var(--text-main)] font-semibold mb-1">
+                    Physical Office / County
+                  </label>
+                  <input
+                    type="text"
+                    value={newAddress}
+                    onChange={(e) => setNewAddress(e.target.value)}
+                    placeholder="e.g. Upper Hill, Nairobi"
+                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] focus:outline-none focus:border-slate-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[var(--text-main)] font-semibold mb-1">
+                  Official Billing Email
+                </label>
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="legal@seyani.co.ke"
+                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-mono focus:outline-none focus:border-slate-400"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[var(--text-main)] font-semibold mb-1">
+                    Primary Telephone
+                  </label>
+                  <input
+                    type="text"
+                    value={newPhonePrimary}
+                    onChange={(e) => setNewPhonePrimary(e.target.value)}
+                    placeholder="+254 700 000 000"
+                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-mono focus:outline-none focus:border-slate-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[var(--text-main)] font-semibold mb-1">
+                    Secondary Telephone
+                  </label>
                   <input
                     type="text"
                     value={newPhoneSecondary}
                     onChange={(e) => setNewPhoneSecondary(e.target.value)}
-                    placeholder="+254 20 271 8800"
-                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-mono"
+                    placeholder="+254 20 000 0000"
+                    className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-mono focus:outline-none focus:border-slate-400"
                   />
                 </div>
               </div>
@@ -517,15 +752,15 @@ export const ClientsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowNewClientModal(false)}
-                  className="btn-outline px-4 py-2 text-xs"
+                  className="px-4 py-2 border border-slate-300 dark:border-zinc-700 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn-black px-4 py-2 text-xs cursor-pointer"
+                  className="px-4 py-2 bg-slate-900 hover:bg-black dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
                 >
-                  Save Client Realtime
+                  Save Client
                 </button>
               </div>
             </form>
@@ -535,47 +770,57 @@ export const ClientsView: React.FC = () => {
 
       {/* EMAIL COMPOSE MODAL */}
       {showEmailModal && emailClient && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="vercel-card p-6 max-w-lg w-full space-y-4 shadow-2xl text-xs">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-[var(--bg-main)] border border-[var(--border-color)] rounded-2xl p-6 max-w-lg w-full space-y-4 shadow-2xl text-xs">
             <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
               <h3 className="font-brand font-bold text-sm text-[var(--text-main)]">
-                Compose Email to {emailClient.name}
+                Compose Legal Statement to {emailClient.name}
               </h3>
-              <button onClick={() => setShowEmailModal(false)} className="text-[var(--text-muted)]">
+              <button
+                type="button"
+                onClick={() => setShowEmailModal(false)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <form onSubmit={handleSendEmail} className="space-y-3">
               <div>
-                <label className="block text-[var(--text-muted)] mb-1 font-semibold">Recipient Email</label>
+                <label className="block text-[var(--text-main)] font-semibold mb-1">
+                  Recipient Email
+                </label>
                 <input
                   type="email"
                   value={emailClient.email}
                   readOnly
-                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 font-mono text-[var(--text-main)] opacity-80"
+                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-mono opacity-80"
                 />
               </div>
 
               <div>
-                <label className="block text-[var(--text-muted)] mb-1 font-semibold">Subject</label>
+                <label className="block text-[var(--text-main)] font-semibold mb-1">
+                  Subject Line
+                </label>
                 <input
                   type="text"
                   required
                   value={emailSubject}
                   onChange={(e) => setEmailSubject(e.target.value)}
-                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-medium"
+                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] focus:outline-none focus:border-slate-400"
                 />
               </div>
 
               <div>
-                <label className="block text-[var(--text-muted)] mb-1 font-semibold">Message Body</label>
+                <label className="block text-[var(--text-main)] font-semibold mb-1">
+                  Correspondence Body
+                </label>
                 <textarea
-                  rows={5}
                   required
+                  rows={6}
                   value={emailBody}
                   onChange={(e) => setEmailBody(e.target.value)}
-                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl p-3 text-[var(--text-main)] font-sans leading-relaxed"
+                  className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2 text-[var(--text-main)] font-sans focus:outline-none focus:border-slate-400"
                 />
               </div>
 
@@ -583,16 +828,16 @@ export const ClientsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowEmailModal(false)}
-                  className="btn-outline px-4 py-2 text-xs"
+                  className="px-4 py-2 border border-slate-300 dark:border-zinc-700 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSending}
-                  className="btn-black px-4 py-2 text-xs flex items-center gap-1.5 cursor-pointer"
+                  className="px-4 py-2 bg-slate-900 hover:bg-black dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
                 >
-                  <Send className="w-3.5 h-3.5" /> {isSending ? 'Sending...' : 'Send Email'}
+                  {isSending ? 'Transmitting...' : 'Send Statement'}
                 </button>
               </div>
             </form>
@@ -602,5 +847,3 @@ export const ClientsView: React.FC = () => {
     </div>
   );
 };
-
-export default ClientsView;
