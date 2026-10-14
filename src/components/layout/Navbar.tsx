@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, Bell, Sun, Moon, User, CheckCircle2, LogOut, Search } from 'lucide-react';
+import { Menu, X, Bell, Sun, Moon, User, CheckCircle2, LogOut, Search, Settings } from 'lucide-react';
 import { EXACT_FIRM_INFO, SystemUser } from '../../services/supabase';
 
 interface NavbarProps {
@@ -77,7 +77,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="h-16 bg-[var(--bg-main)] px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 transition-colors duration-200">
+    <header className="h-18 sm:h-20 bg-[var(--bg-main)] px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 transition-colors duration-200 border-b border-[var(--border-color)]/40">
       
       {/* Left Area: Hamburger Toggle + Logo (Always Visible) */}
       <div className="flex items-center gap-4 shrink-0 relative z-10">
@@ -89,18 +89,17 @@ export const Navbar: React.FC<NavbarProps> = ({
           {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
 
-        {/* Firm Logo ONLY visible on mobile/tablet OR when Sidebar is explicitly closed */}
-        <div className={`flex items-center gap-3 shrink-0 ${sidebarOpen ? 'lg:hidden' : ''}`}>
+        {/* Firm Logo: Prominent, Big, Clean (No Kithinji & Co text) */}
+        <div className="flex items-center gap-3 shrink-0 py-1">
           <img
-            src={firmSettings.logoUrl}
-            alt="Law Firm Logo"
-            className="h-14 sm:h-16 w-auto object-contain shrink-0"
+            src={firmSettings.logoUrl || '/logo.png'}
+            alt=""
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = '/logo.png';
+            }}
+            className="h-14 sm:h-16 md:h-18 max-h-18 max-w-[260px] w-auto object-contain shrink-0 transition-transform hover:scale-105"
           />
-          <div className="hidden sm:block">
-            <span className="font-brand font-extrabold text-xs text-slate-900 dark:text-white block tracking-tight">
-              {firmSettings.topbarTitle}
-            </span>
-          </div>
         </div>
       </div>
 
@@ -226,6 +225,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-900 dark:text-white font-semibold flex items-center gap-2 transition-colors cursor-pointer"
               >
                 <User className="w-4 h-4 text-blue-600" /> View Profile
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowProfileMenu(false);
+                  if (onNavigateTab) onNavigateTab('settings');
+                }}
+                className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-900 dark:text-white font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+              >
+                <Settings className="w-4 h-4 text-slate-500" /> Firm Settings
               </button>
 
               <button
