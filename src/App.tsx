@@ -27,8 +27,10 @@ import { AdvocatePermissionsView } from './components/admin/AdvocatePermissionsV
 import { LiveActivityFeedView } from './components/admin/LiveActivityFeedView';
 import { ToastContainer } from './components/admin/ToastNotification';
 import { AccessDeniedView } from './components/common/AccessDeniedView';
+import { DocumentVerifyView } from './components/verify/DocumentVerifyView';
+import { PaymentsBillingView } from './components/payments/PaymentsBillingView';
 
-import { SystemUser } from './services/supabase';
+import { SystemUser, fetchFeeNotesFromDatabase } from './services/supabase';
 import { getCurrentUserProfile, signOut, subscribeToAuthState } from './services/auth';
 import { subscribeToFirmTable } from './services/realtime';
 import { hasPermission } from './services/rbac';
@@ -45,7 +47,15 @@ export const App: React.FC = () => {
     return null;
   });
 
-  const [currentTab, setCurrentTab] = useState<string>('home');
+  const [currentTab, setCurrentTab] = useState<string>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.location) {
+        const p = new URLSearchParams(window.location.search);
+        if (p.get('tab') === 'verify' || p.get('ref')) return 'verify';
+      }
+    } catch (e) {}
+    return 'home';
+  });
   const [previousTab, setPreviousTab] = useState<string>('home');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     const saved = localStorage.getItem('BILLSZIP_THEME') || localStorage.getItem('theme');
@@ -95,6 +105,22 @@ export const App: React.FC = () => {
     window.addEventListener('storage', handlePermissions);
 
     let isMounted = true;
+    // Hydrate fee notes from database
+    void fetchFeeNotesFromDatabase().catch(() => {});
+
+    // Hydrate firm settings from persistent backend store
+    fetch('/api/v1/users/firm-settings')
+      .then(res => res.ok ? res.json() : null)
+      .then(firmData => {
+        if (firmData && Object.keys(firmData).length > 0) {
+          const current = localStorage.getItem('BILLSZIP_FIRM_SETTINGS');
+          const merged = current ? { ...JSON.parse(current), ...firmData } : firmData;
+          localStorage.setItem('BILLSZIP_FIRM_SETTINGS', JSON.stringify(merged));
+          window.dispatchEvent(new CustomEvent('firmSettingsChanged', { detail: merged }));
+        }
+      })
+      .catch(() => {});
+
     void getCurrentUserProfile().then(profile => {
       if (isMounted && profile) {
         localStorage.setItem('BILLSZIP_SESSION', JSON.stringify(profile));
@@ -192,8 +218,16 @@ export const App: React.FC = () => {
     }
   };
 
-  // If user is not logged in, render Login View
-  if (window.location.hash.includes('type=recovery')) {
+  // If user is accessing password reset recovery URL (supports pathname, query param, or hash)
+  const isResetPasswordView =
+    window.location.pathname.includes('reset-password') ||
+    window.location.search.includes('reset-password') ||
+    window.location.search.includes('view=reset-password') ||
+    (window.location.search.includes('token=') && window.location.search.includes('email=')) ||
+    window.location.hash.includes('recovery') ||
+    window.location.hash.includes('reset-password');
+
+  if (isResetPasswordView) {
     return <PasswordResetView />;
   }
 
@@ -311,7 +345,7 @@ export const App: React.FC = () => {
 
           {currentTab === 'matters' && (
             can('matters.view') ? (
-              <MattersView onNavigateTab={handleNavigateTab} currentUser={currentUser} />
+              <MattersView onNavigateTab={handleNavigateTab} onNavigateToBuilder={handleNavigateToBuilder} currentUser={currentUser} />
             ) : (
               <AccessDeniedView
                 resourceName="My Matters Registry"
@@ -323,7 +357,7 @@ export const App: React.FC = () => {
 
           {currentTab === 'clients' && (
             can('clients.view') ? (
-              <ClientsView currentUser={currentUser} />
+              <ClientsView onNavigateTab={handleNavigateTab} onNavigateToBuilder={handleNavigateToBuilder} currentUser={currentUser} />
             ) : (
               <AccessDeniedView
                 resourceName="Clients Directory"
@@ -333,7 +367,10 @@ export const App: React.FC = () => {
             )
           )}
 
-          {currentTab === 'messages' && <MessagesView currentUser={currentUser} />}
+          {/* PAYMENTS & MESSAGES TEMPORARILY COMMENTED OUT AS PER USER REQUEST */}
+          {/* {currentTab === 'payments' && <PaymentsBillingView currentUser={currentUser} />} */}
+
+          {/* {currentTab === 'messages' && <MessagesView currentUser={currentUser} />} */}
 
           {currentTab === 'vault' && (
             can('vault.view') ? (
@@ -399,7 +436,13 @@ export const App: React.FC = () => {
             )
           )}
 
-          {/* MANAGING PARTNER SUITE PAGES */}
+          {/* DOCUMENT AUTHENTICITY VERIFICATION VIEW */}
+          {currentTab === 'verify' && (
+            <DocumentVerifyView onNavigateHome={() => handleNavigateTab('home')} />
+          )}
+
+          {/* MANAGING PARTNER SUITE PAGES: EXECUTIVE HUB COMMENTED OUT AS PER USER REQUEST */}
+          {/*
           {currentTab === 'managing_hub' && (
             can('managing_hub.view') ? (
               <ManagingPartnerHubView 
@@ -415,6 +458,7 @@ export const App: React.FC = () => {
               />
             )
           )}
+          */}
 
           {currentTab === 'managing_approvals' && (
             can('feenotes.approve') ? (
