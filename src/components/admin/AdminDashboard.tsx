@@ -539,6 +539,13 @@ export const AdminDashboard: React.FC = () => {
     setShowLogPaymentModal(false);
   };
 
+  const handleDeploymentContextMenu = (e: React.MouseEvent, project: RealProject) => {
+    e.preventDefault();
+    setSelectedDeployment(project);
+    setDeploymentMenuPos({ x: e.clientX, y: e.clientY });
+    setShowDeploymentMenu(true);
+  };
+
   const toggleMaintenance = () => {
     const next = !isMaintenanceMode;
     setIsMaintenanceMode(next);
@@ -697,6 +704,7 @@ export const AdminDashboard: React.FC = () => {
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         
         {/* Top Command Bar */}
+                {/* Top Command Bar */}
         <header className="px-8 py-3.5 w-full flex justify-between items-center border-b border-slate-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md z-10 sticky top-0">
           <div className="flex items-center gap-4 min-w-0">
             <div className="flex items-center gap-2.5">
@@ -715,30 +723,31 @@ export const AdminDashboard: React.FC = () => {
 
             {/* Quick Search Bar */}
             <div className="relative hidden md:block w-72">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-2.5" />
               <input 
                 type="text"
                 placeholder="Search repos, clients, tasks (Ctrl+K)..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs focus:outline-none focus:border-slate-400"
+                className="w-full pl-9 pr-4 py-1.5 rounded-full border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 transition-colors"
               />
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-2 font-mono text-xs">
-              <span className="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300">
-                Branch: <strong>update-4</strong>
+              <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300 font-semibold">
+                Branch: <strong className="text-slate-900 dark:text-white">update-4</strong>
               </span>
-              <span className="px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-semibold">
+              <span className="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 font-bold flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 razak-server: 7ms
               </span>
             </div>
 
             <button
               onClick={() => showToast('No unread server alerts.')}
-              className="p-2 rounded-xl text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+              className="p-2 rounded-full text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer transition-colors"
               title="Notifications"
             >
               <Bell className="w-4 h-4" />
@@ -746,9 +755,9 @@ export const AdminDashboard: React.FC = () => {
 
             <button
               onClick={() => window.location.href = '/'}
-              className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-black flex items-center gap-1.5 cursor-pointer shadow-xs"
+              className="px-4 py-2 rounded-full text-xs font-bold bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 dark:from-white dark:via-slate-100 dark:to-zinc-200 text-white dark:text-slate-900 hover:opacity-90 flex items-center gap-1.5 cursor-pointer shadow-md shadow-indigo-950/20 transition-all"
             >
-              <ArrowUpRight className="w-3.5 h-3.5" />
+              <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>Launch Karani Portal</span>
             </button>
           </div>
@@ -759,47 +768,55 @@ export const AdminDashboard: React.FC = () => {
           <div className="max-w-7xl mx-auto space-y-6">
 
             {/* ========================================================================= */}
-            {/* WELCOME SECTION & ACTION BAR */}
+            {/* HERO WELCOME HEADER & PILL ACTION BAR (UNBOXED, AIRY, PURE SLEEK MODERN) */}
             {/* ========================================================================= */}
-            <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white font-brand">
-                  Hey Guyo, welcome to P3L Developers Command
-                </h1>
-                <p className="text-xs text-slate-500 dark:text-zinc-400">
-                  Marsabit County Operations Node &middot; Live Fleet &middot; Sayara Aesthetics, Fresh City POS, Karani Law & OdinBot
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 pt-1 pb-1">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white font-brand">
+                    Hey Guyo, welcome to <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 bg-clip-text text-transparent">P3L Developers Command</span>
+                  </h1>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Live Fleet
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 flex items-center gap-2 flex-wrap font-sans">
+                  <span className="font-semibold text-slate-700 dark:text-zinc-300">Marsabit County Operations Node</span>
+                  <span className="text-slate-300 dark:text-zinc-700">&bull;</span>
+                  <span>Sayara Aesthetics, Fresh City POS, Karani Law &amp; OdinBot</span>
                 </p>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 flex-wrap">
+              {/* Action Buttons: High-Contrast PILLS */}
+              <div className="flex items-center gap-2.5 flex-wrap">
                 <button
                   onClick={() => setShowAddProjectModal(true)}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-black flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="px-4 py-2 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/25 hover:shadow-emerald-600/40 transition-all transform hover:-translate-y-0.5 flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                   <span>Add Project</span>
                 </button>
 
                 <button
                   onClick={() => setShowAddTaskModal(true)}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 hover:bg-slate-200 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="px-4 py-2 rounded-full text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/25 hover:shadow-blue-600/40 transition-all transform hover:-translate-y-0.5 flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                   <span>Add Task</span>
                 </button>
 
                 <button
                   onClick={() => setShowLogPaymentModal(true)}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 hover:bg-slate-200 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="px-4 py-2 rounded-full text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md shadow-amber-500/25 hover:shadow-amber-500/40 transition-all transform hover:-translate-y-0.5 flex items-center gap-1.5 cursor-pointer"
                 >
-                  <DollarSign className="w-3.5 h-3.5" />
+                  <DollarSign className="w-3.5 h-3.5 stroke-[2.5]" />
                   <span>Log Payment</span>
                 </button>
 
                 <button
                   onClick={handleExportBackup}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 hover:bg-slate-200 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="px-4 py-2 rounded-full text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 border border-slate-700/80 shadow-sm transition-all transform hover:-translate-y-0.5 flex items-center gap-1.5 cursor-pointer"
                   title="Export full JSON master backup"
                 >
                   <Download className="w-3.5 h-3.5" />
@@ -808,8 +825,10 @@ export const AdminDashboard: React.FC = () => {
 
                 <button
                   onClick={toggleMaintenance}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs ${
-                    isMaintenanceMode ? 'bg-red-600 text-white animate-pulse' : 'bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-300'
+                  className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    isMaintenanceMode 
+                      ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse shadow-md shadow-red-600/30' 
+                      : 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 border border-rose-300/80 dark:border-rose-800/80'
                   }`}
                 >
                   <Power className="w-3.5 h-3.5" />
@@ -824,180 +843,210 @@ export const AdminDashboard: React.FC = () => {
             {activeTab === 'dashboard' && (
               <div className="space-y-6 animate-fadeIn">
                 
-                {/* 3 Vital Cards */}
+                {/* 3 Vital Cards with Bold Distinct Theming */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   
-                  {/* CARD 1: REVENUE & CASHFLOW WITH PERIOD SWITCHER */}
-                  <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between space-y-4">
+                  {/* CARD 1: REVENUE & CASHFLOW WITH PILL PERIOD SWITCHER (EMERALD THEME) */}
+                  <div className="p-6 rounded-2xl bg-gradient-to-br from-emerald-500/[0.08] via-teal-500/[0.03] to-white dark:to-zinc-900 border border-emerald-500/30 dark:border-emerald-500/40 shadow-sm flex flex-col justify-between space-y-4">
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10.5px] font-mono text-slate-400 uppercase tracking-wider block font-bold">
-                          Cashflow & Revenue
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                          <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          Cashflow &amp; Revenue
                         </span>
-                        {/* Period Switcher */}
-                        <div className="flex items-center p-0.5 bg-slate-100 dark:bg-zinc-800 rounded-lg text-[10px] font-mono">
+                        {/* Pill Period Switcher */}
+                        <div className="flex items-center p-1 bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/20 rounded-full text-[10.5px] font-mono">
                           <button
                             onClick={() => setRevenuePeriod('this_month')}
-                            className={`px-2 py-0.5 rounded cursor-pointer ${revenuePeriod === 'this_month' ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white font-bold shadow-xs' : 'text-slate-500'}`}
+                            className={`px-3 py-1 rounded-full font-bold cursor-pointer transition-all ${
+                              revenuePeriod === 'this_month' 
+                                ? 'bg-emerald-600 text-white shadow-xs' 
+                                : 'text-slate-600 dark:text-zinc-400 hover:text-emerald-700 dark:hover:text-white'
+                            }`}
                           >
                             This Month
                           </button>
                           <button
                             onClick={() => setRevenuePeriod('last_6_months')}
-                            className={`px-2 py-0.5 rounded cursor-pointer ${revenuePeriod === 'last_6_months' ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white font-bold shadow-xs' : 'text-slate-500'}`}
+                            className={`px-3 py-1 rounded-full font-bold cursor-pointer transition-all ${
+                              revenuePeriod === 'last_6_months' 
+                                ? 'bg-emerald-600 text-white shadow-xs' 
+                                : 'text-slate-600 dark:text-zinc-400 hover:text-emerald-700 dark:hover:text-white'
+                            }`}
                           >
                             Last 6 Mo
                           </button>
                           <button
                             onClick={() => setRevenuePeriod('this_year')}
-                            className={`px-2 py-0.5 rounded cursor-pointer ${revenuePeriod === 'this_year' ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white font-bold shadow-xs' : 'text-slate-500'}`}
+                            className={`px-3 py-1 rounded-full font-bold cursor-pointer transition-all ${
+                              revenuePeriod === 'this_year' 
+                                ? 'bg-emerald-600 text-white shadow-xs' 
+                                : 'text-slate-600 dark:text-zinc-400 hover:text-emerald-700 dark:hover:text-white'
+                            }`}
                           >
                             This Year
                           </button>
                         </div>
                       </div>
 
-                      {/* Dynamic Figure */}
-                      <div className="mt-1">
-                        <p className="text-2xl font-black font-mono text-slate-900 dark:text-white">
+                      {/* Dynamic Big Figure in Vivid Bold Emerald */}
+                      <div className="space-y-2">
+                        <p className="text-3xl sm:text-4xl font-black font-mono text-emerald-600 dark:text-emerald-400 tracking-tight">
                           {revenuePeriod === 'this_month' ? 'KES 8,000' : revenuePeriod === 'last_6_months' ? 'KES 43,000' : 'KES 85,000'}
                         </p>
-                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
-                          {revenuePeriod === 'this_month' 
-                            ? 'KES 3,200 received from Sarah Rashid (Sayara) + KES 4,800 other sources' 
-                            : revenuePeriod === 'last_6_months'
-                            ? '6-Month client settlements & POS license disbursements'
-                            : 'Annual startup revenue across client accounts'}
-                        </p>
+                        
+                        {/* Context explanation pill banner */}
+                        <div className="px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-900 dark:text-emerald-200 text-xs font-semibold flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>
+                            {revenuePeriod === 'this_month' 
+                              ? 'KES 3,200 received from Sarah Rashid (Sayara) + KES 4,800 other sources' 
+                              : revenuePeriod === 'last_6_months'
+                              ? '6-Month client settlements & POS license disbursements'
+                              : 'Annual startup revenue across client accounts'}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Breakdown list */}
-                    <div className="pt-3 border-t border-slate-100 dark:border-zinc-800/80 space-y-1.5 text-[11px] font-mono">
-                      <div className="flex justify-between text-slate-600 dark:text-zinc-400">
-                        <span>Fresh City POS Retainer:</span>
-                        <span className="font-bold text-slate-900 dark:text-white">KES 3,500/mo (Setup 32k paid)</span>
+                    {/* Breakdown list with colorful pill badges */}
+                    <div className="pt-3 border-t border-emerald-500/20 space-y-2 text-xs font-mono">
+                      <div className="flex justify-between items-center text-slate-600 dark:text-zinc-400">
+                        <span className="font-sans font-medium text-slate-800 dark:text-zinc-200">Fresh City POS Retainer:</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-slate-900 dark:text-white">KES 3,500/mo</span>
+                          <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                            Setup 32k paid
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex justify-between text-slate-600 dark:text-zinc-400">
-                        <span>Sayara Aesthetics:</span>
-                        <span className="font-bold text-slate-900 dark:text-white">% Comm. (Setup 10k paid)</span>
+                      <div className="flex justify-between items-center text-slate-600 dark:text-zinc-400">
+                        <span className="font-sans font-medium text-slate-800 dark:text-zinc-200">Sayara Aesthetics:</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-slate-900 dark:text-white">% Comm.</span>
+                          <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300">
+                            Setup 10k paid
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex justify-between text-slate-600 dark:text-zinc-400">
-                        <span>Karani Law ERP:</span>
-                        <span className="font-bold text-slate-900 dark:text-white">Milestone In Progress</span>
+                      <div className="flex justify-between items-center text-slate-600 dark:text-zinc-400">
+                        <span className="font-sans font-medium text-slate-800 dark:text-zinc-200">Karani Law ERP:</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-slate-900 dark:text-white">Milestone</span>
+                          <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                            In Progress
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* CARD 2: LIVE SERVICES & VERCEL CLOUD DEPLOYMENTS */}
-                  <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between space-y-3">
+                  {/* CARD 2: LIVE SERVICES & VERCEL CLOUD DEPLOYMENTS (CYAN / SKY THEME) */}
+                  <div className="p-6 rounded-2xl bg-gradient-to-br from-cyan-500/[0.08] via-sky-500/[0.03] to-white dark:to-zinc-900 border border-cyan-500/30 dark:border-cyan-500/40 shadow-sm flex flex-col justify-between space-y-4">
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10.5px] font-mono text-slate-400 uppercase tracking-wider block font-bold">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-400 flex items-center gap-1.5">
+                          <Globe className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                           Live Deployments (Top 3)
                         </span>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800">
+                        <span className="text-[10.5px] font-mono px-3 py-1 rounded-full bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 font-bold border border-cyan-500/30 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></span>
                           3 Running
                         </span>
                       </div>
 
                       <div className="space-y-2.5">
-                        {/* 1. Sayara Vercel */}
+                        {/* 1. Sayara Aesthetics Storefront */}
                         <div 
-                          onContextMenu={(e) => {
-                            e.preventDefault();
-                            setSelectedDeployment(projects[1]);
-                            setDeploymentMenuPos({ x: e.clientX, y: e.clientY });
-                            setShowDeploymentMenu(true);
-                          }}
-                          className="p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 flex items-center justify-between hover:border-slate-400 cursor-pointer transition-all"
-                          title="Right-click for options menu"
+                          onContextMenu={(e) => handleDeploymentContextMenu(e, projects.find(p => p.id === 'prj-sayara-ecom')!)}
+                          className="p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-800/60 hover:border-cyan-400/80 transition-all flex items-center justify-between cursor-pointer"
                         >
-                          <div>
-                            <span className="text-xs font-bold text-slate-900 dark:text-white block">
-                              Sayara Aesthetics Storefront
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-mono">
+                          <div className="min-w-0 pr-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                Sayara Aesthetics Storefront
+                              </span>
+                              <ExternalLink className="w-3 h-3 text-slate-400 shrink-0" />
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-mono block truncate">
                               sayara-aesthetics.vercel.app &middot; 24ms
                             </span>
                           </div>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white dark:bg-zinc-900 font-bold text-emerald-600 border border-slate-200 dark:border-zinc-700">
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-bold text-[10px] font-mono shrink-0">
                             200 OK
                           </span>
                         </div>
 
-                        {/* 2. Sayara Shein API */}
+                        {/* 2. Sayara Shein Python Sync API */}
                         <div 
-                          onContextMenu={(e) => {
-                            e.preventDefault();
-                            setSelectedDeployment(projects[2]);
-                            setDeploymentMenuPos({ x: e.clientX, y: e.clientY });
-                            setShowDeploymentMenu(true);
-                          }}
-                          className="p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 flex items-center justify-between hover:border-slate-400 cursor-pointer transition-all"
-                          title="Right-click for options menu"
+                          onContextMenu={(e) => handleDeploymentContextMenu(e, projects.find(p => p.id === 'prj-sayara-api')!)}
+                          className="p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-800/60 hover:border-purple-400/80 transition-all flex items-center justify-between cursor-pointer"
                         >
-                          <div>
-                            <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                          <div className="min-w-0 pr-2">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
                               Sayara Shein Python Sync API
                             </span>
-                            <span className="text-[10px] text-slate-400 font-mono">
+                            <span className="text-[10px] text-slate-400 font-mono block truncate">
                               api.sayara.p3ldev.com &middot; Port 8040
                             </span>
                           </div>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white dark:bg-zinc-900 font-bold text-emerald-600 border border-slate-200 dark:border-zinc-700">
+                          <span className="px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 font-bold text-[10px] font-mono shrink-0">
                             Daemon
                           </span>
                         </div>
 
-                        {/* 3. Fresh City POS */}
+                        {/* 3. Fresh City Supermarket POS */}
                         <div 
-                          onContextMenu={(e) => {
-                            e.preventDefault();
-                            setSelectedDeployment(projects[0]);
-                            setDeploymentMenuPos({ x: e.clientX, y: e.clientY });
-                            setShowDeploymentMenu(true);
-                          }}
-                          className="p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 flex items-center justify-between hover:border-slate-400 cursor-pointer transition-all"
-                          title="Right-click for options menu"
+                          onContextMenu={(e) => handleDeploymentContextMenu(e, projects.find(p => p.id === 'prj-fresh-city')!)}
+                          className="p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-800/60 hover:border-blue-400/80 transition-all flex items-center justify-between cursor-pointer"
                         >
-                          <div>
-                            <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                          <div className="min-w-0 pr-2">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
                               Fresh City Supermarket POS
                             </span>
-                            <span className="text-[10px] text-slate-400 font-mono">
+                            <span className="text-[10px] text-slate-400 font-mono block truncate">
                               Rosemary Terminal POS-01 (In Store)
                             </span>
                           </div>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white dark:bg-zinc-900 font-bold text-emerald-600 border border-slate-200 dark:border-zinc-700">
+                          <span className="px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30 font-bold text-[10px] font-mono shrink-0">
                             Active
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    <p className="text-[10px] text-slate-400 font-mono pt-1 text-center">
+                    <p className="text-[10px] font-mono text-cyan-700 dark:text-cyan-400/80 pt-2 border-t border-cyan-500/20">
                       Right-click any deployment card to inspect logs or restart
                     </p>
                   </div>
 
-                  {/* CARD 3: TODAY'S FOUNDER PRIORITIES (WORK VS PERSONAL) */}
-                  <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between space-y-3">
+                  {/* CARD 3: TODAY'S PRIORITIES & HIGH-SEVERITY ALERTS (INDIGO & ROSE THEME) */}
+                  <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-500/[0.08] via-purple-500/[0.03] to-white dark:to-zinc-900 border border-indigo-500/30 dark:border-indigo-500/40 shadow-sm flex flex-col justify-between space-y-4">
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10.5px] font-mono text-slate-400 uppercase tracking-wider block font-bold">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
+                          <CheckSquare className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                           Today's Priorities
                         </span>
-                        <div className="flex items-center p-0.5 bg-slate-100 dark:bg-zinc-800 rounded-lg text-[10px] font-mono">
+                        {/* Pill Work vs Personal Filter */}
+                        <div className="flex items-center p-1 bg-indigo-500/10 dark:bg-indigo-950/40 border border-indigo-500/20 rounded-full text-[10.5px] font-mono">
                           <button
                             onClick={() => setTasksFilter('work')}
-                            className={`px-2 py-0.5 rounded cursor-pointer ${tasksFilter === 'work' ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white font-bold shadow-xs' : 'text-slate-500'}`}
+                            className={`px-3 py-1 rounded-full font-bold cursor-pointer transition-all ${
+                              tasksFilter === 'work' 
+                                ? 'bg-indigo-600 text-white shadow-xs' 
+                                : 'text-slate-600 dark:text-zinc-400 hover:text-indigo-700 dark:hover:text-white'
+                            }`}
                           >
                             Work
                           </button>
                           <button
                             onClick={() => setTasksFilter('personal')}
-                            className={`px-2 py-0.5 rounded cursor-pointer ${tasksFilter === 'personal' ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white font-bold shadow-xs' : 'text-slate-500'}`}
+                            className={`px-3 py-1 rounded-full font-bold cursor-pointer transition-all ${
+                              tasksFilter === 'personal' 
+                                ? 'bg-indigo-600 text-white shadow-xs' 
+                                : 'text-slate-600 dark:text-zinc-400 hover:text-indigo-700 dark:hover:text-white'
+                            }`}
                           >
                             Personal
                           </button>
@@ -1007,47 +1056,47 @@ export const AdminDashboard: React.FC = () => {
                       {/* Work Tasks View */}
                       {tasksFilter === 'work' ? (
                         <div className="space-y-2.5">
-                          {/* Karani Law Progress Bar */}
-                          <div className="p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40 space-y-1.5">
+                          {/* Karani Law Vivid Multi-stop Gradient Progress Bar */}
+                          <div className="p-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10 space-y-1.5">
                             <div className="flex justify-between items-center text-xs">
-                              <span className="font-bold text-slate-900 dark:text-white">Karani Law & BillsZip ERP</span>
-                              <span className="font-mono font-bold text-slate-900 dark:text-white">78%</span>
+                              <span className="font-bold text-slate-900 dark:text-white">Karani Law &amp; BillsZip ERP</span>
+                              <span className="font-mono font-black text-indigo-600 dark:text-indigo-400">78%</span>
                             </div>
-                            <div className="w-full bg-slate-200 dark:bg-zinc-700 h-2 rounded-full overflow-hidden">
-                              <div className="bg-slate-900 dark:bg-white h-full rounded-full transition-all" style={{ width: '78%' }}></div>
+                            <div className="w-full bg-slate-200 dark:bg-zinc-700 h-2.5 rounded-full overflow-hidden">
+                              <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-500 h-full rounded-full transition-all" style={{ width: '78%' }}></div>
                             </div>
-                            <span className="text-[10px] text-slate-500 dark:text-zinc-400 block font-mono">
-                              Milestone: Bills of Costs & Azure deployment sign-off
+                            <span className="text-[10px] text-indigo-900/80 dark:text-indigo-300/80 block font-mono">
+                              Milestone: Bills of Costs &amp; Azure deployment sign-off
                             </span>
                           </div>
 
                           {/* Sayara Pending Task */}
                           <div 
                             onClick={() => toggleTask('tsk-02')}
-                            className="p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-start gap-2 cursor-pointer hover:border-slate-400 transition-colors"
+                            className="p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-800/80 flex items-start gap-2.5 cursor-pointer hover:border-indigo-400 transition-colors"
                           >
                             <input 
                               type="checkbox" 
                               checked={tasks.find(t => t.id === 'tsk-02')?.completed} 
                               onChange={() => {}} 
-                              className="rounded w-3.5 h-3.5 mt-0.5 cursor-pointer" 
+                              className="rounded-full w-4 h-4 mt-0.5 cursor-pointer accent-indigo-600" 
                             />
                             <div className="text-xs">
                               <span className="font-semibold text-slate-900 dark:text-white block">
-                                Sayara: Verify Shein price markup rules & webhooks
+                                Sayara: Verify Shein price markup rules &amp; webhooks
                               </span>
                               <span className="text-[10px] text-slate-400 font-mono">Due Today, 19:30</span>
                             </div>
                           </div>
 
-                          {/* CRITICAL INCIDENT ERROR CARD */}
-                          <div className="p-2.5 rounded-xl border border-red-300 dark:border-red-900/60 bg-red-50/50 dark:bg-red-950/20 text-xs space-y-1">
-                            <span className="font-bold text-red-700 dark:text-red-400 block flex items-center gap-1 font-mono">
-                              <AlertOctagon className="w-3.5 h-3.5 text-red-600" />
+                          {/* CRITICAL INCIDENT ERROR CARD (HIGH-CONTRAST ROSE RED) */}
+                          <div className="p-3 rounded-xl border border-rose-400 dark:border-rose-800 bg-rose-500/15 text-xs space-y-1">
+                            <span className="font-bold text-rose-700 dark:text-rose-400 block flex items-center gap-1.5 font-mono">
+                              <AlertOctagon className="w-4 h-4 text-rose-600" />
                               Critical API Gateway Incident
                             </span>
-                            <p className="text-[11px] text-red-900 dark:text-red-300 font-mono">
-                              OdinBot cannot access I&M Bank mirror: <code>razak-server/mirrors/api/kenyanbanks/IandM</code> (502 Refused)
+                            <p className="text-[11px] text-rose-950 dark:text-rose-200 font-mono">
+                              OdinBot cannot access I&amp;M Bank mirror: <code className="bg-rose-200/60 dark:bg-rose-900/40 px-1 py-0.5 rounded">razak-server/mirrors/api/kenyanbanks/IandM</code> (502 Refused)
                             </p>
                           </div>
                         </div>
@@ -1059,14 +1108,14 @@ export const AdminDashboard: React.FC = () => {
                               key={t.id}
                               onClick={() => toggleTask(t.id)}
                               className={`p-2.5 rounded-xl border transition-colors flex items-start gap-2 cursor-pointer ${
-                                t.completed ? 'bg-slate-50 dark:bg-zinc-800/40 border-slate-200 dark:border-zinc-800 opacity-60' : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 hover:border-slate-400'
+                                t.completed ? 'bg-slate-50 dark:bg-zinc-800/40 border-slate-200 dark:border-zinc-800 opacity-60' : 'bg-white dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-800 hover:border-indigo-400'
                               }`}
                             >
                               <input 
                                 type="checkbox" 
                                 checked={t.completed} 
                                 onChange={() => {}} 
-                                className="rounded w-3.5 h-3.5 mt-0.5 cursor-pointer" 
+                                className="rounded-full w-4 h-4 mt-0.5 cursor-pointer accent-indigo-600" 
                               />
                               <div className="text-xs">
                                 <span className={`font-semibold block ${t.completed ? 'line-through text-slate-500' : 'text-slate-900 dark:text-white'}`}>
@@ -1080,9 +1129,12 @@ export const AdminDashboard: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex justify-between items-center text-[10px] font-mono text-slate-400">
+                    <div className="pt-2 border-t border-indigo-500/20 flex justify-between items-center text-[10.5px] font-mono text-slate-400">
                       <span>Completed: {tasks.filter(t => t.completed).length}/{tasks.length}</span>
-                      <button onClick={() => setShowAddTaskModal(true)} className="text-slate-900 dark:text-white font-bold hover:underline cursor-pointer">
+                      <button 
+                        onClick={() => setShowAddTaskModal(true)} 
+                        className="px-3 py-1 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10.5px] shadow-sm cursor-pointer transition-all"
+                      >
                         + Add Priority
                       </button>
                     </div>
@@ -1093,109 +1145,150 @@ export const AdminDashboard: React.FC = () => {
                 {/* COMPANION STRIP: RAZAK-SERVER TELEMETRY & RECENT STARTUP ACTIVITIES */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                   
-                  {/* Left: razak-server Live Ticker */}
-                  <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between space-y-3 font-mono">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800">
+                  {/* Left: razak-server Live Ticker (DARK COMMAND STATION) */}
+                  <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800 text-slate-100 shadow-md flex flex-col justify-between space-y-4 font-mono">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                       <div className="flex items-center gap-2">
-                        <Cpu className="w-4 h-4 text-slate-700 dark:text-zinc-300" />
-                        <span className="font-bold text-xs text-slate-900 dark:text-white">razak-server</span>
+                        <Cpu className="w-4 h-4 text-cyan-400" />
+                        <span className="font-bold text-sm tracking-tight text-white">razak-server</span>
                       </div>
-                      <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded font-bold">
-                        7 ms Speed
+                      <span className="text-[10.5px] px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/40 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        {apiLatency} ms Speed
                       </span>
                     </div>
 
-                    <div className="space-y-2 text-xs">
-                      <div>
-                        <span className="text-[10px] text-slate-400 uppercase block">Running Uptime (Live Clock):</span>
-                        <span className="text-sm font-bold text-slate-900 dark:text-white">
-                          {formatUptime(uptimeSeconds)}
-                        </span>
+                    {/* Live Clock Dynamic Monospace Counter */}
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">
+                        Running Uptime (Live Clock):
+                      </span>
+                      <p className="text-2xl font-black text-cyan-400 tracking-wider">
+                        {formatUptime(uptimeSeconds)}
+                      </p>
+                    </div>
+
+                    {/* Hardware telemetry bars */}
+                    <div className="space-y-3 text-xs">
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-slate-400">CPU Load:</span>
+                          <span className="text-cyan-300 font-bold">14% (8 Cores)</span>
+                        </div>
+                        <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                          <div className="bg-cyan-500 h-full rounded-full" style={{ width: '14%' }}></div>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
-                        <div>
-                          <span className="text-[9.5px] text-slate-400 uppercase block">CPU Load:</span>
-                          <span className="font-bold text-slate-800 dark:text-zinc-200">14% (8 Cores)</span>
+
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-slate-400">RAM Allocation:</span>
+                          <span className="text-purple-300 font-bold">1.8 GB / 8.0 GB</span>
                         </div>
-                        <div>
-                          <span className="text-[9.5px] text-slate-400 uppercase block">RAM Allocation:</span>
-                          <span className="font-bold text-slate-800 dark:text-zinc-200">1.8 GB / 8.0 GB</span>
+                        <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                          <div className="bg-purple-500 h-full rounded-full" style={{ width: '22.5%' }}></div>
                         </div>
+                      </div>
+
+                      <div className="flex justify-between text-[11px] pt-1">
+                        <span className="text-slate-400">Host:</span>
+                        <span className="text-white font-semibold">Marsabit Biftu Station</span>
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex justify-between items-center text-[10px] text-slate-400">
-                      <span>Host: Marsabit Biftu Station</span>
-                      <button 
-                        onClick={() => setShowDiagnosticsModal(true)} 
-                        className="text-slate-900 dark:text-white font-bold hover:underline cursor-pointer"
-                      >
-                        Inspect Telemetry &rarr;
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => setShowDiagnosticsModal(true)}
+                      className="w-full py-2 rounded-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-md shadow-cyan-600/25 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Terminal className="w-3.5 h-3.5" />
+                      <span>Inspect Telemetry &rarr;</span>
+                    </button>
                   </div>
 
-                  {/* Right 2 Cols: Startup Recent Activities (Last week to yesterday) */}
-                  <div className="lg:col-span-2 p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-3">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800">
-                      <div className="flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-slate-700 dark:text-zinc-300" />
-                        <h3 className="font-bold text-xs text-slate-900 dark:text-white font-brand">
-                          Startup Recent Activity & Releases
+                  {/* Right: Startup Recent Activity Feed */}
+                  <div className="lg:col-span-2 p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm flex flex-col justify-between space-y-4">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
+                      <div>
+                        <h3 className="font-bold text-sm text-slate-900 dark:text-white font-brand flex items-center gap-2">
+                          <Activity className="w-4 h-4 text-blue-500" />
+                          Startup Recent Activity &amp; Releases
                         </h3>
+                        <p className="text-[11px] text-slate-400">Past 7 days across P3L projects</p>
                       </div>
-                      <span className="text-[10px] font-mono text-slate-400">Past 7 days across P3L projects</span>
+                      <span className="text-[10.5px] font-mono px-3 py-1 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-bold border border-slate-200 dark:border-zinc-700">
+                        {recentActivities.length} Audits
+                      </span>
                     </div>
 
-                    <div className="space-y-2">
-                      {recentActivities.slice(0, 4).map(act => (
-                        <div key={act.id} className="flex items-center justify-between text-xs py-1 border-b border-slate-50 dark:border-zinc-800/40 last:border-0 font-mono">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 shrink-0">
+                    <div className="space-y-2.5 overflow-y-auto max-h-56 pr-1 font-mono text-xs">
+                      {recentActivities.map(act => (
+                        <div key={act.id} className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-100 dark:border-zinc-800/80 flex items-start justify-between gap-3 hover:border-slate-300 dark:hover:border-zinc-700 transition-colors">
+                          <div className="min-w-0">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[9.5px] font-bold inline-block mb-1 ${
+                              act.tag === 'Git Commit' ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30' :
+                              act.tag === 'Python Cron' ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30' :
+                              act.tag === 'Retail POS' ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30' :
+                              'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                            }`}>
                               {act.tag}
                             </span>
-                            <span className="truncate text-slate-700 dark:text-zinc-300">{act.action}</span>
+                            <p className="font-medium text-slate-800 dark:text-zinc-200 truncate font-sans text-xs">
+                              {act.action}
+                            </p>
                           </div>
-                          <span className="text-[10px] text-slate-400 shrink-0 ml-3">{act.time}</span>
+                          <span className="text-[10px] text-slate-400 shrink-0 mt-1">{act.time}</span>
                         </div>
                       ))}
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100 dark:border-zinc-800/80 flex justify-between items-center text-[10px] font-mono text-slate-400">
+                      <span>Live sync via razak-server daemon</span>
+                      <button onClick={() => showToast('Refreshed recent activity logs')} className="text-blue-600 dark:text-blue-400 hover:underline cursor-pointer font-bold">
+                        Refresh Stream
+                      </button>
                     </div>
                   </div>
 
                 </div>
 
                 {/* ========================================================================= */}
-                {/* BIG WORKSPACE CARD WITH 4 TABBED HUBS */}
+                {/* BIG WORKSPACE CARD: 4 SUB-TABS (PROJECTS, EDUCATION, RAZAK SERVER, USERS) */}
                 {/* ========================================================================= */}
-                <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6">
+                <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-6">
                   
-                  {/* Master Tab Bar */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-zinc-800">
-                    <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-zinc-800 rounded-xl">
+                  {/* Tab Navigation Pill Bar */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 dark:border-zinc-800 gap-3">
+                    <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-zinc-800/80 rounded-full border border-slate-200 dark:border-zinc-700 text-xs font-semibold overflow-x-auto">
                       <button
                         onClick={() => setWorkspaceTab('projects')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                          workspaceTab === 'projects' ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-500'
+                        className={`px-4 py-2 rounded-full cursor-pointer transition-all flex items-center gap-1.5 shrink-0 ${
+                          workspaceTab === 'projects' 
+                            ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/25' 
+                            : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                         }`}
                       >
-                        <Briefcase className="w-3.5 h-3.5" />
+                        <Layers className="w-3.5 h-3.5" />
                         <span>Projects Status ({projects.length})</span>
                       </button>
 
                       <button
                         onClick={() => setWorkspaceTab('education')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                          workspaceTab === 'education' ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-500'
+                        className={`px-4 py-2 rounded-full cursor-pointer transition-all flex items-center gap-1.5 shrink-0 ${
+                          workspaceTab === 'education' 
+                            ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/25' 
+                            : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                         }`}
                       >
                         <GraduationCap className="w-3.5 h-3.5" />
-                        <span>Education & Skills</span>
+                        <span>Education &amp; Skills</span>
                       </button>
 
                       <button
                         onClick={() => setWorkspaceTab('server')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                          workspaceTab === 'server' ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-500'
+                        className={`px-4 py-2 rounded-full cursor-pointer transition-all flex items-center gap-1.5 shrink-0 ${
+                          workspaceTab === 'server' 
+                            ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/25' 
+                            : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                         }`}
                       >
                         <Server className="w-3.5 h-3.5" />
@@ -1204,8 +1297,10 @@ export const AdminDashboard: React.FC = () => {
 
                       <button
                         onClick={() => setWorkspaceTab('users')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                          workspaceTab === 'users' ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-500'
+                        className={`px-4 py-2 rounded-full cursor-pointer transition-all flex items-center gap-1.5 shrink-0 ${
+                          workspaceTab === 'users' 
+                            ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/25' 
+                            : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                         }`}
                       >
                         <Users className="w-3.5 h-3.5" />
@@ -1216,14 +1311,14 @@ export const AdminDashboard: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => setShowAddProjectModal(true)}
-                        className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-black flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm flex items-center gap-1.5 cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>Add Project</span>
                       </button>
                       <button
                         onClick={() => setShowAddTaskModal(true)}
-                        className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 hover:bg-slate-200 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-sm flex items-center gap-1.5 cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>Add Task</span>
@@ -1232,13 +1327,13 @@ export const AdminDashboard: React.FC = () => {
                   </div>
 
                   {/* --------------------------------------------------------------------- */}
-                  {/* SUB-TAB 1: PROJECTS STATUS TABLE */}
+                  {/* SUB-TAB 1: PROJECTS STATUS (ALL 7 REPOS) */}
                   {/* --------------------------------------------------------------------- */}
                   {workspaceTab === 'projects' && (
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto animate-fadeIn">
                       <table className="w-full text-left border-collapse text-xs">
                         <thead>
-                          <tr className="border-b border-slate-200 dark:border-zinc-800 text-[10px] font-mono uppercase text-slate-400">
+                          <tr className="border-b border-slate-200 dark:border-zinc-800 text-[10.5px] uppercase font-mono text-slate-500 dark:text-zinc-400 tracking-wider">
                             <th className="py-2.5 px-3">Client</th>
                             <th className="py-2.5 px-3">Service / Product</th>
                             <th className="py-2.5 px-3">Contract Type</th>
@@ -1249,71 +1344,84 @@ export const AdminDashboard: React.FC = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60 font-mono">
-                          {projects.map(p => (
-                            <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors group">
-                              <td className="py-3 px-3">
-                                <span className="font-bold text-slate-900 dark:text-white block font-sans">{p.client}</span>
-                                <span className="text-[10px] text-slate-400">{p.clientPhone}</span>
-                              </td>
-                              <td className="py-3 px-3">
-                                <span className="font-semibold text-slate-900 dark:text-white block">{p.name}</span>
-                                <span className="text-[10px] text-slate-400 font-sans">{p.category}</span>
-                              </td>
-                              <td className="py-3 px-3 text-slate-600 dark:text-zinc-300">
-                                <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-[10px]">
-                                  {p.contractType}
-                                </span>
-                              </td>
-                              <td className="py-3 px-3">
-                                <span className="font-bold text-slate-900 dark:text-white block">{p.monthlyFee}</span>
-                                <span className="text-[10px] text-slate-400">Initial: {p.initialPaid}</span>
-                              </td>
-                              <td className="py-3 px-3">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                  p.status.includes('Live') ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' :
-                                  p.status.includes('Debugging') ? 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300' :
-                                  'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
-                                }`}>
-                                  {p.status}
-                                </span>
-                              </td>
-                              <td 
-                                className="py-3 px-3 relative cursor-help"
-                                onMouseEnter={() => setHoveredMilestoneTasks({ project: p.name, tasks: p.tasks })}
-                                onMouseLeave={() => setHoveredMilestoneTasks(null)}
-                              >
-                                <span className="text-slate-700 dark:text-zinc-300 hover:text-black dark:hover:text-white font-sans text-xs underline decoration-dotted decoration-slate-400">
-                                  {p.nextMilestone}
-                                </span>
-
-                                {/* Hover Task Flyout Tooltip */}
-                                {hoveredMilestoneTasks?.project === p.name && (
-                                  <div className="absolute left-0 bottom-full mb-2 z-50 w-72 p-3 bg-slate-900 text-white rounded-xl shadow-2xl border border-white/10 space-y-2 pointer-events-none animate-fadeIn">
-                                    <div className="flex items-center justify-between border-b border-slate-700 pb-1">
-                                      <span className="font-bold text-[10.5px] uppercase font-mono">Milestone Checklist</span>
-                                      <span className="text-[9px] text-slate-400 font-mono">{p.tasks.length} tasks</span>
+                          {projects.map(p => {
+                            const initials = p.client.split(' ').map(n => n[0]).join('').substring(0, 2);
+                            return (
+                              <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors group">
+                                <td className="py-3 px-3">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-7 h-7 rounded-full bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-[10px] font-bold text-indigo-700 dark:text-indigo-300 font-sans shrink-0">
+                                      {initials}
                                     </div>
-                                    <ul className="space-y-1 text-[11px] font-sans">
-                                      {p.tasks.map((t, idx) => (
-                                        <li key={idx} className="flex items-start gap-1.5">
-                                          <span className="text-emerald-400 mt-0.5">&bull;</span>
-                                          <span className="text-slate-200">{t}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
+                                    <div className="min-w-0">
+                                      <span className="font-bold text-slate-900 dark:text-white block font-sans truncate">{p.client}</span>
+                                      <span className="text-[10px] text-slate-400">{p.clientPhone}</span>
+                                    </div>
                                   </div>
-                                )}
-                              </td>
-                              <td className="py-3 px-3 text-right">
-                                <button 
-                                  onClick={() => showToast(`Opening workspace for ${p.name}`)}
-                                  className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 text-xs font-semibold cursor-pointer"
+                                </td>
+                                <td className="py-3 px-3">
+                                  <span className="font-semibold text-slate-900 dark:text-white block">{p.name}</span>
+                                  <span className="text-[10px] text-slate-400 font-sans">{p.category}</span>
+                                </td>
+                                <td className="py-3 px-3 text-slate-600 dark:text-zinc-300">
+                                  <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-[10px] font-semibold">
+                                    {p.contractType}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-3">
+                                  <span className="font-bold text-emerald-600 dark:text-emerald-400 block">{p.monthlyFee}</span>
+                                  <span className="text-[10px] text-slate-400">Initial: {p.initialPaid}</span>
+                                </td>
+                                <td className="py-3 px-3">
+                                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-block ${
+                                    p.status === 'Live (In Store)' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' :
+                                    p.status === 'Live (Vercel)' ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30' :
+                                    p.status === 'Live (Python Daemon)' ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30' :
+                                    p.status === 'In Development (78%)' ? 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30' :
+                                    p.status === 'Debugging (API Issue)' ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30' :
+                                    'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700'
+                                  }`}>
+                                    {p.status}
+                                  </span>
+                                </td>
+                                <td 
+                                  className="py-3 px-3 relative cursor-help"
+                                  onMouseEnter={() => setHoveredMilestoneTasks({ project: p.name, tasks: p.tasks })}
+                                  onMouseLeave={() => setHoveredMilestoneTasks(null)}
                                 >
-                                  Open
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
+                                  <span className="text-slate-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 font-sans text-xs underline decoration-dotted decoration-slate-400 transition-colors">
+                                    {p.nextMilestone}
+                                  </span>
+
+                                  {/* Hover Task Flyout Tooltip */}
+                                  {hoveredMilestoneTasks?.project === p.name && (
+                                    <div className="absolute left-0 bottom-full mb-2 z-50 w-72 p-3 bg-slate-950 text-white rounded-xl shadow-2xl border border-slate-700 space-y-2 pointer-events-none animate-fadeIn">
+                                      <div className="flex items-center justify-between border-b border-slate-700 pb-1">
+                                        <span className="font-bold text-[10.5px] uppercase font-mono text-cyan-400">Milestone Checklist</span>
+                                        <span className="text-[9px] text-slate-400 font-mono">{p.tasks.length} tasks</span>
+                                      </div>
+                                      <ul className="space-y-1 text-[11px] font-sans">
+                                        {p.tasks.map((t, idx) => (
+                                          <li key={idx} className="flex items-start gap-1.5">
+                                            <span className="text-emerald-400 mt-0.5">&bull;</span>
+                                            <span className="text-slate-200">{t}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="py-3 px-3 text-right">
+                                  <button 
+                                    onClick={() => showToast(`Opening workspace for ${p.name}`)}
+                                    className="px-3 py-1 rounded-full bg-slate-900 hover:bg-black text-white dark:bg-white dark:text-slate-900 text-xs font-bold cursor-pointer shadow-xs transition-all"
+                                  >
+                                    Open
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -1329,8 +1437,8 @@ export const AdminDashboard: React.FC = () => {
                         {/* Coursework & University Assignments */}
                         <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">
                           <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 font-mono flex items-center justify-between">
-                            <span>University Assignments & Coursework</span>
-                            <span className="text-[10px] text-emerald-600 font-bold">4 Active</span>
+                            <span>University Assignments &amp; Coursework</span>
+                            <span className="text-[10px] text-emerald-600 font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">4 Active</span>
                           </h4>
                           <div className="space-y-2">
                             {coursework.map(c => (
@@ -1340,7 +1448,7 @@ export const AdminDashboard: React.FC = () => {
                                   <span className="text-[10px] text-slate-400 font-mono">{c.subject} &middot; Due: {c.deadline}</span>
                                 </div>
                                 <div className="text-right font-mono">
-                                  <span className="text-[10px] px-2 py-0.5 rounded bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300 block font-bold">
+                                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300 block font-bold">
                                     {c.status}
                                   </span>
                                   <span className="text-[9.5px] text-slate-500 mt-0.5 block">{c.marks}</span>
@@ -1350,22 +1458,22 @@ export const AdminDashboard: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Reading Library & Coding Sessions */}
+                        {/* Reading PDFs & Architecture Handbooks */}
                         <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">
                           <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 font-mono flex items-center justify-between">
-                            <span>PDFs & Engineering Syllabus</span>
-                            <span className="text-[10px] text-blue-600 font-bold">Library</span>
+                            <span>Reading PDFs &amp; Architecture References</span>
+                            <span className="text-[10px] text-blue-600 font-bold px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20">Offline Available</span>
                           </h4>
                           <div className="space-y-2">
                             {readingPdfs.map((pdf, idx) => (
                               <div key={idx} className="p-2.5 rounded-lg bg-slate-50 dark:bg-zinc-800/40 border border-slate-100 dark:border-zinc-800 flex justify-between items-center text-xs">
                                 <div className="min-w-0 pr-2">
-                                  <span className="font-bold text-slate-900 dark:text-white block truncate">{pdf.title}</span>
+                                  <span className="font-semibold text-slate-900 dark:text-white block truncate">{pdf.title}</span>
                                   <span className="text-[10px] text-slate-400 font-mono">{pdf.category} &middot; {pdf.pages}</span>
                                 </div>
-                                <button 
+                                <button
                                   onClick={() => showToast(`Opening reference: ${pdf.title}`)}
-                                  className="px-2.5 py-1 rounded bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[10px] font-bold cursor-pointer shrink-0"
+                                  className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-slate-700 dark:text-zinc-300 text-[10px] font-bold font-mono cursor-pointer shrink-0"
                                 >
                                   Read
                                 </button>
@@ -1376,70 +1484,67 @@ export const AdminDashboard: React.FC = () => {
 
                       </div>
 
-                      {/* Exams & Zoom Sessions */}
-                      <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/30 border border-slate-200 dark:border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-slate-500" />
-                          <span>Academic Calendar: <strong>Mid-Term Exams scheduled for Nov 12 - 18, 2026</strong></span>
+                      {/* Schedule: Lectures, Exams & Mentorship */}
+                      <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-600">
+                            <Calendar className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <span className="font-bold text-slate-900 dark:text-white block">Next Live Engineering Session</span>
+                            <span className="text-slate-500 font-mono text-[10.5px]">Distributed Systems Lecture &middot; Tomorrow, 10:00 AM (Zoom)</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Video className="w-4 h-4 text-blue-500" />
-                          <span>Next Zoom Lecture: <strong>Advanced Distributed Systems (Tomorrow, 14:00 EAT)</strong></span>
-                        </div>
+                        <button
+                          onClick={() => showToast('Session reminder logged')}
+                          className="px-4 py-2 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm cursor-pointer"
+                        >
+                          Add to Calendar
+                        </button>
                       </div>
                     </div>
                   )}
 
                   {/* --------------------------------------------------------------------- */}
-                  {/* SUB-TAB 3: RAZAK SERVER TERMINAL & DAEMONS */}
+                  {/* SUB-TAB 3: RAZAK SERVER DAEMONS & MIRROR APIS */}
                   {/* --------------------------------------------------------------------- */}
                   {workspaceTab === 'server' && (
-                    <div className="space-y-5 animate-fadeIn font-mono text-xs">
+                    <div className="space-y-5 animate-fadeIn">
                       
-                      {/* Daemon Process Table */}
+                      {/* Active Daemons Table */}
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500">
-                            Active Server Daemons & Processes (razak-server)
-                          </h4>
-                          <span className="text-[10px] text-emerald-600 font-bold">Uptime: {formatUptime(uptimeSeconds)}</span>
-                        </div>
-
-                        <div className="overflow-x-auto border border-slate-200 dark:border-zinc-800 rounded-xl">
-                          <table className="w-full text-left border-collapse">
-                            <thead className="bg-slate-50 dark:bg-zinc-800/60 text-[10px] uppercase text-slate-400 border-b border-slate-200 dark:border-zinc-800">
-                              <tr>
-                                <th className="p-2.5">PID</th>
-                                <th className="p-2.5">Service Daemon</th>
-                                <th className="p-2.5">Bound Port</th>
-                                <th className="p-2.5">CPU</th>
-                                <th className="p-2.5">RAM</th>
-                                <th className="p-2.5">Status</th>
-                                <th className="p-2.5 text-right">Control</th>
+                        <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 font-mono flex items-center justify-between">
+                          <span>Active Daemon Processes (Linux Systemd)</span>
+                          <span className="text-[10px] text-emerald-600 font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">Node: razak-server</span>
+                        </h4>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs font-mono">
+                            <thead>
+                              <tr className="border-b border-slate-200 dark:border-zinc-800 text-[10px] text-slate-400">
+                                <th className="p-2">PID</th>
+                                <th className="p-2">Process Name</th>
+                                <th className="p-2">Port</th>
+                                <th className="p-2">CPU</th>
+                                <th className="p-2">Memory</th>
+                                <th className="p-2">Uptime</th>
+                                <th className="p-2 text-right">Status</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
-                              {serverDaemons.map(s => (
-                                <tr key={s.pid} className="hover:bg-slate-50 dark:hover:bg-zinc-800/40">
-                                  <td className="p-2.5 font-bold text-slate-500">{s.pid}</td>
-                                  <td className="p-2.5 font-bold text-slate-900 dark:text-white">{s.name}</td>
-                                  <td className="p-2.5 text-blue-600 dark:text-blue-400">{s.port}</td>
-                                  <td className="p-2.5 text-slate-600 dark:text-zinc-300">{s.cpu}</td>
-                                  <td className="p-2.5 text-slate-600 dark:text-zinc-300">{s.memory}</td>
-                                  <td className="p-2.5">
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                      s.status === 'Running' ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' : 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300'
+                            <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60">
+                              {serverDaemons.map(d => (
+                                <tr key={d.pid} className="hover:bg-slate-50 dark:hover:bg-zinc-800/40">
+                                  <td className="p-2 text-slate-400">{d.pid}</td>
+                                  <td className="p-2 font-bold text-slate-900 dark:text-white">{d.name}</td>
+                                  <td className="p-2 text-blue-600">{d.port}</td>
+                                  <td className="p-2">{d.cpu}</td>
+                                  <td className="p-2">{d.memory}</td>
+                                  <td className="p-2 text-slate-500">{d.uptime}</td>
+                                  <td className="p-2 text-right">
+                                    <span className={`px-2.5 py-0.5 rounded-full text-[9.5px] font-bold ${
+                                      d.status === 'Running' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
                                     }`}>
-                                      {s.status}
+                                      {d.status}
                                     </span>
-                                  </td>
-                                  <td className="p-2.5 text-right">
-                                    <button 
-                                      onClick={() => showToast(`Restarting daemon ${s.name}...`)}
-                                      className="px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-[10px] font-bold cursor-pointer"
-                                    >
-                                      Restart
-                                    </button>
                                   </td>
                                 </tr>
                               ))}
@@ -1449,18 +1554,34 @@ export const AdminDashboard: React.FC = () => {
                       </div>
 
                       {/* Mirror APIs */}
-                      <div className="space-y-2">
-                        <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500">
-                          Kenyan Bank & Financial Mirror APIs
+                      <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                        <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 font-mono flex items-center justify-between">
+                          <span>Simulated Kenyan Bank &amp; Payment Gateway Mirrors</span>
+                          <span className="text-[10px] text-rose-600 font-bold px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20">1 Incident Detected</span>
                         </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="space-y-2">
                           {mirrorApis.map((m, idx) => (
-                            <div key={idx} className={`p-3 rounded-xl border ${m.alert ? 'border-red-300 bg-red-50/50 dark:border-red-900 dark:bg-red-950/20' : 'border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40'}`}>
-                              <span className="text-[10px] text-slate-400 uppercase block">{m.protocol} &middot; Port {m.port}</span>
-                              <span className="font-bold text-xs text-slate-900 dark:text-white block mt-0.5 break-all">{m.endpoint}</span>
-                              <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200/60 dark:border-zinc-700/50 text-[10px]">
-                                <span className={m.alert ? 'text-red-600 font-bold' : 'text-emerald-600 font-bold'}>{m.status}</span>
-                                <span className="text-slate-400">{m.latency}</span>
+                            <div key={idx} className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono ${
+                              m.alert ? 'border-rose-400 bg-rose-500/10 text-rose-900 dark:text-rose-200' : 'border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40'
+                            }`}>
+                              <div>
+                                <span className="font-bold block">{m.endpoint}</span>
+                                <span className="text-[10px] text-slate-500">Port: {m.port} &middot; {m.protocol}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                  m.alert ? 'bg-rose-600 text-white shadow-xs' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                                }`}>
+                                  {m.status}
+                                </span>
+                                {m.alert && (
+                                  <button
+                                    onClick={() => showToast('Attempting daemon restart on port 8082...')}
+                                    className="px-3 py-1 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold cursor-pointer transition-all"
+                                  >
+                                    Restart Socket
+                                  </button>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -1471,41 +1592,46 @@ export const AdminDashboard: React.FC = () => {
                   )}
 
                   {/* --------------------------------------------------------------------- */}
-                  {/* SUB-TAB 4: USERS MANAGEMENT */}
+                  {/* SUB-TAB 4: USERS MANAGEMENT (P3L INTERNAL ROSTER) */}
                   {/* --------------------------------------------------------------------- */}
                   {workspaceTab === 'users' && (
                     <div className="space-y-4 animate-fadeIn">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800">
+                      <div className="flex justify-between items-center">
                         <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 font-mono">
-                          P3L Core Team & Contributor Directory
+                          P3L Core Operating Personnel (3 Founders &amp; Leads)
                         </h4>
-                        <span className="text-[10px] font-mono text-slate-400">3 Core Engineers</span>
+                        <button
+                          onClick={() => showToast('Direct invite link generated')}
+                          className="px-3.5 py-1.5 rounded-full bg-slate-900 hover:bg-black text-white dark:bg-white dark:text-slate-900 text-xs font-bold cursor-pointer"
+                        >
+                          + Invite Team Member
+                        </button>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40 space-y-2">
                           <span className="text-xs font-bold text-slate-900 dark:text-white block">Guyoh Halake</span>
-                          <span className="text-[10px] font-mono text-slate-500 block">Founder & Chief Architect</span>
+                          <span className="text-[10px] font-mono text-slate-500 block">Founder &amp; Chief Architect</span>
                           <span className="text-[10px] font-mono text-blue-600 block">p3lcodes@gmail.com</span>
-                          <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-zinc-700 text-[9.5px] font-mono font-bold uppercase inline-block">
+                          <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 text-[9.5px] font-mono font-bold uppercase inline-block">
                             Super Admin
                           </span>
                         </div>
 
                         <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40 space-y-2">
                           <span className="text-xs font-bold text-slate-900 dark:text-white block">Razak Guyo</span>
-                          <span className="text-[10px] font-mono text-slate-500 block">Systems & Server Lead</span>
+                          <span className="text-[10px] font-mono text-slate-500 block">Systems &amp; Server Lead</span>
                           <span className="text-[10px] font-mono text-blue-600 block">razak@p3ldev.com</span>
-                          <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-zinc-700 text-[9.5px] font-mono font-bold uppercase inline-block">
+                          <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 text-[9.5px] font-mono font-bold uppercase inline-block">
                             Systems Admin
                           </span>
                         </div>
 
                         <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40 space-y-2">
                           <span className="text-xs font-bold text-slate-900 dark:text-white block">Victor Karani</span>
-                          <span className="text-[10px] font-mono text-slate-500 block">LegalTech Lead & Reviewer</span>
+                          <span className="text-[10px] font-mono text-slate-500 block">LegalTech Lead &amp; Reviewer</span>
                           <span className="text-[10px] font-mono text-blue-600 block">karani@p3ldev.com</span>
-                          <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-zinc-700 text-[9.5px] font-mono font-bold uppercase inline-block">
+                          <span className="px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 text-[9.5px] font-mono font-bold uppercase inline-block">
                             Legal Engineer
                           </span>
                         </div>
@@ -1523,27 +1649,27 @@ export const AdminDashboard: React.FC = () => {
                     e.preventDefault();
                     setShowDiagnosticsModal(true);
                   }}
-                  className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-4"
+                  className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-4"
                   title="Right-click anywhere on the map to inspect full server diagnostics"
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <h3 className="font-brand font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
                         <MapPin className="w-4 h-4 text-red-500" />
-                        P3L Headquarters & Server Node: Marsabit County, Kenya
+                        P3L Headquarters &amp; Server Node: Marsabit County, Kenya
                       </h3>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-500 dark:text-zinc-400">
                         Biftu Construction Company Station &middot; Marsabit Town &middot; Uplink to Azure Cloud
                       </p>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 px-2.5 py-1 rounded-md font-bold">
+                      <span className="text-[10.5px] font-mono bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 px-3 py-1 rounded-full font-bold">
                         GPS: 2.3333&deg; N, 37.9833&deg; E
                       </span>
                       <button
                         onClick={() => setShowDiagnosticsModal(true)}
-                        className="px-3 py-1 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold cursor-pointer"
+                        className="px-4 py-1.5 rounded-full bg-slate-900 hover:bg-black text-white dark:bg-white dark:text-slate-900 text-xs font-bold shadow-sm transition-all cursor-pointer"
                       >
                         Inspect Server Telemetry
                       </button>
@@ -1551,17 +1677,17 @@ export const AdminDashboard: React.FC = () => {
                   </div>
 
                   {/* Marsabit Embedded Map */}
-                  <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-700 h-56 shadow-inner relative">
+                  <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-700 h-60 shadow-inner relative">
                     <iframe
                       title="Marsabit County Server Node"
                       src="https://maps.google.com/maps?q=2.3333,37.9833&z=13&output=embed"
                       width="100%"
                       height="100%"
-                      style={{ border: 0, filter: 'grayscale(30%)' }}
+                      style={{ border: 0, filter: 'grayscale(25%)' }}
                       allowFullScreen={false}
                       loading="lazy"
                     />
-                    <div className="absolute bottom-3 left-3 bg-slate-900/90 text-white px-3 py-1.5 rounded-lg text-[10px] font-mono backdrop-blur-sm pointer-events-none">
+                    <div className="absolute bottom-3 left-3 bg-slate-900/90 text-white px-3.5 py-1.5 rounded-full text-[10px] font-mono backdrop-blur-xs pointer-events-none border border-white/10 shadow-lg">
                       Right-click map for Full Server Diagnostics
                     </div>
                   </div>
