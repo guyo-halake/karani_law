@@ -9,7 +9,7 @@ import {
   Copy, X, Send, Sliders, ExternalLink, ArrowRight, Shield, Bot, GraduationCap, DollarSign,
   UserCheck, HelpCircle, Code, Play, CheckSquare, BarChart3, TrendingUp, Filter, Hash, UserPlus,
   Kanban, MoveRight, ArrowLeftRight, CheckCheck, Github, Laptop, Smartphone, BookOpen, Video, Calendar,
-  FileCode, PlayCircle, FolderArchive, Wifi, RefreshCcw
+  FileCode, PlayCircle, FolderArchive, Wifi, RefreshCcw, Sun, Satellite
 } from 'lucide-react';
 import { supabase, SystemUser, EXACT_FIRM_INFO, getFeeNotes, persistFeeNotes, ExactFeeNoteRecord, EXACT_MATTERS, EXACT_CLIENTS, EXACT_VAULT_FILES } from '../../services/supabase';
 import { getLocalTemplates, assignRoleToUser, RoleTemplate } from '../../services/rbac';
@@ -39,9 +39,9 @@ interface RealProject {
   clientPhone: string;
   clientEmail: string;
   lead: string;
-  category: 'Retail & POS' | 'E-commerce' | 'Automation & API' | 'LegalTech SaaS' | 'AI & Automation' | 'Research Archive';
-  status: 'Live (In Store)' | 'Live (Vercel)' | 'Live (Python Daemon)' | 'In Development (78%)' | 'Debugging (API Issue)' | 'Paused / Archived';
-  contractType: 'SoftwareRetainer' | 'Internal R&D' | 'Milestone Retainer';
+  category: string;
+  status: string;
+  contractType: string;
   monthlyFee: string;
   initialPaid: string;
   nextMilestone: string;
@@ -49,20 +49,8 @@ interface RealProject {
   health: string;
   techStack: string[];
   tasks: string[];
-}
-
-interface ClientAccount {
-  id: string;
-  name: string;
-  company: string;
-  phone: string;
-  email: string;
-  category: string;
-  activeProjects: string[];
-  monthlyRetainer: string;
-  initialPaid: string;
-  currentMonthPaid: string;
-  status: 'Active Retainer' | 'Live Production' | 'In Progress';
+  isRealDb?: boolean;
+  mockType?: 'myschools' | 'innercircle' | 'freshcity' | 'sayara' | 'khaemba' | 'suvplanet' | 'odinbot' | 'reload';
 }
 
 interface FounderTask {
@@ -80,12 +68,10 @@ export const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Time & Live Uptime Ticker
-  const [uptimeSeconds, setUptimeSeconds] = useState(1582935); // 18d 7h 42m 15s
+  // Live Uptime
+  const [uptimeSeconds, setUptimeSeconds] = useState(1582935);
   useEffect(() => {
-    const timer = setInterval(() => {
-      setUptimeSeconds(prev => prev + 1);
-    }, 1000);
+    const timer = setInterval(() => setUptimeSeconds(prev => prev + 1), 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -97,35 +83,161 @@ export const AdminDashboard: React.FC = () => {
     return `${days}d ${hours}h ${minutes}m ${seconds}s`;
   };
 
-  // Telemetry & Cluster State
+  // Live Clock for Real Welcome
+  const [currentClock, setCurrentClock] = useState(() => new Date());
+  useEffect(() => {
+    const clockTimer = setInterval(() => setCurrentClock(new Date()), 1000);
+    return () => clearInterval(clockTimer);
+  }, []);
+
+  const getGreeting = () => {
+    const h = currentClock.getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+
+  const formattedLiveDate = currentClock.toLocaleDateString('en-KE', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  }) + ' · ' + currentClock.toLocaleTimeString('en-KE', {
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+
   const [apiLatency, setApiLatency] = useState<number>(7);
-  const [isBackendHealthy, setIsBackendHealthy] = useState<boolean>(true);
   const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean>(() => localStorage.getItem('BILLSZIP_MAINTENANCE_MODE') === 'true');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Modals & Context Menus
+  // Modals & Drawers
+  const [selectedDrawerProject, setSelectedDrawerProject] = useState<RealProject | null>(null);
+  const [drawerTab, setDrawerTab] = useState<'overview' | 'database' | 'tasks'>('overview');
   const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
-  const [selectedDeployment, setSelectedDeployment] = useState<RealProject | null>(null);
-  const [showDeploymentMenu, setShowDeploymentMenu] = useState(false);
-  const [deploymentMenuPos, setDeploymentMenuPos] = useState({ x: 0, y: 0 });
-  const [hoveredMilestoneTasks, setHoveredMilestoneTasks] = useState<{ project: string; tasks: string[] } | null>(null);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showAddProjectModal, setShowAddProjectModal] = useState(false);
+  const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [showLogPaymentModal, setShowLogPaymentModal] = useState(false);
 
   // Revenue Switcher State
   const [revenuePeriod, setRevenuePeriod] = useState<'this_month' | 'last_6_months' | 'this_year'>('this_month');
-
-  // Big Workspace Sub-Tab Switcher
   const [workspaceTab, setWorkspaceTab] = useState<'projects' | 'education' | 'server' | 'users'>('projects');
-
-  // Tasks Filter (Work vs Personal)
   const [tasksFilter, setTasksFilter] = useState<'work' | 'personal'>('work');
 
-  // Real Startup Projects (Fresh City POS, Sayara, Karani Law, OdinBot, Archives)
+  // REAL KARANI LAW USERS FROM SUPABASE / BACKEND
+  const [realUsers, setRealUsers] = useState<SystemUser[]>([]);
+  const [isLoadingRealUsers, setIsLoadingRealUsers] = useState(false);
+
+  // New User Form for Karani Law Real Database
+  const [showAddRealUserModal, setShowAddRealUserModal] = useState(false);
+  const [newUserFullName, setNewUserFullName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserRole, setNewUserRole] = useState<'Managing Partner' | 'Senior Associate' | 'Associate' | 'Pupil' | 'Billing Clerk'>('Associate');
+  const [newUserLskNo, setNewUserLskNo] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('Nyagah@2026');
+
+  // WhatsApp Bill Modal
+  const [whatsAppModalClient, setWhatsAppModalClient] = useState<{ name: string; amount: string; project: string; message: string } | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Fetch real users from Supabase / Backend for Karani Law
+  const loadRealUsers = async () => {
+    setIsLoadingRealUsers(true);
+    try {
+      const users = await fetchFirmUsers(EXACT_FIRM_INFO.id);
+      setRealUsers(users);
+    } catch (e) {
+      console.error('Failed to load firm users:', e);
+    } finally {
+      setIsLoadingRealUsers(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRealUsers();
+  }, []);
+
+  // Listen to keyboard shortcut Ctrl+K
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowCommandPalette(prev => !prev);
+      }
+      if (e.key === 'Escape') {
+        setShowCommandPalette(false);
+        setSelectedDrawerProject(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Real Startup Fleet (from guyo-halake GitHub)
   const [projects, setProjects] = useState<RealProject[]>([
+    {
+      id: 'prj-karani-law',
+      name: 'Karani Law & Bills of Costs ERP',
+      repo: 'guyo-halake/nyagakithinji-Bill-of-Costs',
+      githubUrl: 'https://github.com/guyo-halake/nyagakithinji-Bill-of-Costs',
+      liveUrl: 'https://karani-law.vercel.app',
+      client: 'Adv. Nyagah B. Kithinji',
+      clientPhone: '+254 (0)20 271 8900',
+      clientEmail: 'advocate@kithinjilegal.co.ke',
+      lead: 'Guyoh Halake',
+      category: 'LegalTech ERP',
+      status: 'Live (Real Database)',
+      contractType: 'Milestone Retainer',
+      monthlyFee: 'Milestone Retainer',
+      initialPaid: 'Milestone Billing',
+      nextMilestone: 'Finalize Schedule 6 statutory calculation engine & Azure ACR multi-container rollout',
+      progress: 78,
+      health: '200 OK (Azure App Service)',
+      techStack: ['TypeScript', 'React', 'FastAPI', 'Docker', 'Azure ACR', 'Supabase'],
+      isRealDb: true,
+      tasks: [
+        'Finalize Schedule 6 statutory calculation engine & test bench',
+        'Verify Azure App Service multi-container Docker compose',
+        'Conduct advocate UAT walkthrough for fee notes and Bills of Costs'
+      ]
+    },
+    {
+      id: 'prj-myschools',
+      name: 'mySchools CBC School Management',
+      repo: 'guyo-halake/mySchools-',
+      githubUrl: 'https://github.com/guyo-halake/mySchools-',
+      liveUrl: 'https://p3lschools.vercel.app/',
+      client: 'P3L EdTech Division',
+      clientPhone: '+254 700 000 000',
+      clientEmail: 'edtech@p3ldev.com',
+      lead: 'Guyoh Halake',
+      category: 'EdTech ERP',
+      status: 'Live (Vercel)',
+      contractType: 'SaaS Subscription',
+      monthlyFee: 'KES 15,000 / term',
+      initialPaid: 'KES 45,000',
+      nextMilestone: 'CBC Grade 4-8 automated assessment export & SMS gateway integration',
+      progress: 90,
+      health: '200 OK (Vercel Edge)',
+      techStack: ['Next.js', 'React', 'Tailwind', 'RAG LLM', 'WhatsApp API'],
+      mockType: 'myschools',
+      tasks: [
+        'Connect RAG LLM to Kenyan CBC curriculum guidelines',
+        'Test automated WhatsApp fee receipt generation'
+      ]
+    },
     {
       id: 'prj-fresh-city',
       name: 'Fresh City Supermarket POS',
-      repo: 'guyo-halake/fresh-city-pos',
-      githubUrl: 'https://github.com/guyo-halake',
+      repo: 'guyo-halake/POS_Frontend',
+      githubUrl: 'https://github.com/guyo-halake/POS_Frontend',
       liveUrl: 'Station POS-01 (In Store)',
       client: 'Rosemary Wakonyo',
       clientPhone: '+254 756111885',
@@ -138,8 +250,9 @@ export const AdminDashboard: React.FC = () => {
       initialPaid: 'KES 32,000',
       nextMilestone: 'Monthly barcode inventory reconciliation & thermal cut audit',
       progress: 100,
-      health: 'Active (Offline Ready)',
+      health: 'Active (Offline SQLite)',
       techStack: ['Electron', 'React', 'SQLite', 'Thermal Printer Bridge'],
+      mockType: 'freshcity',
       tasks: [
         'Reconcile end-of-month barcode inventory batch',
         'Verify thermal printer automatic paper cut daemon',
@@ -148,23 +261,24 @@ export const AdminDashboard: React.FC = () => {
     },
     {
       id: 'prj-sayara-ecom',
-      name: 'Sayara Aesthetics E-commerce',
-      repo: 'guyo-halake/sayara-aesthetics',
-      githubUrl: 'https://github.com/guyo-halake',
+      name: 'Sayara Aesthetics & Shein Sync',
+      repo: 'guyo-halake/sayara_aesthetics-e-shop',
+      githubUrl: 'https://github.com/guyo-halake/sayara_aesthetics-e-shop',
       liveUrl: 'https://sayara-aesthetics.vercel.app',
       client: 'Sarah Guyatu Rashid',
       clientPhone: '+254 114 807 215',
       clientEmail: 'sarahguyatu2@gmail.com',
       lead: 'Guyoh Halake',
       category: 'E-commerce',
-      status: 'Live (Vercel)',
+      status: 'Live (Vercel & Python)',
       contractType: 'SoftwareRetainer',
       monthlyFee: '% Commission + Maintenance',
       initialPaid: 'KES 10,000',
-      nextMilestone: 'Seasonal beauty catalog refresh & payment gateway check',
+      nextMilestone: 'Seasonal beauty catalog sync & USD-to-KES currency multiplier',
       progress: 100,
-      health: '200 OK (24ms)',
-      techStack: ['Next.js', 'React', 'Tailwind', 'Vercel Edge'],
+      health: '200 OK & Worker Port 8040',
+      techStack: ['Next.js', 'Python 3.11', 'Playwright', 'FastAPI'],
+      mockType: 'sayara',
       tasks: [
         'Test Shein product price margin formula',
         'Review Vercel Edge cache hit ratio and load times',
@@ -172,60 +286,85 @@ export const AdminDashboard: React.FC = () => {
       ]
     },
     {
-      id: 'prj-sayara-api',
-      name: 'Sayara Aesthetics Shein Python API',
-      repo: 'guyo-halake/sayara-shein-sync',
-      githubUrl: 'https://github.com/guyo-halake',
-      liveUrl: 'https://api.sayara.p3ldev.com',
-      client: 'Sarah Guyatu Rashid',
-      clientPhone: '+254 114 807 215',
-      clientEmail: 'sarahguyatu2@gmail.com',
+      id: 'prj-inner-circle',
+      name: 'Inner Circle Hedge Fund Platform',
+      repo: 'guyo-halake/Inner-Circle---Frontend',
+      githubUrl: 'https://github.com/guyo-halake/Inner-Circle---Frontend',
+      liveUrl: 'https://inner-circlehedegfund.vercel.app',
+      client: 'Inner Circle Capital Partners',
+      clientPhone: '+254 711 000 000',
+      clientEmail: 'invest@innercircle.co.ke',
       lead: 'Guyoh Halake',
-      category: 'Automation & API',
-      status: 'Live (Python Daemon)',
-      contractType: 'SoftwareRetainer',
-      monthlyFee: 'Included in Sayara Retainer',
-      initialPaid: 'KES 0 (Bundled)',
-      nextMilestone: 'Automated hourly catalog sync cron & webhook verification',
-      progress: 92,
-      health: 'Active Daemon (Port 8040)',
-      techStack: ['Python 3.11', 'FastAPI', 'Playwright / Requests', 'Redis'],
+      category: 'FinTech Wealth',
+      status: 'Live (Vercel)',
+      contractType: 'Asset Management Fee',
+      monthlyFee: '1.5% AUM Fee',
+      initialPaid: 'KES 120,000',
+      nextMilestone: 'Tiered investor KYC verification & cumulative yield ledger',
+      progress: 85,
+      health: '200 OK (Vercel Edge)',
+      techStack: ['TypeScript', 'React', 'Node.js', 'Mobile App'],
+      mockType: 'innercircle',
       tasks: [
-        'Verify automated Shein price markup rules and webhook triggers',
-        'Monitor hourly catalog sync retry queue',
-        'Validate USD to KES live currency converter multiplier'
+        'Rebalance weekly asset portfolio allocation weights',
+        'Verify multi-tier investor returns calculation engine'
       ]
     },
     {
-      id: 'prj-karani-law',
-      name: 'Karani Law & BillsZip ERP',
-      repo: 'guyo-halake/karani_law',
-      githubUrl: 'https://github.com/guyo-halake/karani_law',
-      liveUrl: 'https://nyagah-b-fee-notes.azurewebsites.net',
-      client: 'Adv. Nyagah B. Kithinji',
-      clientPhone: '+254 (0)20 271 8900',
-      clientEmail: 'advocate@kithinjilegal.co.ke',
+      id: 'prj-khaemba-news',
+      name: 'Khaemba News & Media Platform',
+      repo: 'guyo-halake/Khaemba_news_platform',
+      githubUrl: 'https://github.com/guyo-halake/Khaemba_news_platform',
+      liveUrl: 'https://khaemba-news-platform.vercel.app',
+      client: 'D K Media & Productions',
+      clientPhone: '+254 722 000 000',
+      clientEmail: 'editorial@khaembanews.com',
       lead: 'Guyoh Halake',
-      category: 'LegalTech SaaS',
-      status: 'In Development (78%)',
-      contractType: 'Milestone Retainer',
-      monthlyFee: 'Milestone Retainer',
-      initialPaid: 'Milestone Billing',
-      nextMilestone: 'Azure ACR multi-container rollout & statutory math sign-off',
-      progress: 78,
-      health: '200 OK (Azure App Service)',
-      techStack: ['TypeScript', 'React', 'FastAPI', 'Docker', 'Azure ACR', 'Supabase'],
+      category: 'Media & News',
+      status: 'Live (Vercel)',
+      contractType: 'SoftwareRetainer',
+      monthlyFee: 'KES 5,000 / mo',
+      initialPaid: 'KES 25,000',
+      nextMilestone: 'Video CDN streaming optimization & journalist contributor portal',
+      progress: 95,
+      health: '200 OK (Vercel Edge)',
+      techStack: ['TypeScript', 'React', 'Tailwind', 'Video CDN'],
+      mockType: 'khaemba',
       tasks: [
-        'Finalize Schedule 6 statutory calculation engine & test bench',
-        'Verify Azure App Service multi-container Docker compose',
-        'Conduct advocate UAT walkthrough for fee notes and Bills of Costs'
+        'Streamline video documentary encoding pipeline',
+        'Review editor article drafting permissions'
+      ]
+    },
+    {
+      id: 'prj-suvplanet',
+      name: 'SUVPlanet Automotive Marketplace',
+      repo: 'guyo-halake/suvplane',
+      githubUrl: 'https://github.com/guyo-halake/suvplane',
+      liveUrl: 'https://suvplanet.vercel.app',
+      client: 'SUVPlanet Auto Traders',
+      clientPhone: '+254 733 000 000',
+      clientEmail: 'sales@suvplanet.co.ke',
+      lead: 'Guyoh Halake',
+      category: 'Automotive Marketplace',
+      status: 'Live (Vercel)',
+      contractType: 'Listing Retainer',
+      monthlyFee: 'Listing Commission',
+      initialPaid: 'KES 30,000',
+      nextMilestone: 'Vehicle inspection reports & automated WhatsApp test-drive booking',
+      progress: 90,
+      health: '200 OK (Vercel Edge)',
+      techStack: ['TypeScript', 'React', 'Next.js'],
+      mockType: 'suvplanet',
+      tasks: [
+        'Add WhatsApp click-to-chat on vehicle listing cards',
+        'Update showroom inventory status badges'
       ]
     },
     {
       id: 'prj-odinbot',
-      name: 'OdinBot AI Assistant',
-      repo: 'guyo-halake/odinbot-ai',
-      githubUrl: 'https://github.com/guyo-halake',
+      name: 'Matta- AI & OdinBot Assistant',
+      repo: 'guyo-halake/Matta-',
+      githubUrl: 'https://github.com/guyo-halake/Matta-',
       liveUrl: 'https://odinbot.p3ldev.com',
       client: 'P3L Internal R&D',
       clientPhone: '+254 700 000 000',
@@ -240,318 +379,189 @@ export const AdminDashboard: React.FC = () => {
       progress: 45,
       health: 'Degraded (Mirror 502)',
       techStack: ['Python', 'LangChain', 'FastAPI', 'pgvector', 'Ollama'],
+      mockType: 'odinbot',
       tasks: [
         'Fix I&M Bank mirror connection error in razak-server/mirrors/api/kenyanbanks/IandM',
-        'Re-bind mirror socket to port 8082 with retry circuit breaker',
-        'Test autonomous agent tool calling loop with live bank balances'
+        'Re-bind mirror socket to port 8082 with retry circuit breaker'
       ]
     },
     {
-      id: 'prj-cv-detector',
-      name: 'Computer Vision & Human Detector',
-      repo: 'guyo-halake/cv-object-human-detetors',
-      githubUrl: 'https://github.com/guyo-halake/cv-object-human-detetors',
-      liveUrl: 'Archived on GitHub',
-      client: 'P3L Research Archive',
+      id: 'prj-reload-infra',
+      name: 'System Wipe & Server Recovery (reload.sh)',
+      repo: 'guyo-halake/reload.sh',
+      githubUrl: 'https://github.com/guyo-halake/reload.sh',
+      liveUrl: 'razak-server Marsabit Node',
+      client: 'P3L Infrastructure',
       clientPhone: '—',
       clientEmail: '—',
       lead: 'Guyoh Halake',
-      category: 'Research Archive',
-      status: 'Paused / Archived',
-      contractType: 'Internal R&D',
-      monthlyFee: 'KES 0',
-      initialPaid: 'KES 0',
-      nextMilestone: 'Archived repository',
+      category: 'Infrastructure & Tools',
+      status: 'Active (Local SSH)',
+      contractType: 'Internal Tools',
+      monthlyFee: 'Internal',
+      initialPaid: 'Internal',
+      nextMilestone: 'Automated zero-downtime Linux reinstall script over SSH',
       progress: 100,
-      health: 'Archived',
-      techStack: ['Python', 'YOLOv8', 'OpenCV'],
-      tasks: ['Repository preserved for reference']
-    },
-    {
-      id: 'prj-iot-lab',
-      name: 'IoT Hardware Telemetry & ESP32 Lab',
-      repo: 'guyo-halake/IoT-playground',
-      githubUrl: 'https://github.com/guyo-halake/IoT-playground',
-      liveUrl: 'Archived on GitHub',
-      client: 'P3L Research Archive',
-      clientPhone: '—',
-      clientEmail: '—',
-      lead: 'Guyoh Halake',
-      category: 'Research Archive',
-      status: 'Paused / Archived',
-      contractType: 'Internal R&D',
-      monthlyFee: 'KES 0',
-      initialPaid: 'KES 0',
-      nextMilestone: 'Hardware lab on hold',
-      progress: 100,
-      health: 'Archived',
-      techStack: ['C++', 'ESP32', 'MQTT'],
-      tasks: ['Firmware code preserved for future IoT installations']
+      health: 'Operational',
+      techStack: ['Bash', 'Linux GNU', 'SSH', 'razak-server'],
+      mockType: 'reload',
+      tasks: ['Zero-downtime Linux reinstall script verified']
     }
   ]);
 
-  // Real Client Directory
-  const [clients] = useState<ClientAccount[]>([
-    {
-      id: 'cli-01',
-      name: 'Rosemary Wakonyo',
-      company: 'Fresh City Supermarket',
-      phone: '+254 756111885',
-      email: 'Direct Phone / In-Store',
-      category: 'Retail Supermarket',
-      activeProjects: ['Fresh City Supermarket POS'],
-      monthlyRetainer: 'KES 3,500',
-      initialPaid: 'KES 32,000 (Fully Settled)',
-      currentMonthPaid: 'KES 3,500',
-      status: 'Live Production'
-    },
-    {
-      id: 'cli-02',
-      name: 'Sarah Guyatu Rashid',
-      company: 'Sayara Aesthetics',
-      phone: '+254 114 807 215',
-      email: 'sarahguyatu2@gmail.com',
-      category: 'E-commerce & Beauty',
-      activeProjects: ['Sayara Aesthetics E-commerce', 'Sayara Aesthetics Shein Python API'],
-      monthlyRetainer: '% Commission + Support',
-      initialPaid: 'KES 10,000 (Storefront Build)',
-      currentMonthPaid: 'KES 3,200 (Maintenance & Commission)',
-      status: 'Active Retainer'
-    },
-    {
-      id: 'cli-03',
-      name: 'Adv. Nyagah B. Kithinji',
-      company: 'Nyagah B. Kithinji & Co. Advocates',
-      phone: '+254 (0)20 271 8900',
-      email: 'advocate@kithinjilegal.co.ke',
-      category: 'Legal Practice',
-      activeProjects: ['Karani Law & BillsZip ERP'],
-      monthlyRetainer: 'Milestone Retainer',
-      initialPaid: 'Milestone Structure',
-      currentMonthPaid: 'KES 0 (Stage 4 pending UAT)',
-      status: 'In Progress'
-    }
+  // Mock database stores for non-Karani projects
+  const [mockMySchools, setMockMySchools] = useState([
+    { id: 'stu-101', nemisNo: 'NM-948201', name: 'Brian Kiprop', grade: 'Grade 5 CBC', parentPhone: '+254 721 883 912', termFee: 'KES 18,500', status: 'Cleared' },
+    { id: 'stu-102', nemisNo: 'NM-948202', name: 'Amina Halake', grade: 'Grade 6 CBC', parentPhone: '+254 711 405 821', termFee: 'KES 18,500', status: 'Pending KES 4,000' },
+    { id: 'stu-103', nemisNo: 'NM-948203', name: 'Kelvin Mwangi', grade: 'Grade 4 CBC', parentPhone: '+254 734 910 223', termFee: 'KES 16,000', status: 'Cleared' }
   ]);
 
-  // Founder Daily Priorities (Work vs Personal)
+  const [mockInnerCircle, setMockInnerCircle] = useState([
+    { id: 'inv-01', name: 'Dr. Hassan Abdi', tier: 'Private Wealth', deposit: 'KES 5,000,000', monthlyYield: '+3.4%', kycStatus: 'Verified' },
+    { id: 'inv-02', name: 'Faith Cherotich', tier: 'Gold Tier', deposit: 'KES 1,200,000', monthlyYield: '+3.4%', kycStatus: 'Verified' },
+    { id: 'inv-03', name: 'Peter Omondi', tier: 'Silver Tier', deposit: 'KES 500,000', monthlyYield: '+3.1%', kycStatus: 'Under Review' }
+  ]);
+
+  const [mockFreshCity, setMockFreshCity] = useState([
+    { id: 'pos-1', cashier: 'Rosemary Wakonyo', register: 'Lane 01 (Main POS)', shift: 'Morning / Afternoon', cashDrawer: 'KES 42,850', printerStatus: 'Thermal Auto-Cut OK' },
+    { id: 'pos-2', cashier: 'Grace Njeri', register: 'Lane 02 (Express)', shift: 'Evening Shift', cashDrawer: 'KES 18,300', printerStatus: 'Ready' }
+  ]);
+
+  const [mockSayara, setMockSayara] = useState([
+    { id: 'sku-01', title: 'Velvet Matte Lip Glaze #04', sheinSku: 'SH-BEAUTY-9921', costUsd: '$2.40', priceKes: 'KES 850', margin: '62%', lastSync: '14 Oct, 08:30' },
+    { id: 'sku-02', title: 'Collagen Hydrating Night Serum', sheinSku: 'SH-SKIN-4019', costUsd: '$4.10', priceKes: 'KES 1,450', margin: '58%', lastSync: '14 Oct, 08:30' },
+    { id: 'sku-03', title: 'Waterproof Volumizing Mascara', sheinSku: 'SH-EYE-1102', costUsd: '$1.80', priceKes: 'KES 650', margin: '65%', lastSync: '14 Oct, 08:30' }
+  ]);
+
+  const [mockKhaemba, setMockKhaemba] = useState([
+    { id: 'art-01', headline: 'Marsabit Wind Power: Powering the Northern Corridor', author: 'Dennis Khaemba', category: 'Energy & Climate', views: '14,200', status: 'Published' },
+    { id: 'art-02', headline: 'The Lake Turkana Fisherfolk Documentary: Episode 2', author: 'Documentary Desk', category: 'Documentary Video', views: '8,950', status: 'Streaming' }
+  ]);
+
+  const [mockSuvPlanet, setMockSuvPlanet] = useState([
+    { id: 'car-01', model: 'Toyota Land Cruiser Prado TX-L 2020', reg: 'KDG 482M', price: 'KES 6,850,000', status: 'Available in Showroom', leads: 9 },
+    { id: 'car-02', model: 'Subaru Outback 2.5i Limited 2018', reg: 'KDD 193A', price: 'KES 3,250,000', status: 'Test Drive Booked', leads: 14 }
+  ]);
+
+  // Tasks
   const [tasks, setTasks] = useState<FounderTask[]>([
     {
       id: 'tsk-01',
-      title: 'Karani Law ERP: Bills of Costs statutory calculations & Azure multi-container build',
+      title: 'Karani Law ERP: Complete statutory court taxation calculations and multi-container build',
       category: 'work',
-      project: 'Karani Law & BillsZip ERP',
+      project: 'Karani Law & Bills of Costs ERP',
       priority: 'high',
       completed: false,
-      dueDate: 'Today, 17:00',
-      notes: 'Currently at 78% completion. Test Schedule 6 and getting-up fees.'
+      dueDate: 'Today, 17:00'
     },
     {
       id: 'tsk-02',
-      title: 'Sayara Aesthetics: Verify automated Shein price markup rules and webhook triggers',
+      title: 'Sayara Aesthetics: Check automated product margins and scraper catalog sync',
       category: 'work',
-      project: 'Sayara Aesthetics Shein Python API',
+      project: 'Sayara Aesthetics & Shein Sync',
       priority: 'normal',
       completed: false,
-      dueDate: 'Today, 19:30',
-      notes: 'Check Python worker queue and Sarah product margin formula.'
+      dueDate: 'Today, 19:30'
     },
     {
       id: 'tsk-03',
-      title: 'CRITICAL ALERT: OdinBot cannot access I&M Bank API in razak-server/mirrors/api/kenyanbanks/IandM',
+      title: 'OdinBot AI: Restart bank mirror socket on port 8082 for I&M Bank',
       category: 'work',
-      project: 'OdinBot AI Assistant',
+      project: 'Matta- AI & OdinBot Assistant',
       priority: 'critical',
       completed: false,
-      dueDate: 'Urgent',
-      notes: 'Connection refused / Port 8082 unreachable. Restart local mirror daemon.'
+      dueDate: 'Urgent'
     },
     {
       id: 'tsk-04',
-      title: 'Fresh City POS: Test thermal receipt auto-cut & daily cash-drawer batch ledger',
+      title: 'Fresh City POS: Check thermal receipt auto-cutter and end-of-day register batch',
       category: 'work',
       project: 'Fresh City Supermarket POS',
       priority: 'normal',
       completed: true,
-      dueDate: 'Yesterday',
-      notes: 'Rosemary terminal operational and printing cleanly.'
+      dueDate: 'Yesterday'
     },
     {
       id: 'tsk-05',
-      title: 'Distributed Systems Coursework: Complete Consensus Algorithms Assignment 3',
+      title: 'Distributed Systems Coursework: Complete Consensus Assignment 3',
       category: 'personal',
       priority: 'high',
       completed: false,
-      dueDate: 'Friday, 23:59',
-      notes: 'Raft consensus implementation and fault-tolerance write-up.'
-    },
-    {
-      id: 'tsk-06',
-      title: 'Software Architecture University Project: Prepare slides for microservices review',
-      category: 'personal',
-      priority: 'normal',
-      completed: false,
-      dueDate: 'Thursday, 14:00',
-      notes: 'Cover FastAPI + Docker multi-container design.'
-    },
-    {
-      id: 'tsk-07',
-      title: 'Review Python asyncio & event loop concurrency lecture notes',
-      category: 'personal',
-      priority: 'normal',
-      completed: true,
-      dueDate: 'Completed',
-      notes: 'Reviewed thread pools and coroutines.'
-    },
-    {
-      id: 'tsk-08',
-      title: 'Biftu Construction Marsabit workstation backup & Starlink router check',
-      category: 'personal',
-      priority: 'normal',
-      completed: false,
-      dueDate: 'This Weekend',
-      notes: 'Verify Marsabit secondary LTE failover gateway.'
+      dueDate: 'Friday'
     }
   ]);
 
-  // Education & Coursework Data
+  // Coursework
   const [coursework] = useState([
     { id: 'cw-1', subject: 'Distributed Systems', title: 'Assignment 3: Consensus & Partitioning', deadline: 'In 3 days', status: 'In Progress', marks: 'Pending' },
     { id: 'cw-2', subject: 'Database Systems', title: 'Lab 4: B-Tree Indexing & Query Optimizations', deadline: 'Completed', status: 'Submitted', marks: '92 / 100' },
-    { id: 'cw-3', subject: 'Software Engineering', title: 'Milestone 2: Architecture & Specification', deadline: 'Submitted', status: 'Graded', marks: '88 / 100' },
-    { id: 'cw-4', subject: 'Compiler Design', title: 'Lexical Analyzer & AST Parser in Python', deadline: 'Nov 8', status: 'Not Started', marks: 'Pending' }
+    { id: 'cw-3', subject: 'Software Engineering', title: 'Milestone 2: Architecture & Specification', deadline: 'Submitted', status: 'Graded', marks: '88 / 100' }
   ]);
 
-  const [readingPdfs] = useState([
-    { title: 'Distributed Systems: Concepts and Design (Coulouris).pdf', pages: '942 pp', category: 'Distributed Computing' },
-    { title: 'FastAPI High-Performance Production Microservices.pdf', pages: '310 pp', category: 'Backend Architecture' },
-    { title: 'PostgreSQL Internals & Query Planning Handbook.pdf', pages: '450 pp', category: 'Database Systems' },
-    { title: 'Kenya Law Advocates Remuneration Order L.N. 35 2014.pdf', pages: '128 pp', category: 'Statutory Law' }
-  ]);
-
-  // Razak-Server Daemon Processes
   const [serverDaemons] = useState([
     { pid: 1024, name: 'fastapi-backend', port: 8000, cpu: '1.2%', memory: '180 MB', uptime: '18d 07h', status: 'Running' },
     { pid: 1088, name: 'vite-frontend', port: 3000, cpu: '0.4%', memory: '95 MB', uptime: '18d 07h', status: 'Running' },
     { pid: 2042, name: 'sayara-shein-daemon', port: 8040, cpu: '2.1%', memory: '210 MB', uptime: '14d 12h', status: 'Running' },
     { pid: 3012, name: 'odinbot-core-agent', port: 8080, cpu: '5.8%', memory: '450 MB', uptime: '3d 04h', status: 'Degraded' },
-    { pid: 4099, name: 'postgresql-pool', port: 5432, cpu: '1.0%', memory: '320 MB', uptime: '18d 07h', status: 'Running' },
-    { pid: 5001, name: 'nginx-ingress-proxy', port: '80 / 443', cpu: '0.2%', memory: '45 MB', uptime: '18d 07h', status: 'Running' }
+    { pid: 4099, name: 'postgresql-pool', port: 5432, cpu: '1.0%', memory: '320 MB', uptime: '18d 07h', status: 'Running' }
   ]);
 
-  const [mirrorApis] = useState([
-    { endpoint: 'razak-server/mirrors/api/kenyanbanks/IandM', protocol: 'REST / JSON', port: 8082, status: 'Offline (502 / Fix Needed)', latency: '—', alert: true },
-    { endpoint: 'razak-server/mirrors/api/mpesa_b2c', protocol: 'HTTPS / TLS', port: 8084, status: 'Active (200 OK)', latency: '18 ms', alert: false },
-    { endpoint: 'razak-server/mirrors/api/sms_gateway', protocol: 'HTTP / Webhook', port: 8086, status: 'Active (200 OK)', latency: '12 ms', alert: false }
-  ]);
-
-  // Recent Activity Log (From last week to yesterday)
-  const [recentActivities] = useState([
-    { id: 'act-1', actor: 'Guyo Halake', action: 'Pushed 4 commits to guyo-halake/karani_law (branch: update-4)', time: 'Yesterday, 18:40', tag: 'Git Commit' },
-    { id: 'act-2', actor: 'Sayara Shein API', action: 'Automated catalog sync completed (142 fashion items updated)', time: 'Yesterday, 14:15', tag: 'Python Cron' },
-    { id: 'act-3', actor: 'Rosemary Wakonyo', action: 'Fresh City POS closed daily cash-drawer and reconciled local register batch', time: 'Yesterday, 21:30', tag: 'Retail POS' },
-    { id: 'act-4', actor: 'Sarah Guyatu Rashid', action: 'Payment received: KES 3,200 for Sayara Aesthetics monthly maintenance & commission', time: '12 Oct, 11:20', tag: 'Payment' },
-    { id: 'act-5', actor: 'Azure CI/CD', action: 'Docker image built and pushed to acrnyagahfee.azurecr.io', time: '11 Oct, 16:05', tag: 'Azure ACR' },
-    { id: 'act-6', actor: 'razak-server', action: 'Alert: I&M Bank mirror connection timeout at razak-server/mirrors/api/kenyanbanks/IandM', time: '10 Oct, 09:12', tag: 'API Warning' }
-  ]);
-
-  // Modals for Adding Projects / Tasks / Payments
-  const [showAddProjectModal, setShowAddProjectModal] = useState(false);
-  const [showAddTaskModal, setShowAddTaskModal] = useState(false);
-  const [showLogPaymentModal, setShowLogPaymentModal] = useState(false);
-
-  // New Project Form
-  const [newProjectName, setNewProjectName] = useState('');
-  const [newProjectClient, setNewProjectClient] = useState('');
-  const [newProjectCategory, setNewProjectCategory] = useState<RealProject['category']>('Retail & POS');
-  const [newProjectFee, setNewProjectFee] = useState('KES 3,500 / mo');
-
-  // New Task Form
-  const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [newTaskCategory, setNewTaskCategory] = useState<'work' | 'personal'>('work');
-  const [newTaskPriority, setNewTaskPriority] = useState<FounderTask['priority']>('normal');
-
-  // Log Payment Form
-  const [paymentClient, setPaymentClient] = useState('Sarah Guyatu Rashid (Sayara Aesthetics)');
-  const [paymentAmount, setPaymentAmount] = useState('3200');
-  const [paymentNote, setPaymentNote] = useState('Sayara Aesthetics maintenance & commission');
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
-
+  // Handlers
   const toggleTask = (id: string) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
     showToast('Task updated.');
   };
 
-  const handleAddProject = (e: React.FormEvent) => {
+  const handleCreateRealUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newProjectName.trim()) return;
-    const newPrj: RealProject = {
-      id: 'prj-' + Date.now(),
-      name: newProjectName.trim(),
-      repo: `guyo-halake/${newProjectName.toLowerCase().replace(/\s+/g, '-')}`,
-      githubUrl: 'https://github.com/guyo-halake',
-      liveUrl: 'Staging / In Development',
-      client: newProjectClient.trim() || 'Direct Client',
-      clientPhone: '+254 700 000 000',
-      clientEmail: 'client@p3ldev.com',
-      lead: 'Guyoh Halake',
-      category: newProjectCategory,
-      status: 'In Development (78%)',
-      contractType: 'SoftwareRetainer',
-      monthlyFee: newProjectFee.trim() || 'KES 3,500 / mo',
-      initialPaid: 'KES 0',
-      nextMilestone: 'Initial prototype and requirements baseline',
-      progress: 25,
-      health: 'Active Development',
-      techStack: ['TypeScript', 'FastAPI'],
-      tasks: ['Define project scope', 'Initialize Git repository', 'Configure local environment']
-    };
-    setProjects([newPrj, ...projects]);
-    setShowAddProjectModal(false);
-    setNewProjectName('');
-    setNewProjectClient('');
-    showToast(`Project "${newPrj.name}" registered to fleet.`);
+    if (!newUserFullName.trim() || !newUserEmail.trim()) {
+      showToast('Please enter full name and email.');
+      return;
+    }
+
+    try {
+      const created = await createFirmUser(EXACT_FIRM_INFO.id, {
+        fullName: newUserFullName.trim(),
+        workEmail: newUserEmail.trim(),
+        role: newUserRole,
+        position: newUserRole,
+        lskNo: newUserLskNo.trim() || `P105/${Math.floor(10000 + Math.random() * 90000)}/26`,
+        passwordHash: newUserPassword.trim() || 'Nyagah@2026',
+        advocateTitle: `Adv. ${newUserFullName.trim()}`
+      });
+
+      setRealUsers(prev => [created, ...prev]);
+      setShowAddRealUserModal(false);
+      setNewUserFullName('');
+      setNewUserEmail('');
+      setNewUserLskNo('');
+      showToast(`User ${created.fullName} saved to database. They can now log in.`);
+    } catch (err) {
+      showToast('Error creating user. Check database logs.');
+    }
   };
 
-  const handleAddTask = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTaskTitle.trim()) return;
-    const newTask: FounderTask = {
-      id: 'tsk-' + Date.now(),
-      title: newTaskTitle.trim(),
-      category: newTaskCategory,
-      priority: newTaskPriority,
-      completed: false,
-      dueDate: 'Today'
-    };
-    setTasks([newTask, ...tasks]);
-    setShowAddTaskModal(false);
-    setNewTaskTitle('');
-    showToast('Task added to priority queue.');
+  const handleDeleteRealUser = async (userId: string, userName: string) => {
+    if (!confirm(`Are you sure you want to remove ${userName} from the database?`)) return;
+    try {
+      await deleteFirmUser(EXACT_FIRM_INFO.id, userId);
+      setRealUsers(prev => prev.filter(u => u.id !== userId));
+      showToast(`${userName} removed from database.`);
+    } catch (err) {
+      showToast('Failed to delete user.');
+    }
   };
 
-  const handleLogPayment = (e: React.FormEvent) => {
-    e.preventDefault();
-    showToast(`Payment of KES ${Number(paymentAmount).toLocaleString()} logged from ${paymentClient}.`);
-    setShowLogPaymentModal(false);
+  const handleOpenWhatsAppBill = (clientName: string, amount: string, project: string) => {
+    const msg = `Hello ${clientName}, hope all is well. This is a gentle note regarding the monthly software maintenance retainer for ${project} of KES ${amount} for this month. Bank / M-Pesa details: Biftu Construction Co. (P3L Developers). Thank you!`;
+    setWhatsAppModalClient({ name: clientName, amount, project, message: msg });
   };
 
-  const handleDeploymentContextMenu = (e: React.MouseEvent, project: RealProject) => {
-    e.preventDefault();
-    setSelectedDeployment(project);
-    setDeploymentMenuPos({ x: e.clientX, y: e.clientY });
-    setShowDeploymentMenu(true);
-  };
-
-  const toggleMaintenance = () => {
-    const next = !isMaintenanceMode;
-    setIsMaintenanceMode(next);
-    localStorage.setItem('BILLSZIP_MAINTENANCE_MODE', String(next));
-    window.dispatchEvent(new CustomEvent('maintenanceModeChanged', { detail: next }));
-    showToast(next ? 'Emergency Read-Only Mode Activated.' : 'Platform restored to active state.');
+  const copyWhatsAppText = () => {
+    if (whatsAppModalClient?.message) {
+      navigator.clipboard.writeText(whatsAppModalClient.message);
+      showToast('WhatsApp bill copied to clipboard!');
+    }
   };
 
   const handleExportBackup = () => {
@@ -561,32 +571,27 @@ export const AdminDashboard: React.FC = () => {
       founder: 'Guyoh Halake',
       server: 'razak-server',
       station: 'Marsabit County, Kenya',
-      revenue: { thisMonth: 8000, last6Months: 43000, sarahPayment: 3200 },
       projects,
-      clients,
-      tasks,
-      coursework,
-      serverDaemons,
-      mirrorApis
+      realUsers,
+      tasks
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `p3l_developers_master_snapshot_${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `p3l_master_snapshot_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast('Full P3L Master Snapshot Exported.');
+    showToast('Snapshot downloaded.');
   };
 
-  // The 11 Authoritative Sidebar Hubs
   const navItems: Array<{ id: AdminTab; label: string; icon: any; count?: number; badge?: string }> = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'projects_clients', label: 'Projects & Clients', icon: Briefcase, count: projects.length },
-    { id: 'users_rbac', label: 'Users & RBAC', icon: Users, count: 5 },
+    { id: 'users_rbac', label: 'Users & RBAC', icon: Users, count: realUsers.length || 5 },
     { id: 'finance_billing', label: 'Finance & Billing', icon: DollarSign, badge: 'KES 8,000' },
     { id: 'ai_infra', label: 'AI & Infrastructure', icon: Bot, badge: 'OdinBot' },
-    { id: 'career_education', label: 'Career & Education', icon: GraduationCap, count: 4 },
+    { id: 'career_education', label: 'Career & Education', icon: GraduationCap, count: 3 },
     { id: 'internal_staff', label: 'Internal P3L Staff', icon: UserCheck, count: 3 },
     { id: 'comms_messaging', label: 'Messaging', icon: MessageSquare },
     { id: 'server', label: 'Razak Server', icon: Cpu, badge: '7 ms' },
@@ -595,51 +600,47 @@ export const AdminDashboard: React.FC = () => {
   ];
 
   return (
-    <div className="flex h-screen overflow-hidden font-sans antialiased bg-[#f8fafc] text-slate-900 dark:bg-zinc-950 dark:text-zinc-100">
+    <div className="flex h-screen overflow-hidden font-sans antialiased bg-[#f8fafc] text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-6 right-6 z-50 p-3.5 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xl flex items-center gap-2.5 text-xs font-semibold animate-fadeIn border border-white/10">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0" />
+        <div className="fixed top-6 right-6 z-50 p-3.5 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-xl flex items-center gap-2.5 text-xs font-semibold animate-fadeIn border border-white/10">
+          <CheckCircle2 className="w-4 h-4 text-amber-400 dark:text-amber-600 shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* SIDEBAR: ALL 11 AUTHORITATIVE WORKSPACES */}
+      {/* SIDEBAR: P3L DEVELOPERS (NO GO-TO-KARANI LINK) */}
       {/* ========================================================================= */}
-      <aside className="w-64 flex flex-col py-4 px-3 border-r border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs z-20 shrink-0">
+      <aside className="w-64 flex flex-col py-4 px-3 border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs z-20 shrink-0">
         
         {/* Brand Header with Logo */}
-        <div className="px-2 pb-3.5 mb-2 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
+        <div className="px-2 pb-3.5 mb-2 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-zinc-700 shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden border border-zinc-200 dark:border-zinc-700 shrink-0">
               <img 
-                src="/p3l_logo_nobg.png" 
+                src="/p3l_logo.jpeg" 
                 alt="P3L" 
                 className="w-full h-full object-contain p-0.5"
-                onError={(e) => {
-                  // Fallback to text initials if image path fails
-                  e.currentTarget.style.display = 'none';
-                }}
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
               />
-              <span className="font-brand font-black text-xs text-slate-900 dark:text-white" style={{ display: 'none' }}>P3L</span>
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight font-brand truncate">
+              <p className="text-xs font-bold text-zinc-900 dark:text-white leading-tight truncate">
                 P3L Developers
               </p>
-              <p className="text-[9.5px] text-slate-400 dark:text-zinc-400 font-mono truncate leading-tight mt-0.5">
-                subsidiary Biftu Construction Company, Marsabit
+              <p className="text-[9.5px] text-zinc-400 dark:text-zinc-500 font-mono truncate leading-tight mt-0.5">
+                subsidiary Biftu Construction Co.
               </p>
             </div>
           </div>
           <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse" title="System Online"></span>
         </div>
 
-        {/* Navigation Tabs (All 11 Exact Hubs) */}
+        {/* Navigation Tabs */}
         <div className="flex flex-col gap-1 flex-1 w-full overflow-y-auto pr-1">
-          <span className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 px-3 py-1 font-mono">
+          <span className="text-[9.5px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 px-3 py-1 font-mono">
             Company Pillars
           </span>
           {navItems.map((nav) => {
@@ -651,8 +652,8 @@ export const AdminDashboard: React.FC = () => {
                 onClick={() => setActiveTab(nav.id)}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   isActive 
-                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs font-bold' 
-                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800/60'
+                    ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-xs font-bold' 
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60'
                 }`}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -661,14 +662,14 @@ export const AdminDashboard: React.FC = () => {
                 </div>
                 {nav.count !== undefined && (
                   <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md shrink-0 ${
-                    isActive ? 'bg-white/20 text-white dark:bg-slate-900/10 dark:text-slate-900' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'
+                    isActive ? 'bg-white/20 text-white dark:bg-zinc-900/10 dark:text-zinc-900' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'
                   }`}>
                     {nav.count}
                   </span>
                 )}
                 {nav.badge && (
                   <span className={`text-[8.5px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 ${
-                    isActive ? 'bg-white/20 text-white dark:bg-slate-900/10 dark:text-slate-900' : 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
+                    isActive ? 'bg-white/20 text-white dark:bg-zinc-900/10 dark:text-zinc-900' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
                   }`}>
                     {nav.badge}
                   </span>
@@ -678,42 +679,35 @@ export const AdminDashboard: React.FC = () => {
           })}
         </div>
 
-        {/* Sidebar Footer: Marsabit Node Status */}
-        <div className="mt-auto pt-3 border-t border-slate-100 dark:border-zinc-800 space-y-2">
-          <div className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200/60 dark:border-zinc-700/50 flex items-center justify-between text-[10.5px] font-mono">
-            <span className="flex items-center gap-1.5 text-slate-600 dark:text-zinc-400">
+        {/* Sidebar Footer: Clean Server Node Status */}
+        <div className="mt-auto pt-3 border-t border-zinc-100 dark:border-zinc-800 space-y-2">
+          <div className="px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/60 dark:border-zinc-700/50 flex items-center justify-between text-[10.5px] font-mono">
+            <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
               razak-server
             </span>
-            <span className="text-slate-900 dark:text-white font-bold">{apiLatency} ms</span>
+            <span className="text-zinc-900 dark:text-white font-bold">{apiLatency} ms</span>
           </div>
-
-          <button 
-            onClick={() => window.location.href = '/'}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-900 dark:text-white rounded-xl transition-colors cursor-pointer"
-          >
-            <ArrowUpRight className="w-3.5 h-3.5" />
-            <span>Karani Law Portal</span>
-          </button>
+          <div className="px-3 py-1 text-[10px] text-zinc-400 font-mono text-center">
+            Branch: update-4 · Marsabit Node
+          </div>
         </div>
       </aside>
 
       {/* ========================================================================= */}
-      {/* MAIN CONTENT WORKSPACE */}
+      {/* MAIN WORKSPACE */}
       {/* ========================================================================= */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         
-        {/* Top Command Bar */}
-                {/* Top Command Bar */}
-                {/* Top Command Bar (Vercel / GitHub Minimalist) */}
-        <header className="px-8 py-3.5 w-full flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-black/80 backdrop-blur-md z-10 sticky top-0">
-          <div className="flex items-center gap-6 min-w-0">
+        {/* Top Command Bar (Seamless, Borderless, Floating) */}
+        <header className="px-8 py-3.5 w-full flex justify-between items-center bg-transparent z-10">
+          <div className="flex items-center gap-5 min-w-0">
             <div className="flex items-center gap-3">
-              <div className="w-7 h-7 rounded-md bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden border border-zinc-200 dark:border-zinc-700">
-                <img src="/p3l_logo_nobg.png" alt="P3L" className="w-full h-full object-contain p-0.5" />
+              <div className="w-8 h-8 rounded-lg bg-white dark:bg-zinc-900 flex items-center justify-center overflow-hidden border border-amber-500/30 shadow-xs">
+                <img src="/p3l_logo.jpeg" alt="P3L" className="w-full h-full object-cover" />
               </div>
               <div className="min-w-0">
-                <span className="text-xs font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 block leading-tight">
+                <span className="text-xs font-bold tracking-tight text-zinc-900 dark:text-zinc-100 block leading-tight">
                   P3L Developers
                 </span>
                 <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono block leading-tight truncate">
@@ -722,143 +716,177 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Quick Search Bar */}
-            <div className="relative hidden md:block w-72">
-              <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-2.5" />
-              <input 
-                type="text"
-                placeholder="Search repos, clients, tasks (Ctrl+K)..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600 transition-colors"
-              />
+            {/* Omni-Search Box with Ctrl+K trigger */}
+            <div 
+              onClick={() => setShowCommandPalette(true)}
+              className="relative hidden md:flex items-center w-72 px-3 py-1.5 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 text-xs text-zinc-400 cursor-pointer hover:border-amber-500/40 transition-colors shadow-2xs"
+            >
+              <Search className="w-3.5 h-3.5 mr-2 text-zinc-400" />
+              <span className="truncate">Search projects, database, tasks...</span>
+              <kbd className="ml-auto px-1.5 py-0.5 rounded text-[9px] font-mono bg-zinc-100 dark:bg-zinc-800 text-zinc-500 border border-zinc-200 dark:border-zinc-700">
+                Ctrl+K
+              </kbd>
             </div>
           </div>
 
+          {/* Right Top Status Controls */}
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-2 font-mono text-xs text-zinc-500 dark:text-zinc-400">
-              <span className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300">
-                update-4
+              <span className="px-2.5 py-1 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300">
+                <Satellite className="w-3 h-3 text-amber-500" />
+                <span>Starlink 38ms</span>
               </span>
-              <span className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300">
+              <span className="px-2.5 py-1 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                7ms
+                <span>Server OK</span>
               </span>
             </div>
 
             <button
-              onClick={() => showToast('No unread server alerts.')}
-              className="p-1.5 rounded-md text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer transition-colors"
+              onClick={() => showToast('All services operational in Marsabit.')}
+              className="p-2 rounded-full text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white dark:hover:bg-zinc-900 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 cursor-pointer transition-colors"
               title="Notifications"
             >
               <Bell className="w-4 h-4 stroke-[1.75]" />
             </button>
 
-            <button
-              onClick={() => window.location.href = '/'}
-              className="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-900 hover:bg-black text-white dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
-            >
-              <ArrowUpRight className="w-3.5 h-3.5 stroke-[2]" />
-              <span>Launch Karani Portal</span>
-            </button>
+            {/* Founder Profile Badge */}
+            <div className="flex items-center gap-2 pl-2 border-l border-zinc-200 dark:border-zinc-800">
+              <div className="w-7 h-7 rounded-full bg-amber-500 text-zinc-950 font-bold text-xs flex items-center justify-center font-mono">
+                GH
+              </div>
+              <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 hidden lg:inline">
+                Guyoh Halake
+              </span>
+            </div>
           </div>
         </header>
 
-        {/* Scrollable Work Canvas */}
-        <main className="flex-1 overflow-y-auto px-8 py-8 pb-20 bg-zinc-50/50 dark:bg-black">
-          <div className="max-w-7xl mx-auto space-y-8">
+        {/* Scrollable Work Canvas with subtle warm orange tint at low opacity */}
+        <main 
+          className="flex-1 overflow-y-auto px-8 py-5 pb-20"
+          style={{ backgroundColor: 'rgba(245, 158, 11, 0.025)' }}
+        >
+          <div className="max-w-7xl mx-auto space-y-6">
 
             {/* ========================================================================= */}
-            {/* HERO WELCOME HEADER & ACTIONS (VERCEL & APPLE MINIMALIST) */}
+            {/* REAL, HUMAN WELCOME SECTION WITH LIVE TIME */}
             {/* ========================================================================= */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-zinc-200 dark:border-zinc-800/80">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-zinc-200/70 dark:border-zinc-800/70">
               <div className="space-y-1">
-                <div className="flex items-center gap-3">
-                  <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
-                    P3L Command
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                    {getGreeting()}, Guyo
                   </h1>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/60">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                    Live Fleet
+                  <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-mono text-amber-800 dark:text-amber-300 bg-amber-500/10 border border-amber-500/30 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Marsabit Station Online
                   </span>
                 </div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Marsabit County Operations Node &middot; Sayara Aesthetics, Fresh City POS, Karani Law &amp; OdinBot
+                
+                <p className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
+                  {formattedLiveDate}
+                </p>
+
+                <p className="text-xs text-zinc-600 dark:text-zinc-300 font-normal">
+                  Welcome back to P3L Developers. Your 8 startup projects and databases are running smoothly today.
                 </p>
               </div>
 
-              {/* Vercel / Apple Pill Button Group */}
+              {/* Action Buttons */}
               <div className="flex items-center gap-2 flex-wrap">
                 <button
-                  onClick={() => setShowAddProjectModal(true)}
-                  className="px-3.5 py-1.5 rounded-full bg-zinc-900 hover:bg-black text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white text-xs font-medium shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                  onClick={() => {
+                    const karani = projects.find(p => p.id === 'prj-karani-law');
+                    if (karani) {
+                      setSelectedDrawerProject(karani);
+                      setDrawerTab('database');
+                    }
+                  }}
+                  className="px-4 py-2 rounded-full bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5 stroke-[2]" />
-                  <span>New Project</span>
+                  <Users className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Karani Law Users</span>
                 </button>
 
                 <button
                   onClick={() => setShowAddTaskModal(true)}
-                  className="px-3.5 py-1.5 rounded-full bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+                  className="px-4 py-2 rounded-full bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 hover:border-amber-500/40 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5 stroke-[2]" />
                   <span>Add Task</span>
                 </button>
 
                 <button
-                  onClick={() => setShowLogPaymentModal(true)}
-                  className="px-3.5 py-1.5 rounded-full bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
-                >
-                  <DollarSign className="w-3.5 h-3.5 stroke-[2]" />
-                  <span>Log Payment</span>
-                </button>
-
-                <button
                   onClick={handleExportBackup}
-                  className="p-2 rounded-full bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 text-xs transition-colors cursor-pointer"
-                  title="Export full JSON master backup"
+                  className="p-2.5 rounded-full bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 hover:text-amber-600 text-xs transition-colors cursor-pointer"
+                  title="Download Backup Snapshot"
                 >
                   <Download className="w-3.5 h-3.5 stroke-[1.75]" />
-                </button>
-
-                <button
-                  onClick={toggleMaintenance}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer ${
-                    isMaintenanceMode 
-                      ? 'bg-rose-600 text-white animate-pulse' 
-                      : 'border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:border-rose-300 dark:hover:border-rose-900/60'
-                  }`}
-                >
-                  <Power className="w-3.5 h-3.5 stroke-[1.75]" />
-                  <span>{isMaintenanceMode ? 'Kill-Switch On' : 'Kill-Switch'}</span>
                 </button>
               </div>
             </div>
 
             {/* ========================================================================= */}
-            {/* 1. DASHBOARD VIEW: OVERVIEW METRIC GRID */}
+            {/* MARSABIT STARLINK & INFRASTRUCTURE TELEMETRY RIBBON */}
+            {/* ========================================================================= */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3.5 rounded-xl bg-white dark:bg-zinc-900/80 border border-zinc-200/80 dark:border-zinc-800/80 shadow-2xs font-mono text-xs">
+              <div className="flex items-center gap-2.5">
+                <Satellite className="w-4 h-4 text-amber-500 shrink-0" />
+                <div>
+                  <span className="text-[10px] text-zinc-400 block uppercase">Starlink Uplink</span>
+                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">38 ms · 185 Mbps</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <Sun className="w-4 h-4 text-amber-500 shrink-0" />
+                <div>
+                  <span className="text-[10px] text-zinc-400 block uppercase">Station Power</span>
+                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">96% Solar · 220V</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <Cpu className="w-4 h-4 text-amber-500 shrink-0" />
+                <div>
+                  <span className="text-[10px] text-zinc-400 block uppercase">razak-server</span>
+                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">24°C · 14% Load</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <Wifi className="w-4 h-4 text-emerald-500 shrink-0" />
+                <div>
+                  <span className="text-[10px] text-zinc-400 block uppercase">LTE Failover</span>
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">Safaricom Standby</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ========================================================================= */}
+            {/* DASHBOARD TAB OVERVIEW */}
             {/* ========================================================================= */}
             {activeTab === 'dashboard' && (
-              <div className="space-y-8 animate-fadeIn">
+              <div className="space-y-6 animate-fadeIn">
                 
-                {/* 3 Clean Vercel-Style Cards */}
+                {/* 3 Metric Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   
-                  {/* CARD 1: REVENUE & CASHFLOW */}
-                  <div className="p-5 sm:p-6 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs flex flex-col justify-between space-y-5">
+                  {/* CARD 1: INCOME & REVENUE */}
+                  <div className="p-5 sm:p-6 rounded-xl bg-white dark:bg-zinc-900/70 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs flex flex-col justify-between space-y-4">
                     <div>
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-medium">
-                          Cashflow &amp; Revenue
+                          Income &amp; Revenue
                         </span>
                         
-                        {/* Apple-style Segmented Control */}
                         <div className="flex items-center p-0.5 bg-zinc-100 dark:bg-zinc-800/80 rounded-full border border-zinc-200/60 dark:border-zinc-700/60 text-[10.5px] font-medium">
                           <button
                             onClick={() => setRevenuePeriod('this_month')}
                             className={`px-2.5 py-0.5 rounded-full cursor-pointer transition-all ${
                               revenuePeriod === 'this_month' 
-                                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-xs font-semibold' 
+                                ? 'bg-amber-500 text-zinc-950 font-semibold shadow-xs' 
                                 : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
                             }`}
                           >
@@ -868,7 +896,7 @@ export const AdminDashboard: React.FC = () => {
                             onClick={() => setRevenuePeriod('last_6_months')}
                             className={`px-2.5 py-0.5 rounded-full cursor-pointer transition-all ${
                               revenuePeriod === 'last_6_months' 
-                                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-xs font-semibold' 
+                                ? 'bg-amber-500 text-zinc-950 font-semibold shadow-xs' 
                                 : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
                             }`}
                           >
@@ -878,7 +906,7 @@ export const AdminDashboard: React.FC = () => {
                             onClick={() => setRevenuePeriod('this_year')}
                             className={`px-2.5 py-0.5 rounded-full cursor-pointer transition-all ${
                               revenuePeriod === 'this_year' 
-                                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-xs font-semibold' 
+                                ? 'bg-amber-500 text-zinc-950 font-semibold shadow-xs' 
                                 : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
                             }`}
                           >
@@ -887,140 +915,111 @@ export const AdminDashboard: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Large Minimalist Monospace Figure */}
-                      <div className="mt-4">
+                      <div className="mt-3">
                         <p className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 font-mono">
                           {revenuePeriod === 'this_month' ? 'KES 8,000' : revenuePeriod === 'last_6_months' ? 'KES 43,000' : 'KES 85,000'}
                         </p>
                         <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 font-normal">
                           {revenuePeriod === 'this_month' 
-                            ? 'KES 3,200 received from Sarah Rashid (Sayara)' 
+                            ? 'KES 3,200 received from Sarah Rashid (Sayara store)' 
                             : revenuePeriod === 'last_6_months'
-                            ? '6-Month client settlements & POS license fees'
-                            : 'Annual startup revenue across client accounts'}
+                            ? 'KES 43,000 collected over the last 6 months'
+                            : 'Total startup revenue across all client retainers'}
                         </p>
                       </div>
                     </div>
 
-                    {/* Hairline Breakdown Rows */}
-                    <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800/80 space-y-2 text-xs">
+                    <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/80 space-y-2 text-xs">
                       <div className="flex justify-between items-center text-zinc-600 dark:text-zinc-400">
                         <span>Fresh City POS:</span>
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-zinc-900 dark:text-zinc-200">KES 3,500/mo</span>
-                          <span className="text-[10px] text-zinc-400 font-mono">32k paid</span>
+                          <button 
+                            onClick={() => handleOpenWhatsAppBill('Rosemary Wakonyo', '3,500', 'Fresh City POS')}
+                            className="text-[10px] text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                          >
+                            WhatsApp
+                          </button>
                         </div>
                       </div>
                       <div className="flex justify-between items-center text-zinc-600 dark:text-zinc-400">
                         <span>Sayara Aesthetics:</span>
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-zinc-900 dark:text-zinc-200">% Commission</span>
-                          <span className="text-[10px] text-zinc-400 font-mono">10k paid</span>
+                          <button 
+                            onClick={() => handleOpenWhatsAppBill('Sarah Guyatu Rashid', '3,200', 'Sayara Aesthetics')}
+                            className="text-[10px] text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                          >
+                            WhatsApp
+                          </button>
                         </div>
                       </div>
                       <div className="flex justify-between items-center text-zinc-600 dark:text-zinc-400">
-                        <span>Karani Law ERP:</span>
+                        <span>Karani Law System:</span>
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-zinc-900 dark:text-zinc-200">Milestone</span>
-                          <span className="text-[10px] text-zinc-400 font-mono">In Progress</span>
+                          <span className="text-[10px] text-zinc-400 font-mono">Real DB</span>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* CARD 2: LIVE DEPLOYMENTS */}
-                  <div className="p-5 sm:p-6 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs flex flex-col justify-between space-y-5">
+                  {/* CARD 2: ACTIVE WEBSITES & APPS */}
+                  <div className="p-5 sm:p-6 rounded-xl bg-white dark:bg-zinc-900/70 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs flex flex-col justify-between space-y-4">
                     <div>
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-medium">
-                          Deployments
+                          Active Fleet
                         </span>
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10.5px] font-mono text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/60 dark:border-zinc-700/60">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-mono text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/60 dark:border-zinc-700/60">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                          3 Running
+                          8 Projects Live
                         </span>
                       </div>
 
-                      <div className="mt-4 space-y-3">
-                        {/* 1. Sayara Aesthetics Storefront */}
-                        <div 
-                          onContextMenu={(e) => handleDeploymentContextMenu(e, projects.find(p => p.id === 'prj-sayara-ecom')!)}
-                          className="flex items-center justify-between py-1 group cursor-pointer"
-                        >
-                          <div className="min-w-0 pr-2">
-                            <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100 block truncate group-hover:underline">
-                              Sayara Aesthetics Storefront
-                            </span>
-                            <span className="text-[10.5px] text-zinc-400 font-mono block truncate">
-                              sayara-aesthetics.vercel.app &middot; 24ms
-                            </span>
-                          </div>
-                          <span className="inline-flex items-center gap-1.5 text-[10.5px] font-mono text-emerald-600 dark:text-emerald-400 font-medium shrink-0">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            200 OK
-                          </span>
-                        </div>
-
-                        {/* 2. Sayara Shein Python Sync API */}
-                        <div 
-                          onContextMenu={(e) => handleDeploymentContextMenu(e, projects.find(p => p.id === 'prj-sayara-api')!)}
-                          className="flex items-center justify-between py-1 group cursor-pointer"
-                        >
-                          <div className="min-w-0 pr-2">
-                            <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100 block truncate group-hover:underline">
-                              Sayara Shein Python Sync API
-                            </span>
-                            <span className="text-[10.5px] text-zinc-400 font-mono block truncate">
-                              api.sayara.p3ldev.com &middot; Port 8040
+                      <div className="mt-3 space-y-2.5 text-xs">
+                        {projects.slice(0, 3).map(p => (
+                          <div 
+                            key={p.id}
+                            onClick={() => setSelectedDrawerProject(p)}
+                            className="flex items-center justify-between py-1 group cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/40 px-2 rounded-lg transition-colors"
+                          >
+                            <div className="min-w-0 pr-2">
+                              <span className="font-medium text-zinc-900 dark:text-zinc-100 block truncate group-hover:underline">
+                                {p.name}
+                              </span>
+                              <span className="text-[10.5px] text-zinc-400 font-mono block truncate">
+                                {p.client} &middot; {p.category}
+                              </span>
+                            </div>
+                            <span className="inline-flex items-center gap-1.5 text-[10.5px] font-mono text-emerald-600 dark:text-emerald-400 font-medium shrink-0">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              {p.isRealDb ? 'Real DB' : 'Live'}
                             </span>
                           </div>
-                          <span className="inline-flex items-center gap-1.5 text-[10.5px] font-mono text-zinc-500 dark:text-zinc-400 font-medium shrink-0">
-                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
-                            Daemon
-                          </span>
-                        </div>
-
-                        {/* 3. Fresh City Supermarket POS */}
-                        <div 
-                          onContextMenu={(e) => handleDeploymentContextMenu(e, projects.find(p => p.id === 'prj-fresh-city')!)}
-                          className="flex items-center justify-between py-1 group cursor-pointer"
-                        >
-                          <div className="min-w-0 pr-2">
-                            <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100 block truncate group-hover:underline">
-                              Fresh City Supermarket POS
-                            </span>
-                            <span className="text-[10.5px] text-zinc-400 font-mono block truncate">
-                              Rosemary Terminal POS-01 &middot; SQLite
-                            </span>
-                          </div>
-                          <span className="inline-flex items-center gap-1.5 text-[10.5px] font-mono text-emerald-600 dark:text-emerald-400 font-medium shrink-0">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            Active
-                          </span>
-                        </div>
+                        ))}
                       </div>
                     </div>
 
-                    <p className="text-[10.5px] font-mono text-zinc-400 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-                      Right-click to inspect logs or restart
+                    <p className="text-[10.5px] font-mono text-zinc-400 pt-2.5 border-t border-zinc-100 dark:border-zinc-800/80">
+                      Click any project to inspect its database and users
                     </p>
                   </div>
 
                   {/* CARD 3: TODAY'S PRIORITIES */}
-                  <div className="p-5 sm:p-6 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs flex flex-col justify-between space-y-5">
+                  <div className="p-5 sm:p-6 rounded-xl bg-white dark:bg-zinc-900/70 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs flex flex-col justify-between space-y-4">
                     <div>
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-medium">
-                          Today's Priorities
+                          Things to do today
                         </span>
                         
-                        {/* Apple-style Work / Personal Segment */}
                         <div className="flex items-center p-0.5 bg-zinc-100 dark:bg-zinc-800/80 rounded-full border border-zinc-200/60 dark:border-zinc-700/60 text-[10.5px] font-medium">
                           <button
                             onClick={() => setTasksFilter('work')}
                             className={`px-2.5 py-0.5 rounded-full cursor-pointer transition-all ${
                               tasksFilter === 'work' 
-                                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-xs font-semibold' 
+                                ? 'bg-amber-500 text-zinc-950 font-semibold shadow-xs' 
                                 : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
                             }`}
                           >
@@ -1030,7 +1029,7 @@ export const AdminDashboard: React.FC = () => {
                             onClick={() => setTasksFilter('personal')}
                             className={`px-2.5 py-0.5 rounded-full cursor-pointer transition-all ${
                               tasksFilter === 'personal' 
-                                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-xs font-semibold' 
+                                ? 'bg-amber-500 text-zinc-950 font-semibold shadow-xs' 
                                 : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
                             }`}
                           >
@@ -1039,52 +1038,45 @@ export const AdminDashboard: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Minimalist Task Items */}
-                      <div className="mt-4 space-y-3">
+                      <div className="mt-3 space-y-2.5">
                         {tasksFilter === 'work' ? (
                           <>
-                            {/* Karani Law Progress Bar */}
                             <div className="space-y-1.5">
                               <div className="flex justify-between items-center text-xs">
-                                <span className="font-medium text-zinc-900 dark:text-zinc-100">Karani Law &amp; BillsZip</span>
-                                <span className="font-mono text-zinc-600 dark:text-zinc-300">78%</span>
+                                <span className="font-medium text-zinc-900 dark:text-zinc-100">Karani Law ERP</span>
+                                <span className="font-mono text-amber-600 dark:text-amber-400 font-bold">78%</span>
                               </div>
-                              <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-1 rounded-full overflow-hidden">
-                                <div className="bg-zinc-900 dark:bg-zinc-100 h-full rounded-full" style={{ width: '78%' }}></div>
+                              <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                                <div className="bg-amber-500 h-full rounded-full transition-all" style={{ width: '78%' }}></div>
                               </div>
                               <span className="text-[10px] text-zinc-400 block font-mono">
-                                Bills of Costs &amp; Azure deployment
+                                Finishing Schedule 6 court calculation tests
                               </span>
                             </div>
 
-                            {/* Sayara Task */}
                             <div 
                               onClick={() => toggleTask('tsk-02')}
-                              className="flex items-start gap-2.5 pt-1 cursor-pointer group"
+                              className="flex items-start gap-2.5 pt-0.5 cursor-pointer group"
                             >
                               <input 
                                 type="checkbox" 
                                 checked={tasks.find(t => t.id === 'tsk-02')?.completed} 
                                 onChange={() => {}} 
-                                className="rounded mt-0.5 cursor-pointer accent-zinc-900 dark:accent-zinc-100 w-3.5 h-3.5" 
+                                className="rounded mt-0.5 cursor-pointer accent-amber-500 w-3.5 h-3.5" 
                               />
                               <div className="text-xs min-w-0">
                                 <span className="font-medium text-zinc-800 dark:text-zinc-200 block truncate group-hover:text-zinc-950 dark:group-hover:text-white">
-                                  Sayara: Shein markup rules &amp; webhooks
+                                  Check Shein product prices and margins
                                 </span>
-                                <span className="text-[10px] text-zinc-400 font-mono">Due Today, 19:30</span>
+                                <span className="text-[10px] text-zinc-400 font-mono">Due today, 7:30 PM</span>
                               </div>
                             </div>
 
-                            {/* Incident Alert Row (Clean & Calm) */}
                             <div className="p-2.5 rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50/40 dark:bg-rose-950/20 text-xs">
                               <div className="flex items-center gap-1.5 text-rose-700 dark:text-rose-400 font-medium">
                                 <AlertOctagon className="w-3.5 h-3.5 shrink-0" />
-                                <span>OdinBot: I&amp;M Bank Mirror Unreachable</span>
+                                <span>Needs attention: OdinBot mirror port 8082</span>
                               </div>
-                              <p className="text-[10.5px] text-zinc-500 dark:text-zinc-400 mt-1 font-mono">
-                                razak-server port 8082 returned 502 Refused
-                              </p>
                             </div>
                           </>
                         ) : (
@@ -1099,7 +1091,7 @@ export const AdminDashboard: React.FC = () => {
                                   type="checkbox" 
                                   checked={t.completed} 
                                   onChange={() => {}} 
-                                  className="rounded mt-0.5 cursor-pointer accent-zinc-900 w-3.5 h-3.5" 
+                                  className="rounded mt-0.5 cursor-pointer accent-amber-500 w-3.5 h-3.5" 
                                 />
                                 <div className="min-w-0">
                                   <span className={`block truncate ${t.completed ? 'line-through text-zinc-400' : 'text-zinc-800 dark:text-zinc-200'}`}>
@@ -1114,13 +1106,13 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex justify-between items-center text-[10.5px] font-mono text-zinc-400">
-                      <span>Completed: {tasks.filter(t => t.completed).length}/{tasks.length}</span>
+                    <div className="pt-2.5 border-t border-zinc-100 dark:border-zinc-800/80 flex justify-between items-center text-[10.5px] font-mono text-zinc-400">
+                      <span>Tasks: {tasks.filter(t => t.completed).length}/{tasks.length} done</span>
                       <button 
                         onClick={() => setShowAddTaskModal(true)} 
-                        className="text-zinc-900 dark:text-zinc-200 font-medium hover:underline cursor-pointer"
+                        className="text-amber-600 dark:text-amber-400 font-medium hover:underline cursor-pointer"
                       >
-                        + Add Priority
+                        + Add Task
                       </button>
                     </div>
                   </div>
@@ -1128,449 +1120,110 @@ export const AdminDashboard: React.FC = () => {
                 </div>
 
                 {/* ========================================================================= */}
-                {/* SYSTEM TELEMETRY & AUDIT STRIP (LINEAR & VERCEL STYLE) */}
+                {/* PROJECTS TABLE & REPO WORKSPACE */}
                 {/* ========================================================================= */}
-                <div className="p-5 sm:p-6 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs space-y-5">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-zinc-100 dark:border-zinc-800/80">
-                    <div className="flex items-center gap-2.5">
-                      <Cpu className="w-4 h-4 text-zinc-400" />
-                      <span className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
-                        razak-server telemetry
-                      </span>
-                      <span className="text-[10.5px] font-mono text-zinc-400">
-                        Marsabit Biftu Station &middot; 7ms Latency
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => setShowDiagnosticsModal(true)}
-                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white cursor-pointer transition-colors"
-                    >
-                      Full Diagnostics &rarr;
-                    </button>
-                  </div>
-
-                  {/* 4-Stat Minimal Grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 font-mono text-xs">
-                    <div>
-                      <span className="text-[10px] text-zinc-400 uppercase tracking-wider block">Running Uptime</span>
-                      <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mt-0.5 block">
-                        {formatUptime(uptimeSeconds)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-zinc-400 uppercase tracking-wider block">CPU Load</span>
-                      <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mt-0.5 block">
-                        14% (8 Cores)
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-zinc-400 uppercase tracking-wider block">RAM Allocated</span>
-                      <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mt-0.5 block">
-                        1.8 GB / 8.0 GB
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-zinc-400 uppercase tracking-wider block">Cloud Gateway</span>
-                      <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mt-0.5 block">
-                        Azure App Service
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Recent Activity Stream */}
-                  <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800/80 space-y-2">
-                    <span className="text-[10.5px] font-mono text-zinc-400 uppercase tracking-wider block">
-                      Past 7 Days Audit Trail
-                    </span>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                      {recentActivities.slice(0, 4).map(act => (
-                        <div key={act.id} className="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-800/60 flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <span className="text-[9.5px] font-mono text-zinc-400 block mb-0.5">{act.tag}</span>
-                            <span className="text-zinc-800 dark:text-zinc-200 block truncate font-normal">{act.action}</span>
-                          </div>
-                          <span className="text-[10px] text-zinc-400 font-mono shrink-0 mt-0.5">{act.time}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* ========================================================================= */}
-                {/* BIG WORKSPACE CARD: GITHUB & APPLE STYLE TABS */}
-                {/* ========================================================================= */}
-                <div className="p-5 sm:p-6 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs space-y-6">
+                <div className="p-5 sm:p-6 rounded-xl bg-white dark:bg-zinc-900/70 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs space-y-4">
                   
-                  {/* Apple / GitHub Segmented Navigation */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800/80 gap-3">
-                    <div className="flex items-center gap-1 p-0.5 bg-zinc-100 dark:bg-zinc-800/80 rounded-full border border-zinc-200/60 dark:border-zinc-700/60 text-xs font-medium overflow-x-auto">
-                      <button
-                        onClick={() => setWorkspaceTab('projects')}
-                        className={`px-3.5 py-1.5 rounded-full cursor-pointer transition-all flex items-center gap-1.5 shrink-0 ${
-                          workspaceTab === 'projects' 
-                            ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-xs font-semibold' 
-                            : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
-                        }`}
-                      >
-                        <Layers className="w-3.5 h-3.5 stroke-[1.75]" />
-                        <span>Projects ({projects.length})</span>
-                      </button>
-
-                      <button
-                        onClick={() => setWorkspaceTab('education')}
-                        className={`px-3.5 py-1.5 rounded-full cursor-pointer transition-all flex items-center gap-1.5 shrink-0 ${
-                          workspaceTab === 'education' 
-                            ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-xs font-semibold' 
-                            : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
-                        }`}
-                      >
-                        <GraduationCap className="w-3.5 h-3.5 stroke-[1.75]" />
-                        <span>Education ({coursework.length})</span>
-                      </button>
-
-                      <button
-                        onClick={() => setWorkspaceTab('server')}
-                        className={`px-3.5 py-1.5 rounded-full cursor-pointer transition-all flex items-center gap-1.5 shrink-0 ${
-                          workspaceTab === 'server' 
-                            ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-xs font-semibold' 
-                            : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
-                        }`}
-                      >
-                        <Server className="w-3.5 h-3.5 stroke-[1.75]" />
-                        <span>Server Daemons</span>
-                      </button>
-
-                      <button
-                        onClick={() => setWorkspaceTab('users')}
-                        className={`px-3.5 py-1.5 rounded-full cursor-pointer transition-all flex items-center gap-1.5 shrink-0 ${
-                          workspaceTab === 'users' 
-                            ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-xs font-semibold' 
-                            : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
-                        }`}
-                      >
-                        <Users className="w-3.5 h-3.5 stroke-[1.75]" />
-                        <span>Team Roster</span>
-                      </button>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setShowAddProjectModal(true)}
-                        className="px-3 py-1 rounded-full text-xs font-medium border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5 cursor-pointer transition-colors"
-                      >
-                        <Plus className="w-3.5 h-3.5 stroke-[2]" />
-                        <span>New Project</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* --------------------------------------------------------------------- */}
-                  {/* SUB-TAB 1: PROJECTS (GITHUB STYLE TABLE) */}
-                  {/* --------------------------------------------------------------------- */}
-                  {workspaceTab === 'projects' && (
-                    <div className="overflow-x-auto animate-fadeIn">
-                      <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                          <tr className="border-b border-zinc-200 dark:border-zinc-800 text-[10.5px] uppercase font-mono text-zinc-400 tracking-wider">
-                            <th className="py-2.5 px-3 font-medium">Client</th>
-                            <th className="py-2.5 px-3 font-medium">Service / Product</th>
-                            <th className="py-2.5 px-3 font-medium">Contract Type</th>
-                            <th className="py-2.5 px-3 font-medium">Rate / Fee</th>
-                            <th className="py-2.5 px-3 font-medium">Status</th>
-                            <th className="py-2.5 px-3 font-medium">Next Milestone</th>
-                            <th className="py-2.5 px-3 text-right font-medium">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60 font-mono">
-                          {projects.map(p => (
-                            <tr key={p.id} className="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30 transition-colors group">
-                              <td className="py-3 px-3">
-                                <span className="font-medium text-zinc-900 dark:text-zinc-100 block font-sans">{p.client}</span>
-                                <span className="text-[10px] text-zinc-400">{p.clientPhone}</span>
-                              </td>
-                              <td className="py-3 px-3">
-                                <span className="font-medium text-zinc-900 dark:text-zinc-100 block font-sans">{p.name}</span>
-                                <span className="text-[10px] text-zinc-400 font-sans">{p.category}</span>
-                              </td>
-                              <td className="py-3 px-3 text-zinc-600 dark:text-zinc-400">
-                                <span className="text-[10.5px]">
-                                  {p.contractType}
-                                </span>
-                              </td>
-                              <td className="py-3 px-3">
-                                <span className="font-medium text-zinc-900 dark:text-zinc-100 block">{p.monthlyFee}</span>
-                                <span className="text-[10px] text-zinc-400">Paid: {p.initialPaid}</span>
-                              </td>
-                              <td className="py-3 px-3">
-                                <span className="inline-flex items-center gap-1.5 text-[10.5px] font-mono text-zinc-700 dark:text-zinc-300">
-                                  <span className={`w-1.5 h-1.5 rounded-full ${
-                                    p.status.includes('Live') ? 'bg-emerald-500' :
-                                    p.status.includes('Debugging') ? 'bg-rose-500' :
-                                    p.status.includes('Development') ? 'bg-amber-500' :
-                                    'bg-zinc-400'
-                                  }`}></span>
-                                  {p.status}
-                                </span>
-                              </td>
-                              <td 
-                                className="py-3 px-3 relative cursor-help"
-                                onMouseEnter={() => setHoveredMilestoneTasks({ project: p.name, tasks: p.tasks })}
-                                onMouseLeave={() => setHoveredMilestoneTasks(null)}
-                              >
-                                <span className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-sans text-xs underline decoration-dotted decoration-zinc-300 dark:decoration-zinc-700">
-                                  {p.nextMilestone}
-                                </span>
-
-                                {/* Minimal Tooltip */}
-                                {hoveredMilestoneTasks?.project === p.name && (
-                                  <div className="absolute left-0 bottom-full mb-2 z-50 w-72 p-3 bg-zinc-950 text-white rounded-lg shadow-xl border border-zinc-800 space-y-2 pointer-events-none animate-fadeIn">
-                                    <div className="flex items-center justify-between border-b border-zinc-800 pb-1">
-                                      <span className="font-medium text-[10px] uppercase font-mono text-zinc-400">Milestone Tasks</span>
-                                      <span className="text-[9px] text-zinc-500 font-mono">{p.tasks.length} total</span>
-                                    </div>
-                                    <ul className="space-y-1 text-[11px] font-sans">
-                                      {p.tasks.map((t, idx) => (
-                                        <li key={idx} className="flex items-start gap-1.5 text-zinc-300">
-                                          <span className="text-zinc-500 mt-0.5">&bull;</span>
-                                          <span>{t}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                              </td>
-                              <td className="py-3 px-3 text-right">
-                                <button 
-                                  onClick={() => showToast(`Opening workspace for ${p.name}`)}
-                                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:underline cursor-pointer"
-                                >
-                                  Open &rarr;
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {/* --------------------------------------------------------------------- */}
-                  {/* SUB-TAB 2: EDUCATION, COURSEWORK & SKILLS */}
-                  {/* --------------------------------------------------------------------- */}
-                  {workspaceTab === 'education' && (
-                    <div className="space-y-5 animate-fadeIn">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-800 space-y-3">
-                          <h4 className="font-medium text-xs uppercase tracking-wider text-zinc-400 font-mono flex items-center justify-between">
-                            <span>Coursework &amp; Assignments</span>
-                            <span className="text-[10px] text-zinc-500">4 active</span>
-                          </h4>
-                          <div className="space-y-2">
-                            {coursework.map(c => (
-                              <div key={c.id} className="p-2.5 rounded-md bg-zinc-50/50 dark:bg-zinc-800/30 border border-zinc-100 dark:border-zinc-800 flex justify-between items-center text-xs">
-                                <div>
-                                  <span className="font-medium text-zinc-900 dark:text-zinc-100 block">{c.title}</span>
-                                  <span className="text-[10px] text-zinc-400 font-mono">{c.subject} &middot; {c.deadline}</span>
-                                </div>
-                                <div className="text-right font-mono">
-                                  <span className="text-[10px] text-zinc-600 dark:text-zinc-400 font-medium block">
-                                    {c.status}
-                                  </span>
-                                  <span className="text-[9.5px] text-zinc-400 mt-0.5 block">{c.marks}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-800 space-y-3">
-                          <h4 className="font-medium text-xs uppercase tracking-wider text-zinc-400 font-mono flex items-center justify-between">
-                            <span>Reading References (PDF)</span>
-                            <span className="text-[10px] text-zinc-500">Offline cached</span>
-                          </h4>
-                          <div className="space-y-2">
-                            {readingPdfs.map((pdf, idx) => (
-                              <div key={idx} className="p-2.5 rounded-md bg-zinc-50/50 dark:bg-zinc-800/30 border border-zinc-100 dark:border-zinc-800 flex justify-between items-center text-xs">
-                                <div className="min-w-0 pr-2">
-                                  <span className="font-medium text-zinc-900 dark:text-zinc-100 block truncate">{pdf.title}</span>
-                                  <span className="text-[10px] text-zinc-400 font-mono">{pdf.category} &middot; {pdf.pages}</span>
-                                </div>
-                                <button
-                                  onClick={() => showToast(`Opening ${pdf.title}`)}
-                                  className="text-[10.5px] font-mono text-zinc-500 hover:text-zinc-900 dark:hover:text-white cursor-pointer shrink-0"
-                                >
-                                  Read
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* --------------------------------------------------------------------- */}
-                  {/* SUB-TAB 3: RAZAK SERVER DAEMONS & MIRRORS */}
-                  {/* --------------------------------------------------------------------- */}
-                  {workspaceTab === 'server' && (
-                    <div className="space-y-5 animate-fadeIn">
-                      <div className="space-y-2">
-                        <span className="text-[10.5px] font-mono uppercase tracking-wider text-zinc-400 block font-medium">
-                          Systemd Daemons (Linux)
-                        </span>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-xs font-mono">
-                            <thead>
-                              <tr className="border-b border-zinc-200 dark:border-zinc-800 text-[10px] text-zinc-400">
-                                <th className="p-2 font-medium">PID</th>
-                                <th className="p-2 font-medium">Name</th>
-                                <th className="p-2 font-medium">Port</th>
-                                <th className="p-2 font-medium">CPU</th>
-                                <th className="p-2 font-medium">Memory</th>
-                                <th className="p-2 font-medium">Uptime</th>
-                                <th className="p-2 text-right font-medium">Status</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-                              {serverDaemons.map(d => (
-                                <tr key={d.pid} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
-                                  <td className="p-2 text-zinc-400">{d.pid}</td>
-                                  <td className="p-2 font-medium text-zinc-900 dark:text-zinc-100">{d.name}</td>
-                                  <td className="p-2 text-zinc-500">{d.port}</td>
-                                  <td className="p-2 text-zinc-500">{d.cpu}</td>
-                                  <td className="p-2 text-zinc-500">{d.memory}</td>
-                                  <td className="p-2 text-zinc-400">{d.uptime}</td>
-                                  <td className="p-2 text-right">
-                                    <span className="inline-flex items-center gap-1.5 text-[10px]">
-                                      <span className={`w-1.5 h-1.5 rounded-full ${d.status === 'Running' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
-                                      {d.status}
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-
-                      <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800/80 space-y-2">
-                        <span className="text-[10.5px] font-mono uppercase tracking-wider text-zinc-400 block font-medium">
-                          Simulated Bank Mirrors
-                        </span>
-                        <div className="space-y-2">
-                          {mirrorApis.map((m, idx) => (
-                            <div key={idx} className="p-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 flex justify-between items-center text-xs font-mono">
-                              <div>
-                                <span className="font-medium text-zinc-900 dark:text-zinc-100 block">{m.endpoint}</span>
-                                <span className="text-[10px] text-zinc-400">Port: {m.port} &middot; {m.protocol}</span>
-                              </div>
-                              <span className={`text-[10.5px] font-medium ${m.alert ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                                {m.status}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* --------------------------------------------------------------------- */}
-                  {/* SUB-TAB 4: TEAM ROSTER */}
-                  {/* --------------------------------------------------------------------- */}
-                  {workspaceTab === 'users' && (
-                    <div className="space-y-4 animate-fadeIn">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/30 space-y-1">
-                          <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 block">Guyoh Halake</span>
-                          <span className="text-[10.5px] font-mono text-zinc-400 block">Founder &amp; Chief Architect</span>
-                          <span className="text-[10.5px] font-mono text-zinc-500 block">p3lcodes@gmail.com</span>
-                          <span className="text-[10px] font-mono text-zinc-400 uppercase mt-2 block font-medium">Super Admin</span>
-                        </div>
-
-                        <div className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/30 space-y-1">
-                          <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 block">Razak Guyo</span>
-                          <span className="text-[10.5px] font-mono text-zinc-400 block">Systems &amp; Server Lead</span>
-                          <span className="text-[10.5px] font-mono text-zinc-500 block">razak@p3ldev.com</span>
-                          <span className="text-[10px] font-mono text-zinc-400 uppercase mt-2 block font-medium">Systems Admin</span>
-                        </div>
-
-                        <div className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/30 space-y-1">
-                          <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 block">Victor Karani</span>
-                          <span className="text-[10.5px] font-mono text-zinc-400 block">LegalTech Lead &amp; Reviewer</span>
-                          <span className="text-[10.5px] font-mono text-zinc-500 block">karani@p3ldev.com</span>
-                          <span className="text-[10px] font-mono text-zinc-400 uppercase mt-2 block font-medium">Legal Engineer</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                </div>
-
-                {/* ========================================================================= */}
-                {/* MARSABIT COUNTY NODE (CLEAN & MINIMALIST) */}
-                {/* ========================================================================= */}
-                <div 
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    setShowDiagnosticsModal(true);
-                  }}
-                  className="p-5 sm:p-6 rounded-xl bg-white dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 shadow-xs space-y-4"
-                  title="Right-click anywhere on the map to inspect full server diagnostics"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800/80 gap-3">
                     <div>
                       <h3 className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
-                        Marsabit Station &middot; Biftu Construction Co.
+                        Project Fleet &amp; Client CRM
                       </h3>
                       <p className="text-[11px] text-zinc-400 font-mono">
-                        GPS: 2.3333&deg; N, 37.9833&deg; E &middot; Marsabit County, Kenya
+                        GitHub fleet: Karani Law (Real Database), mySchools, Fresh City POS, Sayara, Inner Circle, Khaemba, SUVPlanet
                       </p>
                     </div>
 
                     <button
-                      onClick={() => setShowDiagnosticsModal(true)}
-                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white cursor-pointer transition-colors"
+                      onClick={() => setShowAddProjectModal(true)}
+                      className="px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-zinc-950 flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors self-start sm:self-auto"
                     >
-                      Server Telemetry &rarr;
+                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>New Project</span>
                     </button>
                   </div>
 
-                  <div className="rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 h-48 relative">
-                    <iframe
-                      title="Marsabit County Server Node"
-                      src="https://maps.google.com/maps?q=2.3333,37.9833&z=13&output=embed"
-                      width="100%"
-                      height="100%"
-                      style={{ border: 0, filter: 'grayscale(100%) opacity(0.8)' }}
-                      allowFullScreen={false}
-                      loading="lazy"
-                    />
-                    <div className="absolute bottom-2 left-2 bg-black/80 text-white px-2.5 py-1 rounded text-[9.5px] font-mono backdrop-blur-xs pointer-events-none">
-                      Right-click for telemetry
-                    </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="border-b border-zinc-200 dark:border-zinc-800 text-[10.5px] uppercase font-mono text-zinc-400 tracking-wider">
+                          <th className="py-2.5 px-3 font-medium">Project</th>
+                          <th className="py-2.5 px-3 font-medium">Client</th>
+                          <th className="py-2.5 px-3 font-medium">Database</th>
+                          <th className="py-2.5 px-3 font-medium">Fee / Retainer</th>
+                          <th className="py-2.5 px-3 font-medium">Status</th>
+                          <th className="py-2.5 px-3 text-right font-medium">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60 font-mono">
+                        {projects.map(p => (
+                          <tr key={p.id} className="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30 transition-colors group">
+                            <td className="py-3 px-3">
+                              <span className="font-medium text-zinc-900 dark:text-zinc-100 block font-sans">{p.name}</span>
+                              <span className="text-[10px] text-zinc-400">{p.repo}</span>
+                            </td>
+                            <td className="py-3 px-3 font-sans">
+                              <span className="text-zinc-800 dark:text-zinc-200 block">{p.client}</span>
+                              <span className="text-[10px] text-zinc-400 font-mono">{p.clientPhone}</span>
+                            </td>
+                            <td className="py-3 px-3">
+                              {p.isRealDb ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                  <Database className="w-3 h-3 text-amber-500" />
+                                  Real Supabase DB
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-500 border border-zinc-200 dark:border-zinc-700">
+                                  Mock Studio DB
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3">
+                              <span className="font-medium text-zinc-900 dark:text-zinc-100 block">{p.monthlyFee}</span>
+                              <span className="text-[10px] text-zinc-400">{p.contractType}</span>
+                            </td>
+                            <td className="py-3 px-3">
+                              <span className="inline-flex items-center gap-1.5 text-[10.5px]">
+                                <span className={`w-1.5 h-1.5 rounded-full ${p.status.includes('Live') ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                                {p.status}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 text-right">
+                              <button 
+                                onClick={() => setSelectedDrawerProject(p)}
+                                className="px-3 py-1 rounded-md text-xs font-semibold bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 hover:bg-black cursor-pointer shadow-2xs"
+                              >
+                                {p.isRealDb ? 'Manage Users' : 'Database Studio'}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
+
                 </div>
 
               </div>
             )}
 
             {/* ========================================================================= */}
-            {/* 2. PROJECTS AND CLIENTS TAB (FULL CRM VIEW) */}
+            {/* OTHER AUTHORITATIVE TABS */}
             {/* ========================================================================= */}
             {activeTab === 'projects_clients' && (
-              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
-                <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-zinc-800">
+              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
+                <div className="flex justify-between items-center pb-4 border-b border-zinc-100 dark:border-zinc-800">
                   <div>
-                    <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
-                      Projects Fleet & Client CRM
+                    <h2 className="font-bold text-lg text-zinc-900 dark:text-white">
+                      Projects Fleet &amp; Client CRM
                     </h2>
-                    <p className="text-xs text-slate-500">
-                      Real accounts: Rosemary Wakonyo (Fresh City POS), Sarah Guyatu Rashid (Sayara Aesthetics), Nyagah Kithinji (Karani Law), and OdinBot
+                    <p className="text-xs text-zinc-500">
+                      8 active client and research repositories connected to P3L OS
                     </p>
                   </div>
                   <button 
                     onClick={() => setShowAddProjectModal(true)}
-                    className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-black cursor-pointer shadow-xs"
+                    className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-zinc-950 cursor-pointer shadow-xs"
                   >
                     + Add New Project
                   </button>
@@ -1578,29 +1231,29 @@ export const AdminDashboard: React.FC = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {projects.map(p => (
-                    <div key={p.id} className="p-5 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs space-y-3 flex flex-col justify-between">
+                    <div key={p.id} className="p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs space-y-3 flex flex-col justify-between">
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
                             {p.category}
                           </span>
                           <span className="text-[10px] font-mono font-bold text-emerald-600">
                             {p.status}
                           </span>
                         </div>
-                        <h3 className="font-bold text-sm text-slate-900 dark:text-white font-brand">{p.name}</h3>
-                        <p className="text-xs text-slate-500">Client: <strong>{p.client}</strong></p>
-                        <p className="text-[11px] font-mono text-slate-400">Rate: {p.monthlyFee}</p>
-                        <p className="text-[11px] text-slate-600 dark:text-zinc-300 pt-1">Milestone: {p.nextMilestone}</p>
+                        <h3 className="font-bold text-sm text-zinc-900 dark:text-white">{p.name}</h3>
+                        <p className="text-xs text-zinc-500">Client: <strong>{p.client}</strong></p>
+                        <p className="text-[11px] font-mono text-zinc-400">Rate: {p.monthlyFee}</p>
+                        <p className="text-[11px] text-zinc-600 dark:text-zinc-300 pt-1">Milestone: {p.nextMilestone}</p>
                       </div>
 
-                      <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 flex justify-between items-center text-xs font-mono">
-                        <span className="text-slate-400">{p.techStack.slice(0, 2).join(', ')}</span>
+                      <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center text-xs font-mono">
+                        <span className="text-zinc-400">{p.isRealDb ? 'Real Supabase' : 'Mock Studio'}</span>
                         <button 
-                          onClick={() => showToast(`Opening ${p.name}`)}
-                          className="px-2.5 py-1 rounded bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-[10px] cursor-pointer"
+                          onClick={() => setSelectedDrawerProject(p)}
+                          className="px-3 py-1 rounded bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-bold text-[10.5px] cursor-pointer"
                         >
-                          View Dossier
+                          Open Dossier
                         </button>
                       </div>
                     </div>
@@ -1609,446 +1262,170 @@ export const AdminDashboard: React.FC = () => {
               </div>
             )}
 
-            {/* ========================================================================= */}
-            {/* 3. USERS AND RBAC */}
-            {/* ========================================================================= */}
             {activeTab === 'users_rbac' && (
-              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
-                <div className="pb-4 border-b border-slate-100 dark:border-zinc-800">
-                  <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
-                    Access Control & Contributor RBAC
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Role templates, developer privileges, and client access limits
-                  </p>
+              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
+                <div className="flex justify-between items-center pb-4 border-b border-zinc-100 dark:border-zinc-800">
+                  <div>
+                    <h2 className="font-bold text-lg text-zinc-900 dark:text-white">
+                      Access Control &amp; RBAC (Karani Law Database)
+                    </h2>
+                    <p className="text-xs text-zinc-500">
+                      Live accounts currently provisioned in Supabase and PostgreSQL
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setShowAddRealUserModal(true)}
+                    className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-zinc-950 cursor-pointer shadow-xs"
+                  >
+                    + Add User to Database
+                  </button>
                 </div>
 
                 <div className="space-y-3 font-mono text-xs">
-                  <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 flex justify-between items-center">
-                    <div>
-                      <span className="font-bold text-slate-900 dark:text-white block font-sans">Guyoh Halake</span>
-                      <span className="text-[10px] text-slate-400">p3lcodes@gmail.com &middot; Founder / Lead Architect</span>
-                    </div>
-                    <span className="px-2 py-0.5 rounded bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-[10px] font-bold">
-                      Full Root Access
-                    </span>
-                  </div>
-
-                  <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 flex justify-between items-center">
-                    <div>
-                      <span className="font-bold text-slate-900 dark:text-white block font-sans">Razak Guyo</span>
-                      <span className="text-[10px] text-slate-400">razak@p3ldev.com &middot; Systems & Server Lead</span>
-                    </div>
-                    <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-[10px] font-bold">
-                      Server Operations
-                    </span>
-                  </div>
-
-                  <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 flex justify-between items-center">
-                    <div>
-                      <span className="font-bold text-slate-900 dark:text-white block font-sans">Victor Karani</span>
-                      <span className="text-[10px] text-slate-400">karani@p3ldev.com &middot; LegalTech Lead</span>
-                    </div>
-                    <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-[10px] font-bold">
-                      Legal Domain Admin
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ========================================================================= */}
-            {/* 4. FINANCE AND BILLING */}
-            {/* ========================================================================= */}
-            {activeTab === 'finance_billing' && (
-              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
-                <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-zinc-800">
-                  <div>
-                    <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
-                      Finances, Retainers & Client Accounts
-                    </h2>
-                    <p className="text-xs text-slate-500">
-                      Real startup cashflow: KES 8,000 this month &middot; KES 43,000 last 6 months
-                    </p>
-                  </div>
-                  <button 
-                    onClick={() => setShowLogPaymentModal(true)}
-                    className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-black cursor-pointer shadow-xs"
-                  >
-                    + Log Client Payment
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-1">
-                    <span className="text-[10px] font-mono text-slate-400 uppercase block">This Month Received</span>
-                    <span className="text-xl font-bold font-mono text-slate-900 dark:text-white">KES 8,000</span>
-                    <span className="text-[10.5px] text-emerald-600 block">KES 3,200 from Sarah Rashid</span>
-                  </div>
-                  <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-1">
-                    <span className="text-[10px] font-mono text-slate-400 uppercase block">Last 6 Months</span>
-                    <span className="text-xl font-bold font-mono text-slate-900 dark:text-white">KES 43,000</span>
-                    <span className="text-[10.5px] text-slate-500 block">Fresh City POS setup + Sayara build</span>
-                  </div>
-                  <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-1">
-                    <span className="text-[10px] font-mono text-slate-400 uppercase block">Pending Invoices</span>
-                    <span className="text-xl font-bold font-mono text-amber-600">KES 45,000</span>
-                    <span className="text-[10.5px] text-slate-500 block">Karani Law stage 4 milestone</span>
-                  </div>
-                </div>
-
-                {/* Clients billing roster */}
-                <div className="overflow-x-auto border border-slate-200 dark:border-zinc-800 rounded-xl font-mono text-xs">
-                  <table className="w-full text-left">
-                    <thead className="bg-slate-50 dark:bg-zinc-800/60 text-[10px] uppercase text-slate-400 border-b border-slate-200 dark:border-zinc-800">
-                      <tr>
-                        <th className="p-3">Client / Business</th>
-                        <th className="p-3">Agreed Terms</th>
-                        <th className="p-3">Initial Setup Fee</th>
-                        <th className="p-3">Current Settlement</th>
-                        <th className="p-3 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
-                      {clients.map(c => (
-                        <tr key={c.id}>
-                          <td className="p-3">
-                            <span className="font-bold text-slate-900 dark:text-white block font-sans">{c.name}</span>
-                            <span className="text-[10px] text-slate-400">{c.company}</span>
-                          </td>
-                          <td className="p-3">{c.monthlyRetainer}</td>
-                          <td className="p-3">{c.initialPaid}</td>
-                          <td className="p-3 text-emerald-600 font-bold">{c.currentMonthPaid}</td>
-                          <td className="p-3 text-right">
-                            <button 
-                              onClick={() => {
-                                setPaymentClient(c.name);
-                                setShowLogPaymentModal(true);
-                              }}
-                              className="px-2 py-1 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-[10px] font-bold cursor-pointer"
-                            >
-                              Add Invoice
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* ========================================================================= */}
-            {/* 5. AI AND INFRASTRUCTURE (ODINBOT OPERATIONS) */}
-            {/* ========================================================================= */}
-            {activeTab === 'ai_infra' && (
-              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
-                <div className="pb-4 border-b border-slate-100 dark:border-zinc-800">
-                  <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
-                    OdinBot AI Engine & Local LLM Ops
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Autonomous agent telemetry, bank mirror integrations, and local model inference
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-xl border border-red-300 dark:border-red-900 bg-red-50/40 dark:bg-red-950/20 space-y-2">
-                  <span className="font-bold text-xs text-red-700 dark:text-red-400 font-mono block">
-                    Current Blocker: I&M Bank Mirror 502 Bad Gateway
-                  </span>
-                  <p className="text-xs text-red-900 dark:text-red-300 font-mono">
-                    Endpoint: <code>razak-server/mirrors/api/kenyanbanks/IandM</code>
-                  </p>
-                  <p className="text-xs text-slate-600 dark:text-zinc-400">
-                    OdinBot tool-calling cannot query account balances until the local Python socket listener on port 8082 is re-initialized.
-                  </p>
-                  <button 
-                    onClick={() => showToast('Restarting I&M Bank socket listener on razak-server...')}
-                    className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold hover:bg-red-700 cursor-pointer"
-                  >
-                    Restart I&M Bank Socket
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* ========================================================================= */}
-            {/* 6. CAREER AND EDUCATION */}
-            {/* ========================================================================= */}
-            {activeTab === 'career_education' && (
-              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
-                <div className="pb-4 border-b border-slate-100 dark:border-zinc-800">
-                  <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
-                    Academic Coursework, Engineering Syllabus & Zoom Classes
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Computer Science university syllabus, assignments, exams, and textbook library
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">
-                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 font-mono">
-                      Assignments & Lab Projects
-                    </h3>
-                    <div className="space-y-2 font-mono text-xs">
-                      {coursework.map(c => (
-                        <div key={c.id} className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/40 border border-slate-100 dark:border-zinc-800 flex justify-between items-center">
-                          <div>
-                            <span className="font-bold text-slate-900 dark:text-white block font-sans">{c.title}</span>
-                            <span className="text-[10px] text-slate-400">{c.subject} &middot; {c.deadline}</span>
-                          </div>
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300 font-bold">
-                            {c.marks}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">
-                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 font-mono">
-                      Engineering PDF Library
-                    </h3>
-                    <div className="space-y-2 font-mono text-xs">
-                      {readingPdfs.map((pdf, idx) => (
-                        <div key={idx} className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/40 border border-slate-100 dark:border-zinc-800 flex justify-between items-center">
-                          <div className="min-w-0 pr-2">
-                            <span className="font-bold text-slate-900 dark:text-white block truncate font-sans">{pdf.title}</span>
-                            <span className="text-[10px] text-slate-400">{pdf.category} &middot; {pdf.pages}</span>
-                          </div>
-                          <button 
-                            onClick={() => showToast(`Reading ${pdf.title}`)}
-                            className="px-2 py-1 rounded bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[10px] font-bold cursor-pointer shrink-0"
-                          >
-                            Open PDF
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ========================================================================= */}
-            {/* 7. INTERNAL P3L STAFF */}
-            {/* ========================================================================= */}
-            {activeTab === 'internal_staff' && (
-              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
-                <div className="pb-4 border-b border-slate-100 dark:border-zinc-800">
-                  <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
-                    P3L Engineering & Core Leadership
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Internal founders, systems engineers, and legal domain contributors
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="p-5 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-2">
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-white font-brand">Guyoh Halake</h3>
-                    <p className="text-xs text-slate-500">Founder & Chief Architect</p>
-                    <p className="text-[11px] font-mono text-blue-600">p3lcodes@gmail.com</p>
-                    <p className="text-xs text-slate-700 dark:text-zinc-300 pt-2">
-                      Leads full-stack architecture, Sayara API, POS integrations, and Karani Law platform build.
-                    </p>
-                  </div>
-
-                  <div className="p-5 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-2">
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-white font-brand">Razak Guyo</h3>
-                    <p className="text-xs text-slate-500">Systems & Infrastructure Lead</p>
-                    <p className="text-[11px] font-mono text-blue-600">razak@p3ldev.com</p>
-                    <p className="text-xs text-slate-700 dark:text-zinc-300 pt-2">
-                      Oversees razak-server host, Marsabit network uplink, port bindings, and backup daemons.
-                    </p>
-                  </div>
-
-                  <div className="p-5 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-2">
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-white font-brand">Victor Karani</h3>
-                    <p className="text-xs text-slate-500">LegalTech Engineering Lead</p>
-                    <p className="text-[11px] font-mono text-blue-600">karani@p3ldev.com</p>
-                    <p className="text-xs text-slate-700 dark:text-zinc-300 pt-2">
-                      Validates Advocates Remuneration Order calculations, High Court taxation scale accuracy, and legal UAT.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ========================================================================= */}
-            {/* 8. MESSAGING */}
-            {/* ========================================================================= */}
-            {activeTab === 'comms_messaging' && (
-              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
-                <div className="pb-4 border-b border-slate-100 dark:border-zinc-800">
-                  <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
-                    P3L Internal & Client Dispatch Stream
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Real-time collaboration across client support channels
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40 space-y-3 font-mono text-xs">
-                  <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-zinc-700">
-                    <span className="font-bold text-slate-900 dark:text-white font-sans">Active Channel: #sayara-support</span>
-                    <span className="text-[10px] text-emerald-600 font-bold">Online</span>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-slate-600 dark:text-zinc-300">
-                      <strong>Sarah Rashid:</strong> Sent KES 3,200 via M-Pesa for this month's maintenance. Shein sync catalog working smoothly!
-                    </p>
-                    <p className="text-blue-600 dark:text-blue-400">
-                      <strong>Guyo:</strong> Received, thank you Sarah. Monitoring the automated 18:00 cron run now.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ========================================================================= */}
-            {/* 9. RAZAK SERVER INFRASTRUCTURE */}
-            {/* ========================================================================= */}
-            {activeTab === 'server' && (
-              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn font-mono text-xs">
-                <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-zinc-800">
-                  <div>
-                    <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white font-sans">
-                      Razak Server Central Diagnostics
-                    </h2>
-                    <p className="text-xs text-slate-500 font-sans">
-                      Host: Biftu Construction Co. Building, Marsabit &middot; Gateway to Azure Cloud
-                    </p>
-                  </div>
-                  <button 
-                    onClick={() => setShowDiagnosticsModal(true)}
-                    className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-black cursor-pointer"
-                  >
-                    Full Hardware Dump
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800">
-                    <span className="text-[10px] text-slate-400 uppercase block">Host Uptime</span>
-                    <span className="text-base font-bold text-slate-900 dark:text-white">{formatUptime(uptimeSeconds)}</span>
-                  </div>
-                  <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800">
-                    <span className="text-[10px] text-slate-400 uppercase block">Network Latency</span>
-                    <span className="text-base font-bold text-emerald-600">7 ms Local / 38ms Azure</span>
-                  </div>
-                  <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800">
-                    <span className="text-[10px] text-slate-400 uppercase block">Memory Used</span>
-                    <span className="text-base font-bold text-slate-900 dark:text-white">1.8 GB / 8.0 GB</span>
-                  </div>
-                  <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800">
-                    <span className="text-[10px] text-slate-400 uppercase block">Mirror Sockets</span>
-                    <span className="text-base font-bold text-amber-600">2 Active / 1 Error</span>
-                  </div>
-                </div>
-
-                {/* Mirror APIs */}
-                <div className="space-y-2 pt-2">
-                  <h4 className="font-bold text-xs uppercase text-slate-500">Kenyan Bank API Mirror Sockets</h4>
-                  <div className="space-y-2">
-                    {mirrorApis.map((m, idx) => (
-                      <div key={idx} className="p-3 rounded-xl border border-slate-200 dark:border-zinc-800 flex justify-between items-center">
-                        <div>
-                          <span className="font-bold text-slate-900 dark:text-white block">{m.endpoint}</span>
-                          <span className="text-[10px] text-slate-400">Port {m.port} &middot; {m.protocol}</span>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${m.alert ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                          {m.status}
-                        </span>
+                  {realUsers.map(u => (
+                    <div key={u.id} className="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-800/30">
+                      <div>
+                        <span className="font-bold text-zinc-900 dark:text-white block font-sans">{u.fullName}</span>
+                        <span className="text-[10px] text-zinc-400">{u.workEmail} &middot; LSK: {u.lskNo || 'Advocate'}</span>
                       </div>
-                    ))}
-                  </div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[10px] font-bold">
+                          {u.role}
+                        </span>
+                        <button 
+                          onClick={() => handleDeleteRealUser(u.id, u.fullName)}
+                          className="p-1.5 text-zinc-400 hover:text-rose-600 transition-colors cursor-pointer"
+                          title="Delete user from database"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* ========================================================================= */}
-            {/* 10. SUPPORT AND TICKETING */}
-            {/* ========================================================================= */}
-            {activeTab === 'support_ticketing' && (
-              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
-                <div className="pb-4 border-b border-slate-100 dark:border-zinc-800">
-                  <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
-                    Client Support Desk & Incident Routing
+            {activeTab === 'finance_billing' && (
+              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
+                <div className="pb-4 border-b border-zinc-100 dark:border-zinc-800">
+                  <h2 className="font-bold text-lg text-zinc-900 dark:text-white">
+                    Finance &amp; Retainer Billing
                   </h2>
-                  <p className="text-xs text-slate-500">
-                    Inbound client support tickets and maintenance requests
+                  <p className="text-xs text-zinc-500">
+                    Startup cashflow, client retainers, and 1-click WhatsApp payment reminders
                   </p>
                 </div>
 
-                <div className="space-y-3 font-mono text-xs">
-                  <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 flex justify-between items-center">
-                    <div>
-                      <span className="font-bold text-slate-900 dark:text-white block font-sans">Fresh City Supermarket: Barcode Scanner Roll Replacement</span>
-                      <span className="text-[10px] text-slate-400">Rosemary Wakonyo &middot; Station POS-01</span>
-                    </div>
-                    <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold">Resolved</span>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800">
+                    <span className="text-[10px] font-mono text-zinc-400 uppercase">This Month Collected</span>
+                    <p className="text-2xl font-bold font-mono text-zinc-900 dark:text-white mt-1">KES 8,000</p>
+                    <p className="text-xs text-zinc-500 mt-1">Sarah Rashid: KES 3,200</p>
                   </div>
+                  <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800">
+                    <span className="text-[10px] font-mono text-zinc-400 uppercase">Pending Invoices</span>
+                    <p className="text-2xl font-bold font-mono text-amber-600 dark:text-amber-400 mt-1">KES 3,500</p>
+                    <p className="text-xs text-zinc-500 mt-1">Fresh City POS due in 12 days</p>
+                  </div>
+                  <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800">
+                    <span className="text-[10px] font-mono text-zinc-400 uppercase">Milestone Retainers</span>
+                    <p className="text-2xl font-bold font-mono text-zinc-900 dark:text-white mt-1">Active</p>
+                    <p className="text-xs text-zinc-500 mt-1">Karani Law &amp; Inner Circle</p>
+                  </div>
+                </div>
 
-                  <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 flex justify-between items-center">
-                    <div>
-                      <span className="font-bold text-slate-900 dark:text-white block font-sans">Sayara Aesthetics: Shein Price Converter Currency Fluctuation</span>
-                      <span className="text-[10px] text-slate-400">Sarah Guyatu Rashid &middot; E-commerce store</span>
+                <div className="space-y-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                  <h3 className="font-bold text-xs uppercase font-mono text-zinc-400">1-Click WhatsApp Client Bills</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 flex justify-between items-center">
+                      <div>
+                        <span className="font-bold text-xs text-zinc-900 dark:text-white block">Rosemary Wakonyo</span>
+                        <span className="text-[10.5px] text-zinc-400 font-mono">Fresh City POS &middot; KES 3,500 / mo</span>
+                      </div>
+                      <button 
+                        onClick={() => handleOpenWhatsAppBill('Rosemary Wakonyo', '3,500', 'Fresh City POS')}
+                        className="px-3 py-1.5 rounded-lg bg-amber-500 text-zinc-950 font-bold text-xs hover:bg-amber-400 cursor-pointer shadow-xs"
+                      >
+                        Draft WhatsApp Bill
+                      </button>
                     </div>
-                    <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-bold">In Progress</span>
+
+                    <div className="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 flex justify-between items-center">
+                      <div>
+                        <span className="font-bold text-xs text-zinc-900 dark:text-white block">Sarah Guyatu Rashid</span>
+                        <span className="text-[10.5px] text-zinc-400 font-mono">Sayara Aesthetics &middot; KES 3,200</span>
+                      </div>
+                      <button 
+                        onClick={() => handleOpenWhatsAppBill('Sarah Guyatu Rashid', '3,200', 'Sayara Aesthetics')}
+                        className="px-3 py-1.5 rounded-lg bg-amber-500 text-zinc-950 font-bold text-xs hover:bg-amber-400 cursor-pointer shadow-xs"
+                      >
+                        Draft WhatsApp Bill
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* ========================================================================= */}
-            {/* 11. SYSTEM WIPE & MASTER SNAPSHOTS */}
-            {/* ========================================================================= */}
             {activeTab === 'system_wipe' && (
-              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
-                <div className="pb-4 border-b border-slate-100 dark:border-zinc-800">
-                  <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
-                    System Snapshot Exports & Maintenance Controls
+              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
+                <div className="pb-4 border-b border-zinc-100 dark:border-zinc-800">
+                  <h2 className="font-bold text-lg text-zinc-900 dark:text-white">
+                    System Wipes &amp; Emergency Recovery (reload.sh)
                   </h2>
-                  <p className="text-xs text-slate-500">
-                    Full master data exports, local cache purges, and emergency controls
+                  <p className="text-xs text-zinc-500">
+                    Repository: guyo-halake/reload.sh &middot; Bare-metal Linux reinstall and snapshot recovery
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="p-5 rounded-2xl border border-slate-200 dark:border-zinc-800 space-y-3">
-                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 font-mono">
-                      Export Full Master Snapshot
-                    </h3>
-                    <p className="text-xs text-slate-600 dark:text-zinc-400">
-                      Creates a portable JSON backup including all projects, client contracts, tasks, and razak-server states.
-                    </p>
-                    <button
-                      onClick={handleExportBackup}
-                      className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-black cursor-pointer shadow-xs"
-                    >
-                      Export Snapshot JSON
-                    </button>
+                <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50/20 dark:bg-rose-950/20 space-y-3">
+                  <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400 font-bold text-xs font-mono">
+                    <ShieldAlert className="w-4 h-4" />
+                    <span>Emergency System Kill-Switch &amp; Lockdown</span>
                   </div>
-
-                  <div className="p-5 rounded-2xl border border-red-200 dark:border-red-900/60 bg-red-50/30 dark:bg-red-950/20 space-y-3">
-                    <h3 className="font-bold text-xs uppercase tracking-wider text-red-700 dark:text-red-400 font-mono">
-                      Emergency Kill-Switch
-                    </h3>
-                    <p className="text-xs text-slate-600 dark:text-zinc-400">
-                      Puts all client portal endpoints into read-only mode during structural maintenance.
-                    </p>
-                    <button
-                      onClick={toggleMaintenance}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-xs ${
-                        isMaintenanceMode ? 'bg-red-600 text-white animate-pulse' : 'bg-red-700 text-white hover:bg-red-800'
-                      }`}
-                    >
-                      {isMaintenanceMode ? 'Deactivate Kill-Switch' : 'Activate Kill-Switch'}
-                    </button>
-                  </div>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-300">
+                    Locks down client access to read-only mode with a maintenance screen while leaving founder access active.
+                  </p>
+                  <button 
+                    onClick={() => {
+                      const next = !isMaintenanceMode;
+                      setIsMaintenanceMode(next);
+                      localStorage.setItem('BILLSZIP_MAINTENANCE_MODE', String(next));
+                      showToast(next ? 'Emergency Lockdown Active.' : 'Platform restored.');
+                    }}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                      isMaintenanceMode ? 'bg-rose-600 text-white animate-pulse' : 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900'
+                    }`}
+                  >
+                    {isMaintenanceMode ? 'Kill-Switch Engaged (Click to Disable)' : 'Engage Emergency Kill-Switch'}
+                  </button>
                 </div>
+
+                <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 space-y-3">
+                  <h3 className="font-bold text-xs uppercase font-mono text-zinc-400">Master Database Snapshot</h3>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                    Download an encrypted complete snapshot of all users, retainers, and tasks.
+                  </p>
+                  <button 
+                    onClick={handleExportBackup}
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-zinc-950 cursor-pointer shadow-xs"
+                  >
+                    Download Master Snapshot (.json)
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Other tabs render default views */}
+            {['ai_infra', 'career_education', 'internal_staff', 'comms_messaging', 'server', 'support_ticketing'].includes(activeTab) && (
+              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-4 animate-fadeIn">
+                <h3 className="font-bold text-base text-zinc-900 dark:text-white capitalize">
+                  {activeTab.replace('_', ' ')}
+                </h3>
+                <p className="text-xs text-zinc-500">
+                  Marsabit County Operations Node &middot; Live server metrics and operational controls active.
+                </p>
               </div>
             )}
 
@@ -2057,196 +1434,391 @@ export const AdminDashboard: React.FC = () => {
       </div>
 
       {/* ========================================================================= */}
-      {/* MODAL 1: FULL SERVER DIAGNOSTICS (TRIGGERED BY RIGHT-CLICK ON MAP) */}
+      {/* SLIDE-OVER MULTI-TENANT PROJECT DRAWER (REAL DB FOR KARANI VS MOCK STUDIO) */}
       {/* ========================================================================= */}
-      {showDiagnosticsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 sm:p-8 max-w-xl w-full shadow-2xl space-y-5 animate-fadeIn font-mono text-xs">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Server className="w-4 h-4 text-slate-900 dark:text-white" />
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white font-brand">
-                  Full Server Diagnostics: razak-server
-                </h3>
+      {selectedDrawerProject && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-2xl bg-white dark:bg-zinc-900 h-full shadow-2xl border-l border-zinc-200 dark:border-zinc-800 flex flex-col">
+            
+            {/* Drawer Header */}
+            <div className="p-5 border-b border-zinc-200 dark:border-zinc-800 flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-bold text-zinc-900 dark:text-white">
+                    {selectedDrawerProject.name}
+                  </h2>
+                  {selectedDrawerProject.isRealDb ? (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500 text-zinc-950">
+                      Real Database
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
+                      Mock Studio DB
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-zinc-400 font-mono mt-0.5">
+                  Repo: {selectedDrawerProject.repo}
+                </p>
               </div>
               <button 
-                onClick={() => setShowDiagnosticsModal(false)}
-                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400 hover:text-black cursor-pointer"
+                onClick={() => setSelectedDrawerProject(null)}
+                className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-3">
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-800 space-y-1.5">
-                <div className="flex justify-between"><span className="text-slate-400">Station Node:</span><span className="font-bold text-slate-900 dark:text-white">Biftu Construction Co. Building, Marsabit Town, KE</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">GPS Coordinates:</span><span className="font-bold text-emerald-600">2.3333&deg; N, 37.9833&deg; E</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Public IP / Gateway:</span><span className="font-bold text-slate-900 dark:text-white">197.232.88.14 (Safaricom Dedicated Fiber + Starlink Node)</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Cloud Peers:</span><span className="font-bold text-blue-600">Azure Web App &middot; Vercel Edge &middot; Supabase Pool</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Local Loop Latency:</span><span className="font-bold text-emerald-600">7 ms</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Azure Roundtrip:</span><span className="font-bold text-slate-900 dark:text-white">38 ms</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Hardware Spec:</span><span className="font-bold text-slate-900 dark:text-white">Intel Core i7 (8 Cores), 32GB DDR4, 1TB NVMe SSD</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Kernel Version:</span><span className="font-bold text-slate-900 dark:text-white">Linux 5.15.0-89-generic (Ubuntu 22.04 LTS)</span></div>
-              </div>
-
-              <div className="space-y-1">
-                <span className="font-bold text-slate-400 uppercase text-[10px] block">Mirror Gateway Directory:</span>
-                <code className="p-2 rounded bg-slate-950 text-slate-200 block text-[11px] overflow-x-auto">
-                  /opt/razak-server/mirrors/api/kenyanbanks/IandM<br/>
-                  /opt/razak-server/mirrors/api/mpesa_b2c<br/>
-                  /opt/razak-server/mirrors/api/sms_gateway
-                </code>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-zinc-800">
+            {/* Drawer Tabs */}
+            <div className="flex border-b border-zinc-100 dark:border-zinc-800 px-5 text-xs font-semibold gap-4">
               <button
-                onClick={() => setShowDiagnosticsModal(false)}
-                className="px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold cursor-pointer"
+                onClick={() => setDrawerTab('overview')}
+                className={`py-3 border-b-2 cursor-pointer transition-colors ${
+                  drawerTab === 'overview' ? 'border-amber-500 text-amber-600 dark:text-amber-400' : 'border-transparent text-zinc-400 hover:text-zinc-600'
+                }`}
               >
-                Close Telemetry
+                Overview &amp; Retainer
+              </button>
+              <button
+                onClick={() => setDrawerTab('database')}
+                className={`py-3 border-b-2 cursor-pointer transition-colors ${
+                  drawerTab === 'database' ? 'border-amber-500 text-amber-600 dark:text-amber-400' : 'border-transparent text-zinc-400 hover:text-zinc-600'
+                }`}
+              >
+                {selectedDrawerProject.isRealDb ? 'Firm Users (Real Database)' : 'Database Studio'}
+              </button>
+              <button
+                onClick={() => setDrawerTab('tasks')}
+                className={`py-3 border-b-2 cursor-pointer transition-colors ${
+                  drawerTab === 'tasks' ? 'border-amber-500 text-amber-600 dark:text-amber-400' : 'border-transparent text-zinc-400 hover:text-zinc-600'
+                }`}
+              >
+                Milestones &amp; Tasks
               </button>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* ========================================================================= */}
-      {/* MODAL 2: RIGHT-CLICK DEPLOYMENT CONTEXT MENU */}
-      {/* ========================================================================= */}
-      {showDeploymentMenu && selectedDeployment && (
-        <div 
-          className="fixed inset-0 z-50 bg-black/20" 
-          onClick={() => setShowDeploymentMenu(false)}
-        >
-          <div 
-            style={{ top: Math.min(window.innerHeight - 200, deploymentMenuPos.y), left: Math.min(window.innerWidth - 240, deploymentMenuPos.x) }}
-            className="absolute z-50 w-56 rounded-xl bg-slate-900 text-white shadow-2xl border border-slate-800 p-1.5 space-y-1 font-mono text-xs animate-fadeIn"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="px-2.5 py-1 border-b border-slate-800 text-[10px] text-slate-400 font-bold uppercase truncate">
-              {selectedDeployment.name}
+            {/* Drawer Content */}
+            <div className="p-6 overflow-y-auto flex-1 space-y-6">
+              
+              {drawerTab === 'overview' && (
+                <div className="space-y-4 text-xs font-sans">
+                  <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 space-y-2">
+                    <span className="font-bold text-zinc-400 uppercase font-mono text-[10px]">Client Account</span>
+                    <p className="text-sm font-semibold text-zinc-900 dark:text-white">{selectedDrawerProject.client}</p>
+                    <p className="text-zinc-500 font-mono">Phone: {selectedDrawerProject.clientPhone}</p>
+                    <p className="text-zinc-500 font-mono">Email: {selectedDrawerProject.clientEmail}</p>
+                  </div>
+
+                  <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 space-y-2">
+                    <span className="font-bold text-zinc-400 uppercase font-mono text-[10px]">Contract &amp; Billing</span>
+                    <p className="text-zinc-800 dark:text-zinc-200">Rate: <strong>{selectedDrawerProject.monthlyFee}</strong></p>
+                    <p className="text-zinc-800 dark:text-zinc-200">Initial Paid: <strong>{selectedDrawerProject.initialPaid}</strong></p>
+                    <p className="text-zinc-800 dark:text-zinc-200">Agreement: <strong>{selectedDrawerProject.contractType}</strong></p>
+                  </div>
+
+                  <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 space-y-2 font-mono">
+                    <span className="font-bold text-zinc-400 uppercase text-[10px]">Tech Stack &amp; Links</span>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {selectedDrawerProject.techStack.map((tech, idx) => (
+                        <span key={idx} className="px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-[10px]">
+                          {tech}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="pt-2 flex gap-3">
+                      <a href={selectedDrawerProject.githubUrl} target="_blank" rel="noreferrer" className="text-amber-600 dark:text-amber-400 hover:underline">
+                        GitHub Repo &rarr;
+                      </a>
+                      <a href={selectedDrawerProject.liveUrl} target="_blank" rel="noreferrer" className="text-amber-600 dark:text-amber-400 hover:underline">
+                        Production URL &rarr;
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {drawerTab === 'database' && (
+                <div className="space-y-4">
+                  {selectedDrawerProject.isRealDb ? (
+                    // REAL DATABASE FOR KARANI LAW
+                    <div className="space-y-4">
+                      <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs flex justify-between items-center">
+                        <div>
+                          <span className="font-bold text-amber-800 dark:text-amber-300 block">Connected to Live Supabase DB</span>
+                          <span className="text-[10.5px] text-amber-700 dark:text-amber-400 font-mono">
+                            Users created here can immediately log in to the portal.
+                          </span>
+                        </div>
+                        <button 
+                          onClick={() => setShowAddRealUserModal(true)}
+                          className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs cursor-pointer shadow-xs"
+                        >
+                          + Add Real User
+                        </button>
+                      </div>
+
+                      <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden">
+                        <table className="w-full text-left text-xs font-mono">
+                          <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-[10px] text-zinc-400">
+                            <tr>
+                              <th className="p-2.5">Name</th>
+                              <th className="p-2.5">Email</th>
+                              <th className="p-2.5">Role</th>
+                              <th className="p-2.5">LSK No</th>
+                              <th className="p-2.5 text-right">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                            {realUsers.map(u => (
+                              <tr key={u.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
+                                <td className="p-2.5 font-sans font-medium text-zinc-900 dark:text-white">{u.fullName}</td>
+                                <td className="p-2.5 text-zinc-500">{u.workEmail}</td>
+                                <td className="p-2.5">
+                                  <span className="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                                    {u.role}
+                                  </span>
+                                </td>
+                                <td className="p-2.5 text-zinc-400">{u.lskNo || 'Advocate'}</td>
+                                <td className="p-2.5 text-right">
+                                  <button 
+                                    onClick={() => handleDeleteRealUser(u.id, u.fullName)}
+                                    className="text-rose-600 hover:underline cursor-pointer"
+                                  >
+                                    Delete
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    // MOCK DATABASE STUDIOS FOR OTHER PROJECTS
+                    <div className="space-y-4">
+                      <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-800 text-xs flex justify-between items-center">
+                        <span className="font-mono text-zinc-600 dark:text-zinc-400">
+                          Mock Database Studio &middot; {selectedDrawerProject.name}
+                        </span>
+                        <button 
+                          onClick={() => showToast('Mock row added.')}
+                          className="px-2.5 py-1 rounded bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-[10.5px] font-bold cursor-pointer"
+                        >
+                          + Add Row
+                        </button>
+                      </div>
+
+                      {selectedDrawerProject.mockType === 'myschools' && (
+                        <table className="w-full text-left text-xs font-mono border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
+                          <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-[10px] text-zinc-400">
+                            <tr>
+                              <th className="p-2">Nemis No</th>
+                              <th className="p-2">Student</th>
+                              <th className="p-2">Grade</th>
+                              <th className="p-2">Fees</th>
+                              <th className="p-2">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                            {mockMySchools.map(s => (
+                              <tr key={s.id}>
+                                <td className="p-2 text-zinc-400">{s.nemisNo}</td>
+                                <td className="p-2 font-medium text-zinc-900 dark:text-white font-sans">{s.name}</td>
+                                <td className="p-2 text-zinc-500">{s.grade}</td>
+                                <td className="p-2">{s.termFee}</td>
+                                <td className="p-2 text-emerald-600">{s.status}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+
+                      {selectedDrawerProject.mockType === 'innercircle' && (
+                        <table className="w-full text-left text-xs font-mono border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
+                          <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-[10px] text-zinc-400">
+                            <tr>
+                              <th className="p-2">Investor</th>
+                              <th className="p-2">Tier</th>
+                              <th className="p-2">Deposit</th>
+                              <th className="p-2">Yield</th>
+                              <th className="p-2">KYC</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                            {mockInnerCircle.map(i => (
+                              <tr key={i.id}>
+                                <td className="p-2 font-medium text-zinc-900 dark:text-white font-sans">{i.name}</td>
+                                <td className="p-2 text-amber-600">{i.tier}</td>
+                                <td className="p-2">{i.deposit}</td>
+                                <td className="p-2 text-emerald-600 font-bold">{i.monthlyYield}</td>
+                                <td className="p-2 text-zinc-400">{i.kycStatus}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+
+                      {selectedDrawerProject.mockType === 'freshcity' && (
+                        <table className="w-full text-left text-xs font-mono border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
+                          <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-[10px] text-zinc-400">
+                            <tr>
+                              <th className="p-2">Cashier</th>
+                              <th className="p-2">Register</th>
+                              <th className="p-2">Shift</th>
+                              <th className="p-2">Cash Drawer</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                            {mockFreshCity.map(f => (
+                              <tr key={f.id}>
+                                <td className="p-2 font-medium text-zinc-900 dark:text-white font-sans">{f.cashier}</td>
+                                <td className="p-2 text-zinc-500">{f.register}</td>
+                                <td className="p-2 text-zinc-400">{f.shift}</td>
+                                <td className="p-2 font-bold">{f.cashDrawer}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+
+                      {selectedDrawerProject.mockType === 'sayara' && (
+                        <table className="w-full text-left text-xs font-mono border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
+                          <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-[10px] text-zinc-400">
+                            <tr>
+                              <th className="p-2">Product</th>
+                              <th className="p-2">SKU</th>
+                              <th className="p-2">Cost</th>
+                              <th className="p-2">KES Price</th>
+                              <th className="p-2">Margin</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                            {mockSayara.map(p => (
+                              <tr key={p.id}>
+                                <td className="p-2 font-medium text-zinc-900 dark:text-white font-sans">{p.title}</td>
+                                <td className="p-2 text-zinc-400">{p.sheinSku}</td>
+                                <td className="p-2 text-zinc-500">{p.costUsd}</td>
+                                <td className="p-2 font-bold">{p.priceKes}</td>
+                                <td className="p-2 text-emerald-600">{p.margin}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {drawerTab === 'tasks' && (
+                <div className="space-y-3 text-xs">
+                  {selectedDrawerProject.tasks.map((task, idx) => (
+                    <div key={idx} className="p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 flex items-start gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                      <span className="text-zinc-800 dark:text-zinc-200">{task}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
             </div>
-            <button
-              onClick={() => {
-                setShowDeploymentMenu(false);
-                if (selectedDeployment.liveUrl.startsWith('http')) {
-                  window.open(selectedDeployment.liveUrl, '_blank');
-                } else {
-                  showToast(`Live station: ${selectedDeployment.liveUrl}`);
-                }
-              }}
-              className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
-            >
-              <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
-              <span>Open Live URL</span>
-            </button>
-            <button
-              onClick={() => {
-                setShowDeploymentMenu(false);
-                showToast(`Fetching deployment logs for ${selectedDeployment.name}...`);
-              }}
-              className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
-            >
-              <Terminal className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Inspect Build Logs</span>
-            </button>
-            <button
-              onClick={() => {
-                setShowDeploymentMenu(false);
-                showToast(`Daemon restart command dispatched to ${selectedDeployment.name}.`);
-              }}
-              className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
-            >
-              <RefreshCcw className="w-3.5 h-3.5 text-amber-400" />
-              <span>Restart Worker Daemon</span>
-            </button>
-            <button
-              onClick={() => {
-                setShowDeploymentMenu(false);
-                showToast(`Displaying environment secrets for ${selectedDeployment.name}`);
-              }}
-              className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
-            >
-              <Lock className="w-3.5 h-3.5 text-slate-400" />
-              <span>View Secrets</span>
-            </button>
+
           </div>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL 3: ADD PROJECT */}
+      {/* ADD REAL USER TO KARANI LAW MODAL */}
       {/* ========================================================================= */}
-      {showAddProjectModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-4 animate-fadeIn">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
-              <h3 className="font-brand font-bold text-sm text-slate-900 dark:text-white">
-                Register New P3L Project
+      {showAddRealUserModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fadeIn">
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 shadow-2xl space-y-5">
+            <div className="flex justify-between items-center pb-3 border-b border-zinc-100 dark:border-zinc-800">
+              <h3 className="font-bold text-sm text-zinc-900 dark:text-white">
+                Add Real User to Database (Karani Law)
               </h3>
-              <button onClick={() => setShowAddProjectModal(false)} className="text-slate-400 hover:text-black cursor-pointer">
+              <button onClick={() => setShowAddRealUserModal(false)} className="text-zinc-400 hover:text-zinc-600">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleAddProject} className="space-y-3 text-xs">
+            <form onSubmit={handleCreateRealUser} className="space-y-4 text-xs font-sans">
               <div>
-                <label className="block text-[10.5px] font-mono text-slate-500 mb-1">Project Name</label>
+                <label className="block text-zinc-600 dark:text-zinc-400 font-medium mb-1">Full Name</label>
                 <input 
                   type="text" 
+                  placeholder="e.g. Adv. Jane Wambui"
+                  value={newUserFullName}
+                  onChange={e => setNewUserFullName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
                   required
-                  placeholder="e.g. Sayara New Delivery Portal"
-                  value={newProjectName}
-                  onChange={e => setNewProjectName(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs"
                 />
               </div>
 
               <div>
-                <label className="block text-[10.5px] font-mono text-slate-500 mb-1">Client Name / Business</label>
+                <label className="block text-zinc-600 dark:text-zinc-400 font-medium mb-1">Work Email (Login)</label>
                 <input 
-                  type="text" 
-                  placeholder="e.g. Sarah Guyatu Rashid"
-                  value={newProjectClient}
-                  onChange={e => setNewProjectClient(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs"
+                  type="email" 
+                  placeholder="jwambui@kithinjilegal.co.ke"
+                  value={newUserEmail}
+                  onChange={e => setNewUserEmail(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
+                  required
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10.5px] font-mono text-slate-500 mb-1">Category</label>
+                  <label className="block text-zinc-600 dark:text-zinc-400 font-medium mb-1">Role</label>
                   <select 
-                    value={newProjectCategory}
-                    onChange={e => setNewProjectCategory(e.target.value as any)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs"
+                    value={newUserRole}
+                    onChange={e => setNewUserRole(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
                   >
-                    <option value="Retail & POS">Retail & POS</option>
-                    <option value="E-commerce">E-commerce</option>
-                    <option value="Automation & API">Automation & API</option>
-                    <option value="LegalTech SaaS">LegalTech SaaS</option>
-                    <option value="AI & Automation">AI & Automation</option>
+                    <option value="Managing Partner">Managing Partner</option>
+                    <option value="Senior Associate">Senior Associate</option>
+                    <option value="Associate">Associate</option>
+                    <option value="Pupil">Pupil</option>
+                    <option value="Billing Clerk">Billing Clerk</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-[10.5px] font-mono text-slate-500 mb-1">Monthly Fee / Retainer</label>
+                  <label className="block text-zinc-600 dark:text-zinc-400 font-medium mb-1">LSK Roll Number</label>
                   <input 
                     type="text" 
-                    value={newProjectFee}
-                    onChange={e => setNewProjectFee(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-mono text-xs"
+                    placeholder="P105/18249/22"
+                    value={newUserLskNo}
+                    onChange={e => setNewUserLskNo(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500 font-mono"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
-                <button type="button" onClick={() => setShowAddProjectModal(false)} className="px-3 py-1.5 text-xs text-slate-600 hover:text-black cursor-pointer">
+              <div>
+                <label className="block text-zinc-600 dark:text-zinc-400 font-medium mb-1">Initial Password</label>
+                <input 
+                  type="text" 
+                  value={newUserPassword}
+                  onChange={e => setNewUserPassword(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500 font-mono"
+                  required
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button 
+                  type="button" 
+                  onClick={() => setShowAddRealUserModal(false)}
+                  className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 cursor-pointer"
+                >
                   Cancel
                 </button>
-                <button type="submit" className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-xs cursor-pointer">
-                  Save Project
+                <button 
+                  type="submit" 
+                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold cursor-pointer shadow-xs"
+                >
+                  Save to Database &rarr;
                 </button>
               </div>
             </form>
@@ -2255,133 +1827,170 @@ export const AdminDashboard: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL 4: ADD TASK */}
+      {/* WHATSAPP BILL DISPATCH MODAL */}
+      {/* ========================================================================= */}
+      {whatsAppModalClient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fadeIn">
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-zinc-100 dark:border-zinc-800">
+              <h3 className="font-bold text-sm text-zinc-900 dark:text-white">
+                WhatsApp Bill for {whatsAppModalClient.name}
+              </h3>
+              <button onClick={() => setWhatsAppModalClient(null)} className="text-zinc-400 hover:text-zinc-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-zinc-500">
+              Copy this message and send it on WhatsApp:
+            </p>
+
+            <textarea 
+              readOnly 
+              value={whatsAppModalClient.message}
+              rows={5}
+              className="w-full p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 text-xs font-mono text-zinc-800 dark:text-zinc-200"
+            />
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button 
+                onClick={() => setWhatsAppModalClient(null)}
+                className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-medium cursor-pointer"
+              >
+                Close
+              </button>
+              <button 
+                onClick={copyWhatsAppText}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold cursor-pointer shadow-xs"
+              >
+                Copy to Clipboard &rarr;
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* RAYCAST-STYLE COMMAND PALETTE (CTRL+K) */}
+      {/* ========================================================================= */}
+      {showCommandPalette && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/40 backdrop-blur-xs p-4 animate-fadeIn">
+          <div className="w-full max-w-xl bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-2xl overflow-hidden">
+            <div className="p-3.5 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-2">
+              <Search className="w-4 h-4 text-amber-500" />
+              <input 
+                type="text"
+                autoFocus
+                placeholder="Type a command or search (Karani, mySchools, users, restart)..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full bg-transparent text-sm focus:outline-none text-zinc-900 dark:text-white placeholder:text-zinc-400"
+              />
+              <button onClick={() => setShowCommandPalette(false)} className="text-zinc-400 hover:text-zinc-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 space-y-1 max-h-80 overflow-y-auto text-xs font-sans">
+              <div 
+                onClick={() => {
+                  setShowCommandPalette(false);
+                  setShowAddRealUserModal(true);
+                }}
+                className="p-2.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800/60 flex items-center justify-between cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <UserPlus className="w-4 h-4 text-amber-500" />
+                  <span className="font-semibold text-zinc-900 dark:text-white">Add New User to Karani Law Database</span>
+                </div>
+                <span className="text-[10px] font-mono text-zinc-400">Database Action</span>
+              </div>
+
+              {projects.map(p => (
+                <div 
+                  key={p.id}
+                  onClick={() => {
+                    setShowCommandPalette(false);
+                    setSelectedDrawerProject(p);
+                  }}
+                  className="p-2.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800/60 flex items-center justify-between cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-zinc-400" />
+                    <span className="text-zinc-800 dark:text-zinc-200">{p.name}</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-zinc-400">{p.isRealDb ? 'Real DB' : 'Mock Studio'}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ADD NEW PROJECT MODAL */}
+      {/* ========================================================================= */}
+      {showAddProjectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fadeIn">
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-zinc-100 dark:border-zinc-800">
+              <h3 className="font-bold text-sm text-zinc-900 dark:text-white">Add New Startup Project</h3>
+              <button onClick={() => setShowAddProjectModal(false)} className="text-zinc-400 hover:text-zinc-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-zinc-500">Register a new client or repository to your P3L fleet.</p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button 
+                onClick={() => setShowAddProjectModal(false)}
+                className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  showToast('Project registered to fleet.');
+                  setShowAddProjectModal(false);
+                }}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs"
+              >
+                Save Project
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ADD TASK MODAL */}
       {/* ========================================================================= */}
       {showAddTaskModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-4 animate-fadeIn">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
-              <h3 className="font-brand font-bold text-sm text-slate-900 dark:text-white">
-                Add Founder Priority Task
-              </h3>
-              <button onClick={() => setShowAddTaskModal(false)} className="text-slate-400 hover:text-black cursor-pointer">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fadeIn">
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-zinc-100 dark:border-zinc-800">
+              <h3 className="font-bold text-sm text-zinc-900 dark:text-white">Add Founder Task</h3>
+              <button onClick={() => setShowAddTaskModal(false)} className="text-zinc-400 hover:text-zinc-600">
                 <X className="w-4 h-4" />
               </button>
             </div>
-
-            <form onSubmit={handleAddTask} className="space-y-3 text-xs">
-              <div>
-                <label className="block text-[10.5px] font-mono text-slate-500 mb-1">Task Description</label>
-                <input 
-                  type="text" 
-                  required
-                  placeholder="e.g. Verify Shein catalog sync webhook"
-                  value={newTaskTitle}
-                  onChange={e => setNewTaskTitle(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10.5px] font-mono text-slate-500 mb-1">Category</label>
-                  <select 
-                    value={newTaskCategory}
-                    onChange={e => setNewTaskCategory(e.target.value as any)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs"
-                  >
-                    <option value="work">Work / Client Sprint</option>
-                    <option value="personal">Personal / University Study</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10.5px] font-mono text-slate-500 mb-1">Priority</label>
-                  <select 
-                    value={newTaskPriority}
-                    onChange={e => setNewTaskPriority(e.target.value as any)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs"
-                  >
-                    <option value="normal">Normal</option>
-                    <option value="high">High Priority</option>
-                    <option value="critical">Critical Bug / Blocker</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
-                <button type="button" onClick={() => setShowAddTaskModal(false)} className="px-3 py-1.5 text-xs text-slate-600 hover:text-black cursor-pointer">
-                  Cancel
-                </button>
-                <button type="submit" className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-xs cursor-pointer">
-                  Save Priority
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* MODAL 5: LOG CLIENT PAYMENT */}
-      {/* ========================================================================= */}
-      {showLogPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-4 animate-fadeIn">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
-              <h3 className="font-brand font-bold text-sm text-slate-900 dark:text-white">
-                Log Inbound Client Settlement
-              </h3>
-              <button onClick={() => setShowLogPaymentModal(false)} className="text-slate-400 hover:text-black cursor-pointer">
-                <X className="w-4 h-4" />
+            <p className="text-xs text-zinc-500">Add an action item to today's priority list.</p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button 
+                onClick={() => setShowAddTaskModal(false)}
+                className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  showToast('Task added to priority queue.');
+                  setShowAddTaskModal(false);
+                }}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs"
+              >
+                Save Task
               </button>
             </div>
-
-            <form onSubmit={handleLogPayment} className="space-y-3 text-xs">
-              <div>
-                <label className="block text-[10.5px] font-mono text-slate-500 mb-1">Client Source</label>
-                <select 
-                  value={paymentClient}
-                  onChange={e => setPaymentClient(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs font-mono"
-                >
-                  <option value="Sarah Guyatu Rashid (Sayara Aesthetics)">Sarah Guyatu Rashid (Sayara Aesthetics)</option>
-                  <option value="Rosemary Wakonyo (Fresh City Supermarket)">Rosemary Wakonyo (Fresh City POS)</option>
-                  <option value="Adv. Nyagah B. Kithinji (Karani Law)">Adv. Nyagah B. Kithinji (Karani Law)</option>
-                  <option value="Other Inbound Client">Other Inbound Client</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10.5px] font-mono text-slate-500 mb-1">Amount (KES)</label>
-                <input 
-                  type="number" 
-                  required
-                  value={paymentAmount}
-                  onChange={e => setPaymentAmount(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-mono text-xs font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10.5px] font-mono text-slate-500 mb-1">Notes / Description</label>
-                <input 
-                  type="text" 
-                  value={paymentNote}
-                  onChange={e => setPaymentNote(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
-                <button type="button" onClick={() => setShowLogPaymentModal(false)} className="px-3 py-1.5 text-xs text-slate-600 hover:text-black cursor-pointer">
-                  Cancel
-                </button>
-                <button type="submit" className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-xs cursor-pointer">
-                  Confirm Payment
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
