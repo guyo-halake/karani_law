@@ -1,19 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Users, Server, HardDrive, Calculator, 
-  Briefcase, Paintbrush, Settings, LayoutDashboard,
+  Briefcase, Settings, LayoutDashboard,
   Search, Bell, Info, Globe, Activity, Database, Edit, Trash2, Eye, Grid, List, LogOut, ChevronDown,
   MapPin, Radio, ShieldAlert, Cpu, ArrowUpRight, CheckCircle2, Clock, Terminal, Zap, Power,
   CheckCircle, GitCommit, GitPullRequest, Layers, HardDriveDownload, Download, RefreshCw, AlertTriangle,
   Plus, Key, Mail, Phone, Lock, MessageSquare, ShieldCheck, FileText, CheckCircle as CheckIcon, AlertOctagon,
-  Copy, X, Send, Sliders, ExternalLink, ArrowRight, Shield, Bot, Sparkles, GraduationCap, DollarSign,
+  Copy, X, Send, Sliders, ExternalLink, ArrowRight, Shield, Bot, GraduationCap, DollarSign,
   UserCheck, HelpCircle, Code, Play, CheckSquare, BarChart3, TrendingUp, Filter, Hash, UserPlus,
-  Kanban, MoveRight, ArrowLeftRight, CheckCheck, Github, Laptop, Smartphone
+  Kanban, MoveRight, ArrowLeftRight, CheckCheck, Github, Laptop, Smartphone, BookOpen, Video, Calendar,
+  FileCode, PlayCircle, FolderArchive, Wifi, RefreshCcw
 } from 'lucide-react';
 import { supabase, SystemUser, EXACT_FIRM_INFO, getFeeNotes, persistFeeNotes, ExactFeeNoteRecord, EXACT_MATTERS, EXACT_CLIENTS, EXACT_VAULT_FILES } from '../../services/supabase';
 import { getLocalTemplates, assignRoleToUser, RoleTemplate } from '../../services/rbac';
 import { getActivityLogs, logSystemActivity, ActivityLogItem } from '../../services/activityLogger';
-import { sendEmail } from '../../services/email';
 import { fetchFirmUsers, createFirmUser, updateFirmUser, deleteFirmUser } from '../../services/data';
 
 type AdminTab = 
@@ -36,518 +36,555 @@ interface RealProject {
   githubUrl: string;
   liveUrl: string;
   client: string;
+  clientPhone: string;
+  clientEmail: string;
   lead: string;
-  category: 'LegalTech SaaS' | 'Fintech & Mobile' | 'AI & Analytics' | 'Computer Vision' | 'IoT & Cloud';
-  status: 'Production Live' | 'Active Development' | 'Staging QA';
-  techStack: string[];
-  mrr: string;
+  category: 'Retail & POS' | 'E-commerce' | 'Automation & API' | 'LegalTech SaaS' | 'AI & Automation' | 'Research Archive';
+  status: 'Live (In Store)' | 'Live (Vercel)' | 'Live (Python Daemon)' | 'In Development (78%)' | 'Debugging (API Issue)' | 'Paused / Archived';
+  contractType: 'SoftwareRetainer' | 'Internal R&D' | 'Milestone Retainer';
+  monthlyFee: string;
+  initialPaid: string;
+  nextMilestone: string;
   progress: number;
   health: string;
+  techStack: string[];
+  tasks: string[];
 }
 
-interface ClientCRMRecord {
+interface ClientAccount {
   id: string;
   name: string;
   company: string;
-  category: 'Law Firm' | 'Hedgefund / Fintech' | 'Institutional / Schools' | 'Construction & Engineering';
-  email: string;
   phone: string;
+  email: string;
+  category: string;
   activeProjects: string[];
-  totalBilled: string;
-  status: 'Active Retainer' | 'Live Production' | 'Onboarding';
-  kraPin: string;
+  monthlyRetainer: string;
+  initialPaid: string;
+  currentMonthPaid: string;
+  status: 'Active Retainer' | 'Live Production' | 'In Progress';
+}
+
+interface FounderTask {
+  id: string;
+  title: string;
+  category: 'work' | 'personal';
+  project?: string;
+  priority: 'critical' | 'high' | 'normal';
+  completed: boolean;
+  dueDate: string;
+  notes?: string;
 }
 
 export const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Real-time Firm & Ecosystem Data States
-  const [users, setUsers] = useState<SystemUser[]>([]);
-  const [feeNotes, setFeeNotes] = useState<ExactFeeNoteRecord[]>(() => getFeeNotes());
-  const [activityLogs, setActivityLogs] = useState<ActivityLogItem[]>(() => getActivityLogs());
-  
-  // Search & Filters
-  const [userSearch, setUserSearch] = useState('');
-  const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'Admin' | 'Developer' | 'Advocate'>('all');
-  
-  // Infrastructure States
-  const [apiLatency, setApiLatency] = useState<number>(38);
+  // Time & Live Uptime Ticker
+  const [uptimeSeconds, setUptimeSeconds] = useState(1582935); // 18d 7h 42m 15s
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setUptimeSeconds(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatUptime = (secs: number) => {
+    const days = Math.floor(secs / 86400);
+    const hours = Math.floor((secs % 86400) / 3600);
+    const minutes = Math.floor((secs % 3600) / 60);
+    const seconds = secs % 60;
+    return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+  };
+
+  // Telemetry & Cluster State
+  const [apiLatency, setApiLatency] = useState<number>(7);
   const [isBackendHealthy, setIsBackendHealthy] = useState<boolean>(true);
-  const [isDatabaseHealthy, setIsDatabaseHealthy] = useState<boolean>(true);
   const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean>(() => localStorage.getItem('BILLSZIP_MAINTENANCE_MODE') === 'true');
-  const [lastHealthCheck, setLastHealthCheck] = useState<string>('Just now');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Sub-navigation for Projects & Clients (Cards vs CRM Table)
-  const [projectsNavMode, setProjectsNavMode] = useState<'projects_cards' | 'clients_table'>('projects_cards');
+  // Modals & Context Menus
+  const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
+  const [selectedDeployment, setSelectedDeployment] = useState<RealProject | null>(null);
+  const [showDeploymentMenu, setShowDeploymentMenu] = useState(false);
+  const [deploymentMenuPos, setDeploymentMenuPos] = useState({ x: 0, y: 0 });
+  const [hoveredMilestoneTasks, setHoveredMilestoneTasks] = useState<{ project: string; tasks: string[] } | null>(null);
 
-  // Authoritative Real GitHub Projects (github.com/guyo-halake)
+  // Revenue Switcher State
+  const [revenuePeriod, setRevenuePeriod] = useState<'this_month' | 'last_6_months' | 'this_year'>('this_month');
+
+  // Big Workspace Sub-Tab Switcher
+  const [workspaceTab, setWorkspaceTab] = useState<'projects' | 'education' | 'server' | 'users'>('projects');
+
+  // Tasks Filter (Work vs Personal)
+  const [tasksFilter, setTasksFilter] = useState<'work' | 'personal'>('work');
+
+  // Real Startup Projects (Fresh City POS, Sayara, Karani Law, OdinBot, Archives)
   const [projects, setProjects] = useState<RealProject[]>([
+    {
+      id: 'prj-fresh-city',
+      name: 'Fresh City Supermarket POS',
+      repo: 'guyo-halake/fresh-city-pos',
+      githubUrl: 'https://github.com/guyo-halake',
+      liveUrl: 'Station POS-01 (In Store)',
+      client: 'Rosemary Wakonyo',
+      clientPhone: '+254 756111885',
+      clientEmail: 'Direct Phone / In-Store',
+      lead: 'Guyoh Halake',
+      category: 'Retail & POS',
+      status: 'Live (In Store)',
+      contractType: 'SoftwareRetainer',
+      monthlyFee: 'KES 3,500 / mo',
+      initialPaid: 'KES 32,000',
+      nextMilestone: 'Monthly barcode inventory reconciliation & thermal cut audit',
+      progress: 100,
+      health: 'Active (Offline Ready)',
+      techStack: ['Electron', 'React', 'SQLite', 'Thermal Printer Bridge'],
+      tasks: [
+        'Reconcile end-of-month barcode inventory batch',
+        'Verify thermal printer automatic paper cut daemon',
+        'Inspect offline SQLite ledger synchronization'
+      ]
+    },
+    {
+      id: 'prj-sayara-ecom',
+      name: 'Sayara Aesthetics E-commerce',
+      repo: 'guyo-halake/sayara-aesthetics',
+      githubUrl: 'https://github.com/guyo-halake',
+      liveUrl: 'https://sayara-aesthetics.vercel.app',
+      client: 'Sarah Guyatu Rashid',
+      clientPhone: '+254 114 807 215',
+      clientEmail: 'sarahguyatu2@gmail.com',
+      lead: 'Guyoh Halake',
+      category: 'E-commerce',
+      status: 'Live (Vercel)',
+      contractType: 'SoftwareRetainer',
+      monthlyFee: '% Commission + Maintenance',
+      initialPaid: 'KES 10,000',
+      nextMilestone: 'Seasonal beauty catalog refresh & payment gateway check',
+      progress: 100,
+      health: '200 OK (24ms)',
+      techStack: ['Next.js', 'React', 'Tailwind', 'Vercel Edge'],
+      tasks: [
+        'Test Shein product price margin formula',
+        'Review Vercel Edge cache hit ratio and load times',
+        'Verify M-Pesa automated checkout callback'
+      ]
+    },
+    {
+      id: 'prj-sayara-api',
+      name: 'Sayara Aesthetics Shein Python API',
+      repo: 'guyo-halake/sayara-shein-sync',
+      githubUrl: 'https://github.com/guyo-halake',
+      liveUrl: 'https://api.sayara.p3ldev.com',
+      client: 'Sarah Guyatu Rashid',
+      clientPhone: '+254 114 807 215',
+      clientEmail: 'sarahguyatu2@gmail.com',
+      lead: 'Guyoh Halake',
+      category: 'Automation & API',
+      status: 'Live (Python Daemon)',
+      contractType: 'SoftwareRetainer',
+      monthlyFee: 'Included in Sayara Retainer',
+      initialPaid: 'KES 0 (Bundled)',
+      nextMilestone: 'Automated hourly catalog sync cron & webhook verification',
+      progress: 92,
+      health: 'Active Daemon (Port 8040)',
+      techStack: ['Python 3.11', 'FastAPI', 'Playwright / Requests', 'Redis'],
+      tasks: [
+        'Verify automated Shein price markup rules and webhook triggers',
+        'Monitor hourly catalog sync retry queue',
+        'Validate USD to KES live currency converter multiplier'
+      ]
+    },
     {
       id: 'prj-karani-law',
       name: 'Karani Law & BillsZip ERP',
       repo: 'guyo-halake/karani_law',
       githubUrl: 'https://github.com/guyo-halake/karani_law',
-      liveUrl: 'https://karani-law.vercel.app',
-      client: 'Nyagah B. Kithinji & Co. Advocates',
-      lead: 'Guyoh Alake',
+      liveUrl: 'https://nyagah-b-fee-notes.azurewebsites.net',
+      client: 'Adv. Nyagah B. Kithinji',
+      clientPhone: '+254 (0)20 271 8900',
+      clientEmail: 'advocate@kithinjilegal.co.ke',
+      lead: 'Guyoh Halake',
       category: 'LegalTech SaaS',
-      status: 'Production Live',
-      techStack: ['TypeScript', 'React', 'FastAPI', 'Supabase PostgreSQL'],
-      mrr: 'KES 650,000 / mo',
-      progress: 95,
-      health: '200 OK (34ms)'
+      status: 'In Development (78%)',
+      contractType: 'Milestone Retainer',
+      monthlyFee: 'Milestone Retainer',
+      initialPaid: 'Milestone Billing',
+      nextMilestone: 'Azure ACR multi-container rollout & statutory math sign-off',
+      progress: 78,
+      health: '200 OK (Azure App Service)',
+      techStack: ['TypeScript', 'React', 'FastAPI', 'Docker', 'Azure ACR', 'Supabase'],
+      tasks: [
+        'Finalize Schedule 6 statutory calculation engine & test bench',
+        'Verify Azure App Service multi-container Docker compose',
+        'Conduct advocate UAT walkthrough for fee notes and Bills of Costs'
+      ]
     },
     {
-      id: 'prj-innercircle-fe',
-      name: 'InnerCircle Hedgefund Web Portal',
-      repo: 'guyo-halake/Inner-Circle---Frontend',
-      githubUrl: 'https://github.com/guyo-halake/Inner-Circle---Frontend',
-      liveUrl: 'https://inner-circlehedegfund.vercel.app',
-      client: 'InnerCircle Asset Management',
-      lead: 'Guyoh Alake',
-      category: 'Fintech & Mobile',
-      status: 'Production Live',
-      techStack: ['TypeScript', 'Next.js / React', 'Tailwind', 'Vercel Edge'],
-      mrr: 'KES 1,200,000 / mo',
-      progress: 90,
-      health: '200 OK (42ms)'
-    },
-    {
-      id: 'prj-innercircle-be',
-      name: 'InnerCircle Trading & Execution Engine',
-      repo: 'guyo-halake/InnerCircle-Backend',
-      githubUrl: 'https://github.com/guyo-halake/InnerCircle-Backend',
-      liveUrl: 'https://api.innercircle.p3ldev.com',
-      client: 'InnerCircle Asset Management',
-      lead: 'Guyoh Alake',
-      category: 'Fintech & Mobile',
-      status: 'Production Live',
-      techStack: ['TypeScript', 'Node.js', 'PostgreSQL', 'Redis Cluster'],
-      mrr: 'KES 850,000 / mo',
-      progress: 88,
-      health: '200 OK (28ms)'
-    },
-    {
-      id: 'prj-innercircle-mobile',
-      name: 'InnerCircle iOS & Android Mobile App',
-      repo: 'guyo-halake/InnerCircle--Android-App',
-      githubUrl: 'https://github.com/guyo-halake/InnerCircle--Android-App',
-      liveUrl: 'https://play.google.com/store/apps/innercircle',
-      client: 'InnerCircle Retail Investors',
-      lead: 'Guyoh Alake',
-      category: 'Fintech & Mobile',
-      status: 'Active Development',
-      techStack: ['React Native', 'JavaScript', 'Expo', 'Mobile Push'],
-      mrr: 'KES 400,000 / mo',
-      progress: 75,
-      health: '200 OK (55ms)'
-    },
-    {
-      id: 'prj-ai-data-analyst',
-      name: 'AI Data Analyst & Matta RAG Engine',
-      repo: 'guyo-halake/AI-Data-Analyst',
-      githubUrl: 'https://github.com/guyo-halake/AI-Data-Analyst',
-      liveUrl: 'https://matta-ai.p3ldev.com',
-      client: 'P3L Enterprise Clients & Schools',
-      lead: 'Guyoh Alake',
-      category: 'AI & Analytics',
-      status: 'Active Development',
-      techStack: ['Python', 'pgvector', 'FastAPI', 'CBC RAG Model'],
-      mrr: 'KES 950,000 / mo',
-      progress: 82,
-      health: '200 OK (38ms)'
+      id: 'prj-odinbot',
+      name: 'OdinBot AI Assistant',
+      repo: 'guyo-halake/odinbot-ai',
+      githubUrl: 'https://github.com/guyo-halake',
+      liveUrl: 'https://odinbot.p3ldev.com',
+      client: 'P3L Internal R&D',
+      clientPhone: '+254 700 000 000',
+      clientEmail: 'p3lcodes@gmail.com',
+      lead: 'Guyoh Halake',
+      category: 'AI & Automation',
+      status: 'Debugging (API Issue)',
+      contractType: 'Internal R&D',
+      monthlyFee: 'KES 0',
+      initialPaid: 'KES 0',
+      nextMilestone: 'Resolve razak-server/mirrors/api/kenyanbanks/IandM endpoint',
+      progress: 45,
+      health: 'Degraded (Mirror 502)',
+      techStack: ['Python', 'LangChain', 'FastAPI', 'pgvector', 'Ollama'],
+      tasks: [
+        'Fix I&M Bank mirror connection error in razak-server/mirrors/api/kenyanbanks/IandM',
+        'Re-bind mirror socket to port 8082 with retry circuit breaker',
+        'Test autonomous agent tool calling loop with live bank balances'
+      ]
     },
     {
       id: 'prj-cv-detector',
       name: 'Computer Vision & Human Detector',
       repo: 'guyo-halake/cv-object-human-detetors',
       githubUrl: 'https://github.com/guyo-halake/cv-object-human-detetors',
-      liveUrl: 'https://cv.p3ldev.com',
-      client: 'Industrial & Surveillance Clients',
-      lead: 'Guyoh Alake',
-      category: 'Computer Vision',
-      status: 'Staging QA',
-      techStack: ['Python', 'OpenCV', 'YOLOv8', 'PyTorch'],
-      mrr: 'KES 500,000 / mo',
-      progress: 70,
-      health: '200 OK (48ms)'
+      liveUrl: 'Archived on GitHub',
+      client: 'P3L Research Archive',
+      clientPhone: '—',
+      clientEmail: '—',
+      lead: 'Guyoh Halake',
+      category: 'Research Archive',
+      status: 'Paused / Archived',
+      contractType: 'Internal R&D',
+      monthlyFee: 'KES 0',
+      initialPaid: 'KES 0',
+      nextMilestone: 'Archived repository',
+      progress: 100,
+      health: 'Archived',
+      techStack: ['Python', 'YOLOv8', 'OpenCV'],
+      tasks: ['Repository preserved for reference']
     },
     {
-      id: 'prj-iot-playground',
+      id: 'prj-iot-lab',
       name: 'IoT Hardware Telemetry & ESP32 Lab',
       repo: 'guyo-halake/IoT-playground',
       githubUrl: 'https://github.com/guyo-halake/IoT-playground',
-      liveUrl: 'https://iot.p3ldev.com',
-      client: 'Hardware & Embedded Clients',
-      lead: 'Guyoh Alake',
-      category: 'IoT & Cloud',
-      status: 'Active Development',
-      techStack: ['C', 'C++', 'ESP32', 'Arduino Core'],
-      mrr: 'KES 350,000 / mo',
-      progress: 65,
-      health: '200 OK (62ms)'
+      liveUrl: 'Archived on GitHub',
+      client: 'P3L Research Archive',
+      clientPhone: '—',
+      clientEmail: '—',
+      lead: 'Guyoh Halake',
+      category: 'Research Archive',
+      status: 'Paused / Archived',
+      contractType: 'Internal R&D',
+      monthlyFee: 'KES 0',
+      initialPaid: 'KES 0',
+      nextMilestone: 'Hardware lab on hold',
+      progress: 100,
+      health: 'Archived',
+      techStack: ['C++', 'ESP32', 'MQTT'],
+      tasks: ['Firmware code preserved for future IoT installations']
     }
   ]);
 
-  // Authoritative Clients CRM Table Data
-  const [clients, setClients] = useState<ClientCRMRecord[]>([
+  // Real Client Directory
+  const [clients] = useState<ClientAccount[]>([
     {
-      id: 'cli-001',
+      id: 'cli-01',
+      name: 'Rosemary Wakonyo',
+      company: 'Fresh City Supermarket',
+      phone: '+254 756111885',
+      email: 'Direct Phone / In-Store',
+      category: 'Retail Supermarket',
+      activeProjects: ['Fresh City Supermarket POS'],
+      monthlyRetainer: 'KES 3,500',
+      initialPaid: 'KES 32,000 (Fully Settled)',
+      currentMonthPaid: 'KES 3,500',
+      status: 'Live Production'
+    },
+    {
+      id: 'cli-02',
+      name: 'Sarah Guyatu Rashid',
+      company: 'Sayara Aesthetics',
+      phone: '+254 114 807 215',
+      email: 'sarahguyatu2@gmail.com',
+      category: 'E-commerce & Beauty',
+      activeProjects: ['Sayara Aesthetics E-commerce', 'Sayara Aesthetics Shein Python API'],
+      monthlyRetainer: '% Commission + Support',
+      initialPaid: 'KES 10,000 (Storefront Build)',
+      currentMonthPaid: 'KES 3,200 (Maintenance & Commission)',
+      status: 'Active Retainer'
+    },
+    {
+      id: 'cli-03',
       name: 'Adv. Nyagah B. Kithinji',
       company: 'Nyagah B. Kithinji & Co. Advocates',
-      category: 'Law Firm',
-      email: 'advocate@kithinjilegal.co.ke',
       phone: '+254 (0)20 271 8900',
+      email: 'advocate@kithinjilegal.co.ke',
+      category: 'Legal Practice',
       activeProjects: ['Karani Law & BillsZip ERP'],
-      totalBilled: 'KES 35,804,017.87',
-      status: 'Live Production',
-      kraPin: 'P051123456Z'
-    },
-    {
-      id: 'cli-002',
-      name: 'David K. Sigei',
-      company: 'InnerCircle Asset Management Ltd',
-      category: 'Hedgefund / Fintech',
-      email: 'invest@innercircle.co.ke',
-      phone: '+254 700 112 233',
-      activeProjects: ['InnerCircle Web Portal', 'InnerCircle Backend', 'InnerCircle Mobile App'],
-      totalBilled: 'KES 18,500,000.00',
-      status: 'Live Production',
-      kraPin: 'P059988776A'
-    },
-    {
-      id: 'cli-003',
-      name: 'Seyani Brothers Executive',
-      company: 'Seyani Brothers & Co. (K) Ltd',
-      category: 'Construction & Engineering',
-      email: 'legal@seyani.com',
-      phone: '+254 722 000 999',
-      activeProjects: ['Karani Law & BillsZip ERP', 'Corporate Dispute Escrow'],
-      totalBilled: 'KES 31,072,493.28',
-      status: 'Active Retainer',
-      kraPin: 'P051239845B'
-    },
-    {
-      id: 'cli-004',
-      name: 'Dhanya Construction Directors',
-      company: 'Dhanya Construction Kenya Ltd',
-      category: 'Construction & Engineering',
-      email: 'dhanya.kenya@gmail.com',
-      phone: '+254 733 445 566',
-      activeProjects: ['Karani Law & BillsZip ERP'],
-      totalBilled: 'KES 4,210,930.59',
-      status: 'Active Retainer',
-      kraPin: 'P051876543C'
-    },
-    {
-      id: 'cli-005',
-      name: 'Riara Springs Admin',
-      company: 'Riara Group of Schools',
-      category: 'Institutional / Schools',
-      email: 'admin@riaraschools.ac.ke',
-      phone: '+254 720 334 455',
-      activeProjects: ['AI Data Analyst & Matta RAG Engine'],
-      totalBilled: 'KES 2,850,000.00',
-      status: 'Live Production',
-      kraPin: 'P052345678D'
+      monthlyRetainer: 'Milestone Retainer',
+      initialPaid: 'Milestone Structure',
+      currentMonthPaid: 'KES 0 (Stage 4 pending UAT)',
+      status: 'In Progress'
     }
   ]);
 
-  // Modals State
-  const [editingProject, setEditingProject] = useState<RealProject | null>(null);
+  // Founder Daily Priorities (Work vs Personal)
+  const [tasks, setTasks] = useState<FounderTask[]>([
+    {
+      id: 'tsk-01',
+      title: 'Karani Law ERP: Bills of Costs statutory calculations & Azure multi-container build',
+      category: 'work',
+      project: 'Karani Law & BillsZip ERP',
+      priority: 'high',
+      completed: false,
+      dueDate: 'Today, 17:00',
+      notes: 'Currently at 78% completion. Test Schedule 6 and getting-up fees.'
+    },
+    {
+      id: 'tsk-02',
+      title: 'Sayara Aesthetics: Verify automated Shein price markup rules and webhook triggers',
+      category: 'work',
+      project: 'Sayara Aesthetics Shein Python API',
+      priority: 'normal',
+      completed: false,
+      dueDate: 'Today, 19:30',
+      notes: 'Check Python worker queue and Sarah product margin formula.'
+    },
+    {
+      id: 'tsk-03',
+      title: 'CRITICAL ALERT: OdinBot cannot access I&M Bank API in razak-server/mirrors/api/kenyanbanks/IandM',
+      category: 'work',
+      project: 'OdinBot AI Assistant',
+      priority: 'critical',
+      completed: false,
+      dueDate: 'Urgent',
+      notes: 'Connection refused / Port 8082 unreachable. Restart local mirror daemon.'
+    },
+    {
+      id: 'tsk-04',
+      title: 'Fresh City POS: Test thermal receipt auto-cut & daily cash-drawer batch ledger',
+      category: 'work',
+      project: 'Fresh City Supermarket POS',
+      priority: 'normal',
+      completed: true,
+      dueDate: 'Yesterday',
+      notes: 'Rosemary terminal operational and printing cleanly.'
+    },
+    {
+      id: 'tsk-05',
+      title: 'Distributed Systems Coursework: Complete Consensus Algorithms Assignment 3',
+      category: 'personal',
+      priority: 'high',
+      completed: false,
+      dueDate: 'Friday, 23:59',
+      notes: 'Raft consensus implementation and fault-tolerance write-up.'
+    },
+    {
+      id: 'tsk-06',
+      title: 'Software Architecture University Project: Prepare slides for microservices review',
+      category: 'personal',
+      priority: 'normal',
+      completed: false,
+      dueDate: 'Thursday, 14:00',
+      notes: 'Cover FastAPI + Docker multi-container design.'
+    },
+    {
+      id: 'tsk-07',
+      title: 'Review Python asyncio & event loop concurrency lecture notes',
+      category: 'personal',
+      priority: 'normal',
+      completed: true,
+      dueDate: 'Completed',
+      notes: 'Reviewed thread pools and coroutines.'
+    },
+    {
+      id: 'tsk-08',
+      title: 'Biftu Construction Marsabit workstation backup & Starlink router check',
+      category: 'personal',
+      priority: 'normal',
+      completed: false,
+      dueDate: 'This Weekend',
+      notes: 'Verify Marsabit secondary LTE failover gateway.'
+    }
+  ]);
+
+  // Education & Coursework Data
+  const [coursework] = useState([
+    { id: 'cw-1', subject: 'Distributed Systems', title: 'Assignment 3: Consensus & Partitioning', deadline: 'In 3 days', status: 'In Progress', marks: 'Pending' },
+    { id: 'cw-2', subject: 'Database Systems', title: 'Lab 4: B-Tree Indexing & Query Optimizations', deadline: 'Completed', status: 'Submitted', marks: '92 / 100' },
+    { id: 'cw-3', subject: 'Software Engineering', title: 'Milestone 2: Architecture & Specification', deadline: 'Submitted', status: 'Graded', marks: '88 / 100' },
+    { id: 'cw-4', subject: 'Compiler Design', title: 'Lexical Analyzer & AST Parser in Python', deadline: 'Nov 8', status: 'Not Started', marks: 'Pending' }
+  ]);
+
+  const [readingPdfs] = useState([
+    { title: 'Distributed Systems: Concepts and Design (Coulouris).pdf', pages: '942 pp', category: 'Distributed Computing' },
+    { title: 'FastAPI High-Performance Production Microservices.pdf', pages: '310 pp', category: 'Backend Architecture' },
+    { title: 'PostgreSQL Internals & Query Planning Handbook.pdf', pages: '450 pp', category: 'Database Systems' },
+    { title: 'Kenya Law Advocates Remuneration Order L.N. 35 2014.pdf', pages: '128 pp', category: 'Statutory Law' }
+  ]);
+
+  // Razak-Server Daemon Processes
+  const [serverDaemons] = useState([
+    { pid: 1024, name: 'fastapi-backend', port: 8000, cpu: '1.2%', memory: '180 MB', uptime: '18d 07h', status: 'Running' },
+    { pid: 1088, name: 'vite-frontend', port: 3000, cpu: '0.4%', memory: '95 MB', uptime: '18d 07h', status: 'Running' },
+    { pid: 2042, name: 'sayara-shein-daemon', port: 8040, cpu: '2.1%', memory: '210 MB', uptime: '14d 12h', status: 'Running' },
+    { pid: 3012, name: 'odinbot-core-agent', port: 8080, cpu: '5.8%', memory: '450 MB', uptime: '3d 04h', status: 'Degraded' },
+    { pid: 4099, name: 'postgresql-pool', port: 5432, cpu: '1.0%', memory: '320 MB', uptime: '18d 07h', status: 'Running' },
+    { pid: 5001, name: 'nginx-ingress-proxy', port: '80 / 443', cpu: '0.2%', memory: '45 MB', uptime: '18d 07h', status: 'Running' }
+  ]);
+
+  const [mirrorApis] = useState([
+    { endpoint: 'razak-server/mirrors/api/kenyanbanks/IandM', protocol: 'REST / JSON', port: 8082, status: 'Offline (502 / Fix Needed)', latency: '—', alert: true },
+    { endpoint: 'razak-server/mirrors/api/mpesa_b2c', protocol: 'HTTPS / TLS', port: 8084, status: 'Active (200 OK)', latency: '18 ms', alert: false },
+    { endpoint: 'razak-server/mirrors/api/sms_gateway', protocol: 'HTTP / Webhook', port: 8086, status: 'Active (200 OK)', latency: '12 ms', alert: false }
+  ]);
+
+  // Recent Activity Log (From last week to yesterday)
+  const [recentActivities] = useState([
+    { id: 'act-1', actor: 'Guyo Halake', action: 'Pushed 4 commits to guyo-halake/karani_law (branch: update-4)', time: 'Yesterday, 18:40', tag: 'Git Commit' },
+    { id: 'act-2', actor: 'Sayara Shein API', action: 'Automated catalog sync completed (142 fashion items updated)', time: 'Yesterday, 14:15', tag: 'Python Cron' },
+    { id: 'act-3', actor: 'Rosemary Wakonyo', action: 'Fresh City POS closed daily cash-drawer and reconciled local register batch', time: 'Yesterday, 21:30', tag: 'Retail POS' },
+    { id: 'act-4', actor: 'Sarah Guyatu Rashid', action: 'Payment received: KES 3,200 for Sayara Aesthetics monthly maintenance & commission', time: '12 Oct, 11:20', tag: 'Payment' },
+    { id: 'act-5', actor: 'Azure CI/CD', action: 'Docker image built and pushed to acrnyagahfee.azurecr.io', time: '11 Oct, 16:05', tag: 'Azure ACR' },
+    { id: 'act-6', actor: 'razak-server', action: 'Alert: I&M Bank mirror connection timeout at razak-server/mirrors/api/kenyanbanks/IandM', time: '10 Oct, 09:12', tag: 'API Warning' }
+  ]);
+
+  // Modals for Adding Projects / Tasks / Payments
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
-  const [newProjectTitle, setNewProjectTitle] = useState('');
-  const [newProjectRepo, setNewProjectRepo] = useState('guyo-halake/');
-  const [newProjectClient, setNewProjectClient] = useState('Nyagah B. Kithinji & Co. Advocates');
-  const [newProjectCategory, setNewProjectCategory] = useState<RealProject['category']>('LegalTech SaaS');
-  const [newProjectMrr, setNewProjectMrr] = useState('KES 500,000 / mo');
+  const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [showLogPaymentModal, setShowLogPaymentModal] = useState(false);
 
-  const [editingClient, setEditingClient] = useState<ClientCRMRecord | null>(null);
-  const [showAddClientModal, setShowAddClientModal] = useState(false);
-  const [newClientName, setNewClientName] = useState('');
-  const [newClientCompany, setNewClientCompany] = useState('');
-  const [newClientCategory, setNewClientCategory] = useState<ClientCRMRecord['category']>('Law Firm');
-  const [newClientEmail, setNewClientEmail] = useState('');
-  const [newClientPhone, setNewClientPhone] = useState('+254 700 000 000');
-  const [newClientKra, setNewClientKra] = useState('P051123456Z');
+  // New Project Form
+  const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectClient, setNewProjectClient] = useState('');
+  const [newProjectCategory, setNewProjectCategory] = useState<RealProject['category']>('Retail & POS');
+  const [newProjectFee, setNewProjectFee] = useState('KES 3,500 / mo');
 
-  // User Management Modals
-  const [roleTemplates] = useState(() => getLocalTemplates());
-  const [userRoleMap, setUserRoleMap] = useState<Record<string, string>>({});
-  const [selectedUserForPassword, setSelectedUserForPassword] = useState<SystemUser | null>(null);
-  const [newPasswordInput, setNewPasswordInput] = useState('');
-  const [showAddUserModal, setShowAddUserModal] = useState(false);
-  const [newUserName, setNewUserName] = useState('');
-  const [newUserEmail, setNewUserEmail] = useState('');
-  const [newUserPhone, setNewUserPhone] = useState('+254 700 000 000');
-  const [newUserLsk, setNewUserLsk] = useState('');
-  const [newUserPosition, setNewPosition] = useState('Senior Associate Advocate');
-  const [newUserRole, setNewUserRole] = useState('senior_advocates_lawyers');
-  const [newUserPassword, setNewUserPassword] = useState('lawyer123');
+  // New Task Form
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskCategory, setNewTaskCategory] = useState<'work' | 'personal'>('work');
+  const [newTaskPriority, setNewTaskPriority] = useState<FounderTask['priority']>('normal');
+
+  // Log Payment Form
+  const [paymentClient, setPaymentClient] = useState('Sarah Guyatu Rashid (Sayara Aesthetics)');
+  const [paymentAmount, setPaymentAmount] = useState('3200');
+  const [paymentNote, setPaymentNote] = useState('Sayara Aesthetics maintenance & commission');
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Load firm users & health check
-  const refreshFirmData = async () => {
-    try {
-      const loadedUsers = await fetchFirmUsers('firm-001');
-      if (loadedUsers && loadedUsers.length > 0) {
-        setUsers(loadedUsers);
-      }
-    } catch (e) {}
-
-    setFeeNotes(getFeeNotes());
-    setActivityLogs(getActivityLogs());
-
-    const startTime = performance.now();
-    try {
-      await fetch('http://localhost:8000/docs', { method: 'HEAD', mode: 'no-cors' });
-      const latency = Math.round(performance.now() - startTime);
-      setApiLatency(latency || 28);
-      setIsBackendHealthy(true);
-    } catch (e) {
-      setIsBackendHealthy(true);
-      setApiLatency(35);
-    }
-    setIsDatabaseHealthy(true);
-    setLastHealthCheck(new Date().toLocaleTimeString());
+  const toggleTask = (id: string) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
+    showToast('Task updated.');
   };
 
-  useEffect(() => {
-    void refreshFirmData();
-
-    const handleFeeNotes = () => setFeeNotes(getFeeNotes());
-    const handleActivity = () => setActivityLogs(getActivityLogs());
-    const handleUsers = () => void refreshFirmData();
-
-    window.addEventListener('feeNotesUpdated', handleFeeNotes);
-    window.addEventListener('activityLogsUpdated', handleActivity);
-    window.addEventListener('databaseRealtimeUpdate', handleUsers);
-
-    return () => {
-      window.removeEventListener('feeNotesUpdated', handleFeeNotes);
-      window.removeEventListener('activityLogsUpdated', handleActivity);
-      window.removeEventListener('databaseRealtimeUpdate', handleUsers);
+  const handleAddProject = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProjectName.trim()) return;
+    const newPrj: RealProject = {
+      id: 'prj-' + Date.now(),
+      name: newProjectName.trim(),
+      repo: `guyo-halake/${newProjectName.toLowerCase().replace(/\s+/g, '-')}`,
+      githubUrl: 'https://github.com/guyo-halake',
+      liveUrl: 'Staging / In Development',
+      client: newProjectClient.trim() || 'Direct Client',
+      clientPhone: '+254 700 000 000',
+      clientEmail: 'client@p3ldev.com',
+      lead: 'Guyoh Halake',
+      category: newProjectCategory,
+      status: 'In Development (78%)',
+      contractType: 'SoftwareRetainer',
+      monthlyFee: newProjectFee.trim() || 'KES 3,500 / mo',
+      initialPaid: 'KES 0',
+      nextMilestone: 'Initial prototype and requirements baseline',
+      progress: 25,
+      health: 'Active Development',
+      techStack: ['TypeScript', 'FastAPI'],
+      tasks: ['Define project scope', 'Initialize Git repository', 'Configure local environment']
     };
-  }, []);
+    setProjects([newPrj, ...projects]);
+    setShowAddProjectModal(false);
+    setNewProjectName('');
+    setNewProjectClient('');
+    showToast(`Project "${newPrj.name}" registered to fleet.`);
+  };
 
-  // Quick Stats Computations
-  const totalBilled = feeNotes.reduce((sum, fn) => sum + (fn.grandTotal || 0), 0);
-  const approvedFeeNotes = feeNotes.filter(fn => fn.status === 'processed');
-  const totalApproved = approvedFeeNotes.reduce((sum, fn) => sum + (fn.grandTotal || 0), 0);
+  const handleAddTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTaskTitle.trim()) return;
+    const newTask: FounderTask = {
+      id: 'tsk-' + Date.now(),
+      title: newTaskTitle.trim(),
+      category: newTaskCategory,
+      priority: newTaskPriority,
+      completed: false,
+      dueDate: 'Today'
+    };
+    setTasks([newTask, ...tasks]);
+    setShowAddTaskModal(false);
+    setNewTaskTitle('');
+    showToast('Task added to priority queue.');
+  };
 
-  // Kill Switch
+  const handleLogPayment = (e: React.FormEvent) => {
+    e.preventDefault();
+    showToast(`Payment of KES ${Number(paymentAmount).toLocaleString()} logged from ${paymentClient}.`);
+    setShowLogPaymentModal(false);
+  };
+
   const toggleMaintenance = () => {
     const next = !isMaintenanceMode;
     setIsMaintenanceMode(next);
     localStorage.setItem('BILLSZIP_MAINTENANCE_MODE', String(next));
     window.dispatchEvent(new CustomEvent('maintenanceModeChanged', { detail: next }));
-    logSystemActivity('P3L Founder', `${next ? 'Activated' : 'Deactivated'} platform emergency maintenance mode`, 'settings', 'bg-red-500');
-    showToast(next ? 'Emergency Read-Only Mode Activated.' : 'Platform restored to full operational status.');
+    showToast(next ? 'Emergency Read-Only Mode Activated.' : 'Platform restored to active state.');
   };
 
-  // Add Project Handler
-  const handleAddProject = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newProjectTitle.trim()) return;
-
-    const newPrj: RealProject = {
-      id: 'prj-' + Date.now(),
-      name: newProjectTitle.trim(),
-      repo: newProjectRepo.trim(),
-      githubUrl: `https://github.com/${newProjectRepo.trim()}`,
-      liveUrl: 'https://vercel.app',
-      client: newProjectClient,
-      lead: 'Guyoh Alake',
-      category: newProjectCategory,
-      status: 'Active Development',
-      techStack: ['TypeScript', 'Python', 'FastAPI'],
-      mrr: newProjectMrr,
-      progress: 50,
-      health: '200 OK (35ms)'
-    };
-
-    setProjects([newPrj, ...projects]);
-    setShowAddProjectModal(false);
-    setNewProjectTitle('');
-    showToast(`Project "${newPrj.name}" registered to dashboard.`);
-  };
-
-  // Delete Project Handler
-  const handleDeleteProject = (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to remove project "${name}"?`)) {
-      setProjects(projects.filter(p => p.id !== id));
-      showToast(`Project "${name}" removed.`);
-    }
-  };
-
-  // Save Edit Project
-  const handleSaveEditProject = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingProject) return;
-
-    setProjects(projects.map(p => p.id === editingProject.id ? editingProject : p));
-    setEditingProject(null);
-    showToast(`Updated "${editingProject.name}".`);
-  };
-
-  // Add Client Handler
-  const handleAddClient = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newClientName.trim() || !newClientCompany.trim()) return;
-
-    const newCli: ClientCRMRecord = {
-      id: 'cli-' + Date.now(),
-      name: newClientName.trim(),
-      company: newClientCompany.trim(),
-      category: newClientCategory,
-      email: newClientEmail.trim(),
-      phone: newClientPhone.trim(),
-      activeProjects: ['Custom Implementation'],
-      totalBilled: 'KES 0.00',
-      status: 'Onboarding',
-      kraPin: newClientKra.trim()
-    };
-
-    setClients([newCli, ...clients]);
-    setShowAddClientModal(false);
-    setNewClientName('');
-    setNewClientCompany('');
-    setNewClientEmail('');
-    showToast(`Client account "${newCli.company}" created.`);
-  };
-
-  // Delete Client Handler
-  const handleDeleteClient = (id: string, company: string) => {
-    if (window.confirm(`Delete client record for "${company}"?`)) {
-      setClients(clients.filter(c => c.id !== id));
-      showToast(`Client "${company}" deleted.`);
-    }
-  };
-
-  // Save Edit Client
-  const handleSaveEditClient = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingClient) return;
-
-    setClients(clients.map(c => c.id === editingClient.id ? editingClient : c));
-    setEditingClient(null);
-    showToast(`Updated client dossier for "${editingClient.company}".`);
-  };
-
-  // User Add Handler
-  const handleAddUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newUserName.trim() || !newUserEmail.trim()) return;
-
-    try {
-      const created = await createFirmUser('firm-001', {
-        fullName: newUserName.trim(),
-        advocateTitle: `Adv. ${newUserName.trim()}`,
-        workEmail: newUserEmail.trim(),
-        personalEmail: newUserEmail.trim(),
-        phonePrimary: newUserPhone.trim(),
-        lskNo: newUserLsk.trim() || 'P.105/' + Math.floor(1000 + Math.random() * 9000),
-        role: newUserRole === 'developer_sys_admin' ? 'Developer' : newUserRole === 'managing_partner_exec' ? 'Admin' : 'Advocate',
-        position: newUserPosition.trim(),
-        passwordHash: newUserPassword.trim() || 'lawyer123',
-        hasAllPermissions: newUserRole === 'developer_sys_admin' || newUserRole === 'managing_partner_exec'
-      });
-
-      const targetTpl = roleTemplates.find(t => t.code === newUserRole);
-      if (targetTpl) {
-        await assignRoleToUser(created.id, targetTpl.id);
-      }
-
-      setUsers(prev => [created, ...prev.filter(u => u.id !== created.id)]);
-      showToast(`User ${newUserName} added to system.`);
-      setShowAddUserModal(false);
-      setNewUserName('');
-      setNewUserEmail('');
-    } catch (err: any) {
-      showToast('User saved to database.');
-      setShowAddUserModal(false);
-    }
-  };
-
-  // Password Reset Handler
-  const handleResetPassword = async () => {
-    if (!selectedUserForPassword || !newPasswordInput) return;
-    try {
-      const updated = { ...selectedUserForPassword, passwordHash: newPasswordInput };
-      await updateFirmUser('firm-001', updated);
-      showToast(`Password updated for ${selectedUserForPassword.fullName}.`);
-      setSelectedUserForPassword(null);
-      setNewPasswordInput('');
-    } catch (e) {
-      showToast('Password reset complete.');
-      setSelectedUserForPassword(null);
-    }
-  };
-
-  // Full Master Backup Export
   const handleExportBackup = () => {
     const backup = {
       timestamp: new Date().toISOString(),
-      platform: 'P3L Developers Internal Command System',
-      founder: 'Guyoh Alake',
-      githubOrg: 'github.com/guyo-halake',
-      projectsCount: projects.length,
-      projects: projects,
-      clientsCount: clients.length,
-      clients: clients,
-      usersCount: users.length,
-      users: users,
-      feeNotesCount: feeNotes.length,
-      feeNotes: feeNotes,
-      matters: EXACT_MATTERS,
-      auditLogs: activityLogs
+      organization: 'P3L Developers (subsidiary Biftu Construction Company, Marsabit)',
+      founder: 'Guyoh Halake',
+      server: 'razak-server',
+      station: 'Marsabit County, Kenya',
+      revenue: { thisMonth: 8000, last6Months: 43000, sarahPayment: 3200 },
+      projects,
+      clients,
+      tasks,
+      coursework,
+      serverDaemons,
+      mirrorApis
     };
-
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `p3l_master_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `p3l_developers_master_snapshot_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast('Full P3L Master JSON Snapshot Exported.');
+    showToast('Full P3L Master Snapshot Exported.');
   };
 
-  // Flush System Cache
-  const handleFlushCache = () => {
-    localStorage.removeItem('BILLSZIP_CACHE');
-    sessionStorage.clear();
-    showToast('System cache, vector buffers & session memory cleared.');
-  };
-
-  // Filtered Users
-  const filteredUsers = users.filter(u => {
-    const matchesSearch = !userSearch || 
-      u.fullName.toLowerCase().includes(userSearch.toLowerCase()) || 
-      u.workEmail.toLowerCase().includes(userSearch.toLowerCase()) ||
-      (u.lskNo && u.lskNo.toLowerCase().includes(userSearch.toLowerCase()));
-    const matchesRole = userRoleFilter === 'all' || u.role === userRoleFilter;
-    return matchesSearch && matchesRole;
-  });
-
-  // The 11 Authoritative Sidebar Nav Items
+  // The 11 Authoritative Sidebar Hubs
   const navItems: Array<{ id: AdminTab; label: string; icon: any; count?: number; badge?: string }> = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'projects_clients', label: 'Projects & Clients', icon: Briefcase, count: projects.length },
-    { id: 'users_rbac', label: 'Users & RBAC', icon: Users, count: users.length },
-    { id: 'finance_billing', label: 'Finance & Billing', icon: DollarSign, badge: 'KES 35.8M' },
-    { id: 'ai_infra', label: 'AI & Infra', icon: Bot, badge: 'Matta RAG' },
-    { id: 'career_education', label: 'Career & Education', icon: GraduationCap },
-    { id: 'internal_staff', label: 'Internal Staff', icon: UserCheck },
-    { id: 'comms_messaging', label: 'Communication & Messaging', icon: MessageSquare },
-    { id: 'server', label: 'Server', icon: Cpu, badge: isBackendHealthy ? 'Online' : 'Warning' },
+    { id: 'users_rbac', label: 'Users & RBAC', icon: Users, count: 5 },
+    { id: 'finance_billing', label: 'Finance & Billing', icon: DollarSign, badge: 'KES 8,000' },
+    { id: 'ai_infra', label: 'AI & Infrastructure', icon: Bot, badge: 'OdinBot' },
+    { id: 'career_education', label: 'Career & Education', icon: GraduationCap, count: 4 },
+    { id: 'internal_staff', label: 'Internal P3L Staff', icon: UserCheck, count: 3 },
+    { id: 'comms_messaging', label: 'Messaging', icon: MessageSquare },
+    { id: 'server', label: 'Razak Server', icon: Cpu, badge: '7 ms' },
     { id: 'support_ticketing', label: 'Support & Ticketing', icon: HelpCircle },
-    { id: 'system_wipe', label: 'System Wipe & Backups', icon: Settings },
+    { id: 'system_wipe', label: 'System Wipes', icon: Settings },
   ];
 
   return (
@@ -555,32 +592,47 @@ export const AdminDashboard: React.FC = () => {
       
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-6 right-6 z-50 p-4 rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xl flex items-center gap-2.5 text-xs font-semibold animate-fadeIn border border-white/10">
+        <div className="fixed top-6 right-6 z-50 p-3.5 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xl flex items-center gap-2.5 text-xs font-semibold animate-fadeIn border border-white/10">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Sidebar with 11 Authoritative Hubs */}
-      <aside className="w-64 flex flex-col py-5 px-3 border-r border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs z-20 shrink-0">
+      {/* ========================================================================= */}
+      {/* SIDEBAR: ALL 11 AUTHORITATIVE WORKSPACES */}
+      {/* ========================================================================= */}
+      <aside className="w-64 flex flex-col py-4 px-3 border-r border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs z-20 shrink-0">
         
-        {/* Brand Header */}
-        <div className="px-3 pb-4 mb-2 border-b border-slate-100 dark:border-zinc-800/80 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center font-brand font-black text-xs shadow-xs">
-              P3L
+        {/* Brand Header with Logo */}
+        <div className="px-2 pb-3.5 mb-2 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-zinc-700 shrink-0">
+              <img 
+                src="/p3l_logo_nobg.png" 
+                alt="P3L" 
+                className="w-full h-full object-contain p-0.5"
+                onError={(e) => {
+                  // Fallback to text initials if image path fails
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+              <span className="font-brand font-black text-xs text-slate-900 dark:text-white" style={{ display: 'none' }}>P3L</span>
             </div>
-            <div>
-              <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight font-brand">P3L Internal OS</p>
-              <p className="text-[10px] text-slate-400 font-mono">github.com/guyo-halake</p>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight font-brand truncate">
+                P3L Developers
+              </p>
+              <p className="text-[9.5px] text-slate-400 dark:text-zinc-400 font-mono truncate leading-tight mt-0.5">
+                subsidiary Biftu Construction Company, Marsabit
+              </p>
             </div>
           </div>
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" title="Systems Nominal"></span>
+          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse" title="System Online"></span>
         </div>
 
         {/* Navigation Tabs (All 11 Exact Hubs) */}
         <div className="flex flex-col gap-1 flex-1 w-full overflow-y-auto pr-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 px-3 py-1 font-mono">
+          <span className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 px-3 py-1 font-mono">
             Company Pillars
           </span>
           {navItems.map((nav) => {
@@ -590,7 +642,7 @@ export const AdminDashboard: React.FC = () => {
               <button 
                 key={nav.id}
                 onClick={() => setActiveTab(nav.id)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   isActive 
                     ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs font-bold' 
                     : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800/60'
@@ -619,927 +671,1004 @@ export const AdminDashboard: React.FC = () => {
           })}
         </div>
 
-        {/* Bottom Fast Telemetry */}
+        {/* Sidebar Footer: Marsabit Node Status */}
         <div className="mt-auto pt-3 border-t border-slate-100 dark:border-zinc-800 space-y-2">
           <div className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200/60 dark:border-zinc-700/50 flex items-center justify-between text-[10.5px] font-mono">
-            <span className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-zinc-300">
+            <span className="flex items-center gap-1.5 text-slate-600 dark:text-zinc-400">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              FastAPI & GitHub Cluster
+              razak-server
             </span>
             <span className="text-slate-900 dark:text-white font-bold">{apiLatency} ms</span>
           </div>
 
           <button 
             onClick={() => window.location.href = '/'}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-xl transition-colors cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-900 dark:text-white rounded-xl transition-colors cursor-pointer"
           >
             <ArrowUpRight className="w-3.5 h-3.5" />
-            <span>Launch Public App Portal</span>
+            <span>Karani Law Portal</span>
           </button>
         </div>
       </aside>
 
-      {/* Main Content Workspace */}
+      {/* ========================================================================= */}
+      {/* MAIN CONTENT WORKSPACE */}
+      {/* ========================================================================= */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         
-        {/* Top Command Header */}
-        <header className="px-8 py-3.5 w-full flex justify-between items-center border-b border-slate-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md z-10 sticky top-0">
-          <div className="flex items-center gap-3.5">
-            <div className="flex flex-col">
-              <span className="text-sm font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2 font-brand">
-                P3L DEVELOPERS &middot; INTERNAL HQ COMMAND
-                <span className="px-2 py-0.5 rounded text-[9.5px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                  7 GITHUB REPOS ACTIVE
+        {/* Top Command Bar */}
+        <header className="px-8 py-3.5 w-full flex justify-between items-center border-b border-slate-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md z-10 sticky top-0">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-zinc-700">
+                <img src="/p3l_logo_nobg.png" alt="P3L" className="w-full h-full object-contain p-0.5" />
+              </div>
+              <div>
+                <span className="text-sm font-black tracking-tight text-slate-900 dark:text-white font-brand block leading-tight">
+                  P3L Developers
                 </span>
-              </span>
-              <span className="text-[10px] text-slate-500 dark:text-zinc-400 font-mono tracking-wider uppercase mt-0.5">
-                karani_law &middot; Inner-Circle (Web, Backend, App) &middot; AI-Data-Analyst &middot; cv-object-human &middot; IoT-playground
-              </span>
+                <span className="text-[10px] text-slate-500 dark:text-zinc-400 font-mono block leading-tight">
+                  subsidiary Biftu Construction Company, Marsabit
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Search Bar */}
+            <div className="relative hidden md:block w-72">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+              <input 
+                type="text"
+                placeholder="Search repos, clients, tasks (Ctrl+K)..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs focus:outline-none focus:border-slate-400"
+              />
             </div>
           </div>
 
           <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2 font-mono text-xs">
+              <span className="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300">
+                Branch: <strong>update-4</strong>
+              </span>
+              <span className="px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-semibold">
+                razak-server: 7ms
+              </span>
+            </div>
+
             <button
-              onClick={handleExportBackup}
-              className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 hover:bg-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
-              title="Export complete database JSON backup"
+              onClick={() => showToast('No unread server alerts.')}
+              className="p-2 rounded-xl text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+              title="Notifications"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span>Full Master Snapshot</span>
+              <Bell className="w-4 h-4" />
             </button>
 
             <button
-              onClick={toggleMaintenance}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs ${
-                isMaintenanceMode 
-                  ? 'bg-red-600 text-white hover:bg-red-700 animate-pulse' 
-                  : 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 hover:bg-black'
-              }`}
+              onClick={() => window.location.href = '/'}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-black flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
-              <Power className="w-3.5 h-3.5" />
-              <span>{isMaintenanceMode ? 'Maintenance Mode Active' : 'Emergency Kill-Switch'}</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+              <span>Launch Karani Portal</span>
             </button>
           </div>
         </header>
 
-        {/* Tab Content Display */}
+        {/* Scrollable Work Canvas */}
         <main className="flex-1 overflow-y-auto px-8 py-6 pb-20">
           <div className="max-w-7xl mx-auto space-y-6">
 
             {/* ========================================================================= */}
-            {/* 1. DASHBOARD OVERVIEW WITH RESTORED MAP */}
+            {/* WELCOME SECTION & ACTION BAR */}
+            {/* ========================================================================= */}
+            <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white font-brand">
+                  Hey Guyo, welcome to P3L Developers Command
+                </h1>
+                <p className="text-xs text-slate-500 dark:text-zinc-400">
+                  Marsabit County Operations Node &middot; Live Fleet &middot; Sayara Aesthetics, Fresh City POS, Karani Law & OdinBot
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setShowAddProjectModal(true)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-black flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Project</span>
+                </button>
+
+                <button
+                  onClick={() => setShowAddTaskModal(true)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 hover:bg-slate-200 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Task</span>
+                </button>
+
+                <button
+                  onClick={() => setShowLogPaymentModal(true)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 hover:bg-slate-200 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <DollarSign className="w-3.5 h-3.5" />
+                  <span>Log Payment</span>
+                </button>
+
+                <button
+                  onClick={handleExportBackup}
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 hover:bg-slate-200 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  title="Export full JSON master backup"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Master Snapshot</span>
+                </button>
+
+                <button
+                  onClick={toggleMaintenance}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                    isMaintenanceMode ? 'bg-red-600 text-white animate-pulse' : 'bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-300'
+                  }`}
+                >
+                  <Power className="w-3.5 h-3.5" />
+                  <span>{isMaintenanceMode ? 'Kill-Switch Active' : 'Kill-Switch'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* ========================================================================= */}
+            {/* 1. DASHBOARD VIEW: TOP 3 CORE FOUNDER CARDS */}
             {/* ========================================================================= */}
             {activeTab === 'dashboard' && (
-              <div className="space-y-6">
+              <div className="space-y-6 animate-fadeIn">
                 
-                {/* 4 Fleet Stat Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-1">
-                    <span className="text-[10.5px] font-mono text-slate-400 uppercase tracking-wider block">Consolidated MRR</span>
-                    <p className="text-2xl font-black font-mono text-slate-900 dark:text-white">
-                      KES 4.90M
-                    </p>
-                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                      <TrendingUp className="w-3 h-3" /> 7 Active GitHub Projects
-                    </span>
-                  </div>
-
-                  <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-1">
-                    <span className="text-[10.5px] font-mono text-slate-400 uppercase tracking-wider block">Enterprise Clients</span>
-                    <p className="text-2xl font-black font-mono text-slate-900 dark:text-white">
-                      {clients.length} Accounts
-                    </p>
-                    <span className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold">
-                      Law Firms & Fintech
-                    </span>
-                  </div>
-
-                  <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-1">
-                    <span className="text-[10.5px] font-mono text-slate-400 uppercase tracking-wider block">AI Data & CV Queries</span>
-                    <p className="text-2xl font-black font-mono text-slate-900 dark:text-white">
-                      384,920
-                    </p>
-                    <span className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold">
-                      AI-Data-Analyst & Vision
-                    </span>
-                  </div>
-
-                  <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-1">
-                    <span className="text-[10.5px] font-mono text-slate-400 uppercase tracking-wider block">Legal Fee Volume</span>
-                    <p className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400">
-                      KES 35.8M
-                    </p>
-                    <span className="text-[11px] text-slate-500 font-mono">
-                      Nyagah Advocates Bills
-                    </span>
-                  </div>
-                </div>
-
-                {/* Split: Live Audit Log & Embedded Office Location Map */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* 3 Vital Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   
-                  {/* Left 2 Cols: Live Activity Feed */}
-                  <div className="lg:col-span-2 p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-4">
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
-                      <div className="flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-blue-600" />
-                        <h3 className="font-brand font-bold text-sm text-slate-900 dark:text-white">P3L Fleet Live Activity & Audit Trail</h3>
+                  {/* CARD 1: REVENUE & CASHFLOW WITH PERIOD SWITCHER */}
+                  <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between space-y-4">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10.5px] font-mono text-slate-400 uppercase tracking-wider block font-bold">
+                          Cashflow & Revenue
+                        </span>
+                        {/* Period Switcher */}
+                        <div className="flex items-center p-0.5 bg-slate-100 dark:bg-zinc-800 rounded-lg text-[10px] font-mono">
+                          <button
+                            onClick={() => setRevenuePeriod('this_month')}
+                            className={`px-2 py-0.5 rounded cursor-pointer ${revenuePeriod === 'this_month' ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white font-bold shadow-xs' : 'text-slate-500'}`}
+                          >
+                            This Month
+                          </button>
+                          <button
+                            onClick={() => setRevenuePeriod('last_6_months')}
+                            className={`px-2 py-0.5 rounded cursor-pointer ${revenuePeriod === 'last_6_months' ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white font-bold shadow-xs' : 'text-slate-500'}`}
+                          >
+                            Last 6 Mo
+                          </button>
+                          <button
+                            onClick={() => setRevenuePeriod('this_year')}
+                            className={`px-2 py-0.5 rounded cursor-pointer ${revenuePeriod === 'this_year' ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white font-bold shadow-xs' : 'text-slate-500'}`}
+                          >
+                            This Year
+                          </button>
+                        </div>
                       </div>
-                      <span className="text-[10px] font-mono text-slate-400">Real-time triggers across GitHub repos</span>
+
+                      {/* Dynamic Figure */}
+                      <div className="mt-1">
+                        <p className="text-2xl font-black font-mono text-slate-900 dark:text-white">
+                          {revenuePeriod === 'this_month' ? 'KES 8,000' : revenuePeriod === 'last_6_months' ? 'KES 43,000' : 'KES 85,000'}
+                        </p>
+                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
+                          {revenuePeriod === 'this_month' 
+                            ? 'KES 3,200 received from Sarah Rashid (Sayara) + KES 4,800 other sources' 
+                            : revenuePeriod === 'last_6_months'
+                            ? '6-Month client settlements & POS license disbursements'
+                            : 'Annual startup revenue across client accounts'}
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="divide-y divide-slate-100 dark:divide-zinc-800 font-sans text-xs">
-                      {activityLogs.slice(0, 5).map((log) => (
-                        <div key={log.id} className="py-3 flex items-start justify-between gap-3">
-                          <div className="flex items-start gap-2.5 min-w-0">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 mt-1.5 shrink-0"></span>
-                            <div className="min-w-0">
-                              <p className="font-semibold text-slate-900 dark:text-white truncate">
-                                {log.advocateName}
-                              </p>
-                              <p className="text-slate-500 dark:text-zinc-400 text-[11px] mt-0.5">
-                                {log.action}
-                              </p>
+                    {/* Breakdown list */}
+                    <div className="pt-3 border-t border-slate-100 dark:border-zinc-800/80 space-y-1.5 text-[11px] font-mono">
+                      <div className="flex justify-between text-slate-600 dark:text-zinc-400">
+                        <span>Fresh City POS Retainer:</span>
+                        <span className="font-bold text-slate-900 dark:text-white">KES 3,500/mo (Setup 32k paid)</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600 dark:text-zinc-400">
+                        <span>Sayara Aesthetics:</span>
+                        <span className="font-bold text-slate-900 dark:text-white">% Comm. (Setup 10k paid)</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600 dark:text-zinc-400">
+                        <span>Karani Law ERP:</span>
+                        <span className="font-bold text-slate-900 dark:text-white">Milestone In Progress</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CARD 2: LIVE SERVICES & VERCEL CLOUD DEPLOYMENTS */}
+                  <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between space-y-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10.5px] font-mono text-slate-400 uppercase tracking-wider block font-bold">
+                          Live Deployments (Top 3)
+                        </span>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800">
+                          3 Running
+                        </span>
+                      </div>
+
+                      <div className="space-y-2.5">
+                        {/* 1. Sayara Vercel */}
+                        <div 
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            setSelectedDeployment(projects[1]);
+                            setDeploymentMenuPos({ x: e.clientX, y: e.clientY });
+                            setShowDeploymentMenu(true);
+                          }}
+                          className="p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 flex items-center justify-between hover:border-slate-400 cursor-pointer transition-all"
+                          title="Right-click for options menu"
+                        >
+                          <div>
+                            <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                              Sayara Aesthetics Storefront
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              sayara-aesthetics.vercel.app &middot; 24ms
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white dark:bg-zinc-900 font-bold text-emerald-600 border border-slate-200 dark:border-zinc-700">
+                            200 OK
+                          </span>
+                        </div>
+
+                        {/* 2. Sayara Shein API */}
+                        <div 
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            setSelectedDeployment(projects[2]);
+                            setDeploymentMenuPos({ x: e.clientX, y: e.clientY });
+                            setShowDeploymentMenu(true);
+                          }}
+                          className="p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 flex items-center justify-between hover:border-slate-400 cursor-pointer transition-all"
+                          title="Right-click for options menu"
+                        >
+                          <div>
+                            <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                              Sayara Shein Python Sync API
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              api.sayara.p3ldev.com &middot; Port 8040
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white dark:bg-zinc-900 font-bold text-emerald-600 border border-slate-200 dark:border-zinc-700">
+                            Daemon
+                          </span>
+                        </div>
+
+                        {/* 3. Fresh City POS */}
+                        <div 
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            setSelectedDeployment(projects[0]);
+                            setDeploymentMenuPos({ x: e.clientX, y: e.clientY });
+                            setShowDeploymentMenu(true);
+                          }}
+                          className="p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 flex items-center justify-between hover:border-slate-400 cursor-pointer transition-all"
+                          title="Right-click for options menu"
+                        >
+                          <div>
+                            <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                              Fresh City Supermarket POS
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              Rosemary Terminal POS-01 (In Store)
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white dark:bg-zinc-900 font-bold text-emerald-600 border border-slate-200 dark:border-zinc-700">
+                            Active
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-slate-400 font-mono pt-1 text-center">
+                      Right-click any deployment card to inspect logs or restart
+                    </p>
+                  </div>
+
+                  {/* CARD 3: TODAY'S FOUNDER PRIORITIES (WORK VS PERSONAL) */}
+                  <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between space-y-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10.5px] font-mono text-slate-400 uppercase tracking-wider block font-bold">
+                          Today's Priorities
+                        </span>
+                        <div className="flex items-center p-0.5 bg-slate-100 dark:bg-zinc-800 rounded-lg text-[10px] font-mono">
+                          <button
+                            onClick={() => setTasksFilter('work')}
+                            className={`px-2 py-0.5 rounded cursor-pointer ${tasksFilter === 'work' ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white font-bold shadow-xs' : 'text-slate-500'}`}
+                          >
+                            Work
+                          </button>
+                          <button
+                            onClick={() => setTasksFilter('personal')}
+                            className={`px-2 py-0.5 rounded cursor-pointer ${tasksFilter === 'personal' ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white font-bold shadow-xs' : 'text-slate-500'}`}
+                          >
+                            Personal
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Work Tasks View */}
+                      {tasksFilter === 'work' ? (
+                        <div className="space-y-2.5">
+                          {/* Karani Law Progress Bar */}
+                          <div className="p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40 space-y-1.5">
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="font-bold text-slate-900 dark:text-white">Karani Law & BillsZip ERP</span>
+                              <span className="font-mono font-bold text-slate-900 dark:text-white">78%</span>
+                            </div>
+                            <div className="w-full bg-slate-200 dark:bg-zinc-700 h-2 rounded-full overflow-hidden">
+                              <div className="bg-slate-900 dark:bg-white h-full rounded-full transition-all" style={{ width: '78%' }}></div>
+                            </div>
+                            <span className="text-[10px] text-slate-500 dark:text-zinc-400 block font-mono">
+                              Milestone: Bills of Costs & Azure deployment sign-off
+                            </span>
+                          </div>
+
+                          {/* Sayara Pending Task */}
+                          <div 
+                            onClick={() => toggleTask('tsk-02')}
+                            className="p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-start gap-2 cursor-pointer hover:border-slate-400 transition-colors"
+                          >
+                            <input 
+                              type="checkbox" 
+                              checked={tasks.find(t => t.id === 'tsk-02')?.completed} 
+                              onChange={() => {}} 
+                              className="rounded w-3.5 h-3.5 mt-0.5 cursor-pointer" 
+                            />
+                            <div className="text-xs">
+                              <span className="font-semibold text-slate-900 dark:text-white block">
+                                Sayara: Verify Shein price markup rules & webhooks
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-mono">Due Today, 19:30</span>
                             </div>
                           </div>
-                          <span className="text-[10px] font-mono text-slate-400 shrink-0">
-                            {log.timeAgo}
-                          </span>
+
+                          {/* CRITICAL INCIDENT ERROR CARD */}
+                          <div className="p-2.5 rounded-xl border border-red-300 dark:border-red-900/60 bg-red-50/50 dark:bg-red-950/20 text-xs space-y-1">
+                            <span className="font-bold text-red-700 dark:text-red-400 block flex items-center gap-1 font-mono">
+                              <AlertOctagon className="w-3.5 h-3.5 text-red-600" />
+                              Critical API Gateway Incident
+                            </span>
+                            <p className="text-[11px] text-red-900 dark:text-red-300 font-mono">
+                              OdinBot cannot access I&M Bank mirror: <code>razak-server/mirrors/api/kenyanbanks/IandM</code> (502 Refused)
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Personal Tasks View */
+                        <div className="space-y-2">
+                          {tasks.filter(t => t.category === 'personal').map(t => (
+                            <div 
+                              key={t.id}
+                              onClick={() => toggleTask(t.id)}
+                              className={`p-2.5 rounded-xl border transition-colors flex items-start gap-2 cursor-pointer ${
+                                t.completed ? 'bg-slate-50 dark:bg-zinc-800/40 border-slate-200 dark:border-zinc-800 opacity-60' : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 hover:border-slate-400'
+                              }`}
+                            >
+                              <input 
+                                type="checkbox" 
+                                checked={t.completed} 
+                                onChange={() => {}} 
+                                className="rounded w-3.5 h-3.5 mt-0.5 cursor-pointer" 
+                              />
+                              <div className="text-xs">
+                                <span className={`font-semibold block ${t.completed ? 'line-through text-slate-500' : 'text-slate-900 dark:text-white'}`}>
+                                  {t.title}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-mono">{t.dueDate}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex justify-between items-center text-[10px] font-mono text-slate-400">
+                      <span>Completed: {tasks.filter(t => t.completed).length}/{tasks.length}</span>
+                      <button onClick={() => setShowAddTaskModal(true)} className="text-slate-900 dark:text-white font-bold hover:underline cursor-pointer">
+                        + Add Priority
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* COMPANION STRIP: RAZAK-SERVER TELEMETRY & RECENT STARTUP ACTIVITIES */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                  
+                  {/* Left: razak-server Live Ticker */}
+                  <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs flex flex-col justify-between space-y-3 font-mono">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800">
+                      <div className="flex items-center gap-2">
+                        <Cpu className="w-4 h-4 text-slate-700 dark:text-zinc-300" />
+                        <span className="font-bold text-xs text-slate-900 dark:text-white">razak-server</span>
+                      </div>
+                      <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded font-bold">
+                        7 ms Speed
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 text-xs">
+                      <div>
+                        <span className="text-[10px] text-slate-400 uppercase block">Running Uptime (Live Clock):</span>
+                        <span className="text-sm font-bold text-slate-900 dark:text-white">
+                          {formatUptime(uptimeSeconds)}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
+                        <div>
+                          <span className="text-[9.5px] text-slate-400 uppercase block">CPU Load:</span>
+                          <span className="font-bold text-slate-800 dark:text-zinc-200">14% (8 Cores)</span>
+                        </div>
+                        <div>
+                          <span className="text-[9.5px] text-slate-400 uppercase block">RAM Allocation:</span>
+                          <span className="font-bold text-slate-800 dark:text-zinc-200">1.8 GB / 8.0 GB</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex justify-between items-center text-[10px] text-slate-400">
+                      <span>Host: Marsabit Biftu Station</span>
+                      <button 
+                        onClick={() => setShowDiagnosticsModal(true)} 
+                        className="text-slate-900 dark:text-white font-bold hover:underline cursor-pointer"
+                      >
+                        Inspect Telemetry &rarr;
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Right 2 Cols: Startup Recent Activities (Last week to yesterday) */}
+                  <div className="lg:col-span-2 p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800">
+                      <div className="flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-slate-700 dark:text-zinc-300" />
+                        <h3 className="font-bold text-xs text-slate-900 dark:text-white font-brand">
+                          Startup Recent Activity & Releases
+                        </h3>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-400">Past 7 days across P3L projects</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {recentActivities.slice(0, 4).map(act => (
+                        <div key={act.id} className="flex items-center justify-between text-xs py-1 border-b border-slate-50 dark:border-zinc-800/40 last:border-0 font-mono">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 shrink-0">
+                              {act.tag}
+                            </span>
+                            <span className="truncate text-slate-700 dark:text-zinc-300">{act.action}</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 shrink-0 ml-3">{act.time}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Right Column: Restored Interactive Physical Location & Server Map */}
-                  <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-4 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-brand font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
-                          <MapPin className="w-4 h-4 text-red-500" /> Headquarters & Primary Cluster
-                        </h3>
-                        <span className="text-[9.5px] font-mono bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-2 py-0.5 rounded font-bold">
-                          Nairobi, KE
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mb-3">
-                        Upper Hill Financial District &middot; Mbaruk Road off Ngong Road
-                      </p>
-
-                      {/* Embedded Google Maps View */}
-                      <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-700 h-44 shadow-inner">
-                        <iframe
-                          title="P3L Headquarters & Server Location"
-                          src="https://maps.google.com/maps?q=-1.2985,36.8155&z=15&output=embed"
-                          width="100%"
-                          height="100%"
-                          style={{ border: 0 }}
-                          allowFullScreen={false}
-                          loading="lazy"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex justify-between items-center text-[10.5px] font-mono text-slate-500">
-                      <span>Server Latency: <strong className="text-slate-900 dark:text-white font-bold">{apiLatency} ms</strong></span>
-                      <span className="text-emerald-600 font-bold">GPS: -1.2985, 36.8155</span>
-                    </div>
-                  </div>
                 </div>
-              </div>
-            )}
 
-            {/* ========================================================================= */}
-            {/* 2. PROJECTS AND CLIENTS (CARDS + CRM TABLE) */}
-            {/* ========================================================================= */}
-            {activeTab === 'projects_clients' && (
-              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6">
-                
-                {/* Header & Sub-Nav Switcher */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-zinc-800">
-                  <div>
-                    <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
-                      Projects & Enterprise Clients Hub ({projects.length} Repos &middot; {clients.length} Clients)
-                    </h2>
-                    <p className="text-xs text-slate-500">
-                      Manage real GitHub repositories, live Vercel deployments, leads, and paying institutional client dossiers
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2.5">
-                    {/* View Switcher Tabs */}
-                    <div className="flex items-center p-1 bg-slate-100 dark:bg-zinc-800 rounded-xl">
+                {/* ========================================================================= */}
+                {/* BIG WORKSPACE CARD WITH 4 TABBED HUBS */}
+                {/* ========================================================================= */}
+                <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6">
+                  
+                  {/* Master Tab Bar */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-zinc-800">
+                    <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-zinc-800 rounded-xl">
                       <button
-                        onClick={() => setProjectsNavMode('projects_cards')}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1.5 ${
-                          projectsNavMode === 'projects_cards' ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-500'
+                        onClick={() => setWorkspaceTab('projects')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          workspaceTab === 'projects' ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-500'
                         }`}
                       >
-                        <Grid className="w-3.5 h-3.5" />
-                        <span>Project Cards ({projects.length})</span>
+                        <Briefcase className="w-3.5 h-3.5" />
+                        <span>Projects Status ({projects.length})</span>
                       </button>
+
                       <button
-                        onClick={() => setProjectsNavMode('clients_table')}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1.5 ${
-                          projectsNavMode === 'clients_table' ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-500'
+                        onClick={() => setWorkspaceTab('education')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          workspaceTab === 'education' ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-500'
+                        }`}
+                      >
+                        <GraduationCap className="w-3.5 h-3.5" />
+                        <span>Education & Skills</span>
+                      </button>
+
+                      <button
+                        onClick={() => setWorkspaceTab('server')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          workspaceTab === 'server' ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-500'
+                        }`}
+                      >
+                        <Server className="w-3.5 h-3.5" />
+                        <span>Razak Server</span>
+                      </button>
+
+                      <button
+                        onClick={() => setWorkspaceTab('users')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          workspaceTab === 'users' ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-xs' : 'text-slate-500'
                         }`}
                       >
                         <Users className="w-3.5 h-3.5" />
-                        <span>Clients CRM Table ({clients.length})</span>
+                        <span>Users Management</span>
                       </button>
                     </div>
 
-                    {projectsNavMode === 'projects_cards' ? (
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => setShowAddProjectModal(true)}
-                        className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-black flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+                        className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-black flex items-center gap-1.5 cursor-pointer shadow-xs"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>Add Project</span>
                       </button>
-                    ) : (
                       <button
-                        onClick={() => setShowAddClientModal(true)}
-                        className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-black flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+                        onClick={() => setShowAddTaskModal(true)}
+                        className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 hover:bg-slate-200 flex items-center gap-1.5 cursor-pointer shadow-xs"
                       >
-                        <UserPlus className="w-3.5 h-3.5" />
-                        <span>Add Client</span>
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Task</span>
                       </button>
-                    )}
+                    </div>
                   </div>
-                </div>
 
-                {/* MODE A: REAL GITHUB PROJECT CARDS GRID */}
-                {projectsNavMode === 'projects_cards' ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {projects.map((p) => (
-                      <div key={p.id} className="p-5 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs space-y-3.5 hover:border-blue-500/50 transition-colors flex flex-col justify-between">
-                        <div className="space-y-2.5">
-                          {/* Top Row: Category + Health Badge */}
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 font-bold">
-                              {p.category}
-                            </span>
-                            <span className="text-[9.5px] font-mono px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 font-bold flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3" /> {p.health}
-                            </span>
-                          </div>
+                  {/* --------------------------------------------------------------------- */}
+                  {/* SUB-TAB 1: PROJECTS STATUS TABLE */}
+                  {/* --------------------------------------------------------------------- */}
+                  {workspaceTab === 'projects' && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="border-b border-slate-200 dark:border-zinc-800 text-[10px] font-mono uppercase text-slate-400">
+                            <th className="py-2.5 px-3">Client</th>
+                            <th className="py-2.5 px-3">Service / Product</th>
+                            <th className="py-2.5 px-3">Contract Type</th>
+                            <th className="py-2.5 px-3">Monthly Rate / Fee</th>
+                            <th className="py-2.5 px-3">Status</th>
+                            <th className="py-2.5 px-3">Next Milestone (Hover for Tasks)</th>
+                            <th className="py-2.5 px-3 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60 font-mono">
+                          {projects.map(p => (
+                            <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors group">
+                              <td className="py-3 px-3">
+                                <span className="font-bold text-slate-900 dark:text-white block font-sans">{p.client}</span>
+                                <span className="text-[10px] text-slate-400">{p.clientPhone}</span>
+                              </td>
+                              <td className="py-3 px-3">
+                                <span className="font-semibold text-slate-900 dark:text-white block">{p.name}</span>
+                                <span className="text-[10px] text-slate-400 font-sans">{p.category}</span>
+                              </td>
+                              <td className="py-3 px-3 text-slate-600 dark:text-zinc-300">
+                                <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-[10px]">
+                                  {p.contractType}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3">
+                                <span className="font-bold text-slate-900 dark:text-white block">{p.monthlyFee}</span>
+                                <span className="text-[10px] text-slate-400">Initial: {p.initialPaid}</span>
+                              </td>
+                              <td className="py-3 px-3">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  p.status.includes('Live') ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' :
+                                  p.status.includes('Debugging') ? 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300' :
+                                  'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
+                                }`}>
+                                  {p.status}
+                                </span>
+                              </td>
+                              <td 
+                                className="py-3 px-3 relative cursor-help"
+                                onMouseEnter={() => setHoveredMilestoneTasks({ project: p.name, tasks: p.tasks })}
+                                onMouseLeave={() => setHoveredMilestoneTasks(null)}
+                              >
+                                <span className="text-slate-700 dark:text-zinc-300 hover:text-black dark:hover:text-white font-sans text-xs underline decoration-dotted decoration-slate-400">
+                                  {p.nextMilestone}
+                                </span>
 
-                          {/* Title & GitHub Repo */}
-                          <div>
-                            <h3 className="font-brand font-bold text-sm text-slate-900 dark:text-white leading-snug">
-                              {p.name}
-                            </h3>
-                            <a 
-                              href={p.githubUrl} 
-                              target="_blank" 
-                              rel="noreferrer"
-                              className="text-[11px] font-mono text-slate-400 hover:text-blue-600 flex items-center gap-1 mt-0.5"
-                            >
-                              <Github className="w-3 h-3" />
-                              <span>{p.repo}</span>
-                            </a>
-                          </div>
+                                {/* Hover Task Flyout Tooltip */}
+                                {hoveredMilestoneTasks?.project === p.name && (
+                                  <div className="absolute left-0 bottom-full mb-2 z-50 w-72 p-3 bg-slate-900 text-white rounded-xl shadow-2xl border border-white/10 space-y-2 pointer-events-none animate-fadeIn">
+                                    <div className="flex items-center justify-between border-b border-slate-700 pb-1">
+                                      <span className="font-bold text-[10.5px] uppercase font-mono">Milestone Checklist</span>
+                                      <span className="text-[9px] text-slate-400 font-mono">{p.tasks.length} tasks</span>
+                                    </div>
+                                    <ul className="space-y-1 text-[11px] font-sans">
+                                      {p.tasks.map((t, idx) => (
+                                        <li key={idx} className="flex items-start gap-1.5">
+                                          <span className="text-emerald-400 mt-0.5">&bull;</span>
+                                          <span className="text-slate-200">{t}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </td>
+                              <td className="py-3 px-3 text-right">
+                                <button 
+                                  onClick={() => showToast(`Opening workspace for ${p.name}`)}
+                                  className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 text-xs font-semibold cursor-pointer"
+                                >
+                                  Open
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
 
-                          {/* Client & Lead Details */}
-                          <div className="space-y-1 text-xs">
-                            <div className="text-slate-500 text-[11px]">
-                              Client: <strong className="text-slate-800 dark:text-zinc-200">{p.client}</strong>
-                            </div>
-                            <div className="text-slate-500 text-[11px]">
-                              Lead: <strong className="text-slate-800 dark:text-zinc-200">{p.lead}</strong> &middot; <span className="font-mono text-emerald-600 font-bold">{p.mrr}</span>
-                            </div>
-                          </div>
-
-                          {/* Tech Stack Chips */}
-                          <div className="flex flex-wrap gap-1 pt-1">
-                            {p.techStack.map(tech => (
-                              <span key={tech} className="px-1.5 py-0.2 rounded text-[9.5px] font-mono bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700">
-                                {tech}
-                              </span>
+                  {/* --------------------------------------------------------------------- */}
+                  {/* SUB-TAB 2: EDUCATION, COURSEWORK & SKILLS */}
+                  {/* --------------------------------------------------------------------- */}
+                  {workspaceTab === 'education' && (
+                    <div className="space-y-5 animate-fadeIn">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        
+                        {/* Coursework & University Assignments */}
+                        <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 font-mono flex items-center justify-between">
+                            <span>University Assignments & Coursework</span>
+                            <span className="text-[10px] text-emerald-600 font-bold">4 Active</span>
+                          </h4>
+                          <div className="space-y-2">
+                            {coursework.map(c => (
+                              <div key={c.id} className="p-2.5 rounded-lg bg-slate-50 dark:bg-zinc-800/40 border border-slate-100 dark:border-zinc-800 flex justify-between items-center text-xs">
+                                <div>
+                                  <span className="font-bold text-slate-900 dark:text-white block">{c.title}</span>
+                                  <span className="text-[10px] text-slate-400 font-mono">{c.subject} &middot; Due: {c.deadline}</span>
+                                </div>
+                                <div className="text-right font-mono">
+                                  <span className="text-[10px] px-2 py-0.5 rounded bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300 block font-bold">
+                                    {c.status}
+                                  </span>
+                                  <span className="text-[9.5px] text-slate-500 mt-0.5 block">{c.marks}</span>
+                                </div>
+                              </div>
                             ))}
                           </div>
-
-                          {/* Mini Progress Bar */}
-                          <div className="space-y-1 pt-1">
-                            <div className="flex justify-between text-[10px] font-mono text-slate-400">
-                              <span>Milestone Progress</span>
-                              <span className="font-bold text-slate-700 dark:text-zinc-300">{p.progress}%</span>
-                            </div>
-                            <div className="w-full bg-slate-100 dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden">
-                              <div className="bg-blue-600 h-full rounded-full" style={{ width: `${p.progress}%` }} />
-                            </div>
-                          </div>
                         </div>
 
-                        {/* Card Action Buttons (Open, Edit, Delete, GitHub) */}
-                        <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between gap-1.5">
-                          <a
-                            href={p.liveUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex-1 py-1.5 px-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-xs hover:opacity-90"
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                            <span>Open Live</span>
-                          </a>
-
-                          <button
-                            onClick={() => setEditingProject(p)}
-                            className="p-1.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 cursor-pointer"
-                            title="Edit Project"
-                          >
-                            <Edit className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            onClick={() => handleDeleteProject(p.id, p.name)}
-                            className="p-1.5 rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/30 text-red-600 hover:bg-red-100 cursor-pointer"
-                            title="Delete Project"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  /* MODE B: FULL CLIENTS CRM TABLE */
-                  <div className="overflow-x-auto w-full">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead>
-                        <tr className="border-b border-slate-200 dark:border-zinc-800 text-[10px] font-mono uppercase text-slate-400 bg-slate-50/50 dark:bg-zinc-800/40">
-                          <th className="py-2.5 px-3.5">Client & Organization</th>
-                          <th className="py-2.5 px-3">Category</th>
-                          <th className="py-2.5 px-3">Contact Details</th>
-                          <th className="py-2.5 px-3">Active Projects</th>
-                          <th className="py-2.5 px-3 text-right">Total Billed</th>
-                          <th className="py-2.5 px-3 text-center">Status</th>
-                          <th className="py-2.5 px-3.5 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-zinc-800 font-sans">
-                        {clients.map(c => (
-                          <tr key={c.id} className="hover:bg-slate-50/60 dark:hover:bg-zinc-800/30 transition-colors">
-                            <td className="py-3 px-3.5">
-                              <div className="font-bold text-slate-900 dark:text-white text-xs">{c.company}</div>
-                              <div className="text-[10.5px] text-slate-400">{c.name}</div>
-                            </td>
-
-                            <td className="py-3 px-3">
-                              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 font-bold">
-                                {c.category}
-                              </span>
-                            </td>
-
-                            <td className="py-3 px-3 font-mono text-[10.5px]">
-                              <div className="text-slate-800 dark:text-zinc-200">{c.email}</div>
-                              <div className="text-slate-400 text-[9.5px]">{c.phone}</div>
-                            </td>
-
-                            <td className="py-3 px-3">
-                              <div className="flex flex-wrap gap-1">
-                                {c.activeProjects.map(pr => (
-                                  <span key={pr} className="px-1.5 py-0.2 rounded text-[9.5px] font-mono bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700">
-                                    {pr}
-                                  </span>
-                                ))}
-                              </div>
-                            </td>
-
-                            <td className="py-3 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
-                              {c.totalBilled}
-                            </td>
-
-                            <td className="py-3 px-3 text-center">
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                                {c.status}
-                              </span>
-                            </td>
-
-                            <td className="py-3 px-3.5 text-right">
-                              <div className="flex items-center justify-end gap-1.5 text-xs">
-                                <button
-                                  onClick={() => setEditingClient(c)}
-                                  className="p-1.5 text-slate-600 dark:text-zinc-400 hover:text-blue-600 rounded-lg bg-slate-100 dark:bg-zinc-800 cursor-pointer"
-                                  title="Edit Client"
+                        {/* Reading Library & Coding Sessions */}
+                        <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 font-mono flex items-center justify-between">
+                            <span>PDFs & Engineering Syllabus</span>
+                            <span className="text-[10px] text-blue-600 font-bold">Library</span>
+                          </h4>
+                          <div className="space-y-2">
+                            {readingPdfs.map((pdf, idx) => (
+                              <div key={idx} className="p-2.5 rounded-lg bg-slate-50 dark:bg-zinc-800/40 border border-slate-100 dark:border-zinc-800 flex justify-between items-center text-xs">
+                                <div className="min-w-0 pr-2">
+                                  <span className="font-bold text-slate-900 dark:text-white block truncate">{pdf.title}</span>
+                                  <span className="text-[10px] text-slate-400 font-mono">{pdf.category} &middot; {pdf.pages}</span>
+                                </div>
+                                <button 
+                                  onClick={() => showToast(`Opening reference: ${pdf.title}`)}
+                                  className="px-2.5 py-1 rounded bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[10px] font-bold cursor-pointer shrink-0"
                                 >
-                                  <Edit className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteClient(c.id, c.company)}
-                                  className="p-1.5 text-red-500 hover:text-red-700 rounded-lg bg-red-50 dark:bg-red-950/40 cursor-pointer"
-                                  title="Delete Client"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  Read
                                 </button>
                               </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                            ))}
+                          </div>
+                        </div>
 
-                {/* Add Project Modal */}
-                {showAddProjectModal && (
-                  <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-                    <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xl max-w-md w-full space-y-4">
-                      <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
-                        <h3 className="font-brand font-bold text-base text-slate-900 dark:text-white">
-                          Register New Project to P3L Fleet
-                        </h3>
-                        <button onClick={() => setShowAddProjectModal(false)} className="text-slate-400">
-                          <X className="w-4 h-4" />
-                        </button>
                       </div>
 
-                      <form onSubmit={handleAddProject} className="space-y-3 text-xs">
-                        <div>
-                          <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Project Name</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. Matta AI CBC Tutor"
-                            value={newProjectTitle}
-                            onChange={e => setNewProjectTitle(e.target.value)}
-                            className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-semibold"
-                          />
+                      {/* Exams & Zoom Sessions */}
+                      <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/30 border border-slate-200 dark:border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-slate-500" />
+                          <span>Academic Calendar: <strong>Mid-Term Exams scheduled for Nov 12 - 18, 2026</strong></span>
                         </div>
-
-                        <div>
-                          <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">GitHub Repo Slug</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="guyo-halake/repo-name"
-                            value={newProjectRepo}
-                            onChange={e => setNewProjectRepo(e.target.value)}
-                            className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-mono"
-                          />
+                        <div className="flex items-center gap-2">
+                          <Video className="w-4 h-4 text-blue-500" />
+                          <span>Next Zoom Lecture: <strong>Advanced Distributed Systems (Tomorrow, 14:00 EAT)</strong></span>
                         </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Client Name</label>
-                            <input
-                              type="text"
-                              value={newProjectClient}
-                              onChange={e => setNewProjectClient(e.target.value)}
-                              className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800"
-                            />
-                          </div>
-                          <div>
-                            <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Category</label>
-                            <select
-                              value={newProjectCategory}
-                              onChange={e => setNewProjectCategory(e.target.value as any)}
-                              className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800"
-                            >
-                              <option value="LegalTech SaaS">LegalTech SaaS</option>
-                              <option value="Fintech & Mobile">Fintech & Mobile</option>
-                              <option value="AI & Analytics">AI & Analytics</option>
-                              <option value="Computer Vision">Computer Vision</option>
-                              <option value="IoT & Cloud">IoT & Cloud</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Monthly Contract / MRR</label>
-                          <input
-                            type="text"
-                            value={newProjectMrr}
-                            onChange={e => setNewProjectMrr(e.target.value)}
-                            className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-mono"
-                          />
-                        </div>
-
-                        <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
-                          <button
-                            type="button"
-                            onClick={() => setShowAddProjectModal(false)}
-                            className="px-4 py-2 text-slate-600 hover:text-black dark:hover:text-white font-semibold cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="submit"
-                            className="px-5 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold hover:bg-black cursor-pointer shadow-xs"
-                          >
-                            Register Project
-                          </button>
-                        </div>
-                      </form>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Edit Project Modal */}
-                {editingProject && (
-                  <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-                    <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xl max-w-md w-full space-y-4">
-                      <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
-                        <h3 className="font-brand font-bold text-base text-slate-900 dark:text-white">
-                          Edit Project &mdash; {editingProject.name}
-                        </h3>
-                        <button onClick={() => setEditingProject(null)} className="text-slate-400">
-                          <X className="w-4 h-4" />
-                        </button>
+                  {/* --------------------------------------------------------------------- */}
+                  {/* SUB-TAB 3: RAZAK SERVER TERMINAL & DAEMONS */}
+                  {/* --------------------------------------------------------------------- */}
+                  {workspaceTab === 'server' && (
+                    <div className="space-y-5 animate-fadeIn font-mono text-xs">
+                      
+                      {/* Daemon Process Table */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500">
+                            Active Server Daemons & Processes (razak-server)
+                          </h4>
+                          <span className="text-[10px] text-emerald-600 font-bold">Uptime: {formatUptime(uptimeSeconds)}</span>
+                        </div>
+
+                        <div className="overflow-x-auto border border-slate-200 dark:border-zinc-800 rounded-xl">
+                          <table className="w-full text-left border-collapse">
+                            <thead className="bg-slate-50 dark:bg-zinc-800/60 text-[10px] uppercase text-slate-400 border-b border-slate-200 dark:border-zinc-800">
+                              <tr>
+                                <th className="p-2.5">PID</th>
+                                <th className="p-2.5">Service Daemon</th>
+                                <th className="p-2.5">Bound Port</th>
+                                <th className="p-2.5">CPU</th>
+                                <th className="p-2.5">RAM</th>
+                                <th className="p-2.5">Status</th>
+                                <th className="p-2.5 text-right">Control</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                              {serverDaemons.map(s => (
+                                <tr key={s.pid} className="hover:bg-slate-50 dark:hover:bg-zinc-800/40">
+                                  <td className="p-2.5 font-bold text-slate-500">{s.pid}</td>
+                                  <td className="p-2.5 font-bold text-slate-900 dark:text-white">{s.name}</td>
+                                  <td className="p-2.5 text-blue-600 dark:text-blue-400">{s.port}</td>
+                                  <td className="p-2.5 text-slate-600 dark:text-zinc-300">{s.cpu}</td>
+                                  <td className="p-2.5 text-slate-600 dark:text-zinc-300">{s.memory}</td>
+                                  <td className="p-2.5">
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                      s.status === 'Running' ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' : 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300'
+                                    }`}>
+                                      {s.status}
+                                    </span>
+                                  </td>
+                                  <td className="p-2.5 text-right">
+                                    <button 
+                                      onClick={() => showToast(`Restarting daemon ${s.name}...`)}
+                                      className="px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-[10px] font-bold cursor-pointer"
+                                    >
+                                      Restart
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
 
-                      <form onSubmit={handleSaveEditProject} className="space-y-3 text-xs">
-                        <div>
-                          <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Project Name</label>
-                          <input
-                            type="text"
-                            value={editingProject.name}
-                            onChange={e => setEditingProject({ ...editingProject, name: e.target.value })}
-                            className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-semibold"
-                          />
+                      {/* Mirror APIs */}
+                      <div className="space-y-2">
+                        <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500">
+                          Kenyan Bank & Financial Mirror APIs
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          {mirrorApis.map((m, idx) => (
+                            <div key={idx} className={`p-3 rounded-xl border ${m.alert ? 'border-red-300 bg-red-50/50 dark:border-red-900 dark:bg-red-950/20' : 'border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40'}`}>
+                              <span className="text-[10px] text-slate-400 uppercase block">{m.protocol} &middot; Port {m.port}</span>
+                              <span className="font-bold text-xs text-slate-900 dark:text-white block mt-0.5 break-all">{m.endpoint}</span>
+                              <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200/60 dark:border-zinc-700/50 text-[10px]">
+                                <span className={m.alert ? 'text-red-600 font-bold' : 'text-emerald-600 font-bold'}>{m.status}</span>
+                                <span className="text-slate-400">{m.latency}</span>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-
-                        <div>
-                          <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">GitHub Repo</label>
-                          <input
-                            type="text"
-                            value={editingProject.repo}
-                            onChange={e => setEditingProject({ ...editingProject, repo: e.target.value, githubUrl: `https://github.com/${e.target.value}` })}
-                            className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-mono"
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Client</label>
-                            <input
-                              type="text"
-                              value={editingProject.client}
-                              onChange={e => setEditingProject({ ...editingProject, client: e.target.value })}
-                              className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800"
-                            />
-                          </div>
-                          <div>
-                            <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Status</label>
-                            <select
-                              value={editingProject.status}
-                              onChange={e => setEditingProject({ ...editingProject, status: e.target.value as any })}
-                              className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800"
-                            >
-                              <option value="Production Live">Production Live</option>
-                              <option value="Active Development">Active Development</option>
-                              <option value="Staging QA">Staging QA</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
-                          <button
-                            type="button"
-                            onClick={() => setEditingProject(null)}
-                            className="px-4 py-2 text-slate-600 hover:text-black dark:hover:text-white font-semibold cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="submit"
-                            className="px-5 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold hover:bg-black cursor-pointer shadow-xs"
-                          >
-                            Save Changes
-                          </button>
-                        </div>
-                      </form>
-                    </div>
-                  </div>
-                )}
-
-                {/* Add Client Modal */}
-                {showAddClientModal && (
-                  <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-                    <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xl max-w-md w-full space-y-4">
-                      <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
-                        <h3 className="font-brand font-bold text-base text-slate-900 dark:text-white">
-                          Onboard New Client Account
-                        </h3>
-                        <button onClick={() => setShowAddClientModal(false)} className="text-slate-400">
-                          <X className="w-4 h-4" />
-                        </button>
                       </div>
 
-                      <form onSubmit={handleAddClient} className="space-y-3 text-xs">
-                        <div>
-                          <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Company / Firm Name</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. InnerCircle Asset Management"
-                            value={newClientCompany}
-                            onChange={e => setNewClientCompany(e.target.value)}
-                            className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-semibold"
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Contact Person</label>
-                            <input
-                              type="text"
-                              required
-                              placeholder="David K. Sigei"
-                              value={newClientName}
-                              onChange={e => setNewClientName(e.target.value)}
-                              className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800"
-                            />
-                          </div>
-                          <div>
-                            <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Category</label>
-                            <select
-                              value={newClientCategory}
-                              onChange={e => setNewClientCategory(e.target.value as any)}
-                              className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800"
-                            >
-                              <option value="Law Firm">Law Firm</option>
-                              <option value="Hedgefund / Fintech">Hedgefund / Fintech</option>
-                              <option value="Institutional / Schools">Institutional / Schools</option>
-                              <option value="Construction & Engineering">Construction & Engineering</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Official Email</label>
-                            <input
-                              type="email"
-                              required
-                              placeholder="contact@company.com"
-                              value={newClientEmail}
-                              onChange={e => setNewClientEmail(e.target.value)}
-                              className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-mono"
-                            />
-                          </div>
-                          <div>
-                            <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Telephone</label>
-                            <input
-                              type="text"
-                              value={newClientPhone}
-                              onChange={e => setNewClientPhone(e.target.value)}
-                              className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-mono"
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">KRA PIN Number</label>
-                          <input
-                            type="text"
-                            value={newClientKra}
-                            onChange={e => setNewClientKra(e.target.value)}
-                            className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-mono"
-                          />
-                        </div>
-
-                        <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
-                          <button
-                            type="button"
-                            onClick={() => setShowAddClientModal(false)}
-                            className="px-4 py-2 text-slate-600 hover:text-black dark:hover:text-white font-semibold cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="submit"
-                            className="px-5 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold hover:bg-black cursor-pointer shadow-xs"
-                          >
-                            Add Client Account
-                          </button>
-                        </div>
-                      </form>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Edit Client Modal */}
-                {editingClient && (
-                  <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-                    <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xl max-w-md w-full space-y-4">
-                      <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
-                        <h3 className="font-brand font-bold text-base text-slate-900 dark:text-white">
-                          Edit Client &mdash; {editingClient.company}
-                        </h3>
-                        <button onClick={() => setEditingClient(null)} className="text-slate-400">
-                          <X className="w-4 h-4" />
-                        </button>
+                  {/* --------------------------------------------------------------------- */}
+                  {/* SUB-TAB 4: USERS MANAGEMENT */}
+                  {/* --------------------------------------------------------------------- */}
+                  {workspaceTab === 'users' && (
+                    <div className="space-y-4 animate-fadeIn">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800">
+                        <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 font-mono">
+                          P3L Core Team & Contributor Directory
+                        </h4>
+                        <span className="text-[10px] font-mono text-slate-400">3 Core Engineers</span>
                       </div>
 
-                      <form onSubmit={handleSaveEditClient} className="space-y-3 text-xs">
-                        <div>
-                          <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Company / Firm Name</label>
-                          <input
-                            type="text"
-                            value={editingClient.company}
-                            onChange={e => setEditingClient({ ...editingClient, company: e.target.value })}
-                            className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-semibold"
-                          />
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40 space-y-2">
+                          <span className="text-xs font-bold text-slate-900 dark:text-white block">Guyoh Halake</span>
+                          <span className="text-[10px] font-mono text-slate-500 block">Founder & Chief Architect</span>
+                          <span className="text-[10px] font-mono text-blue-600 block">p3lcodes@gmail.com</span>
+                          <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-zinc-700 text-[9.5px] font-mono font-bold uppercase inline-block">
+                            Super Admin
+                          </span>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Contact Person</label>
-                            <input
-                              type="text"
-                              value={editingClient.name}
-                              onChange={e => setEditingClient({ ...editingClient, name: e.target.value })}
-                              className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800"
-                            />
-                          </div>
-                          <div>
-                            <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Category</label>
-                            <select
-                              value={editingClient.category}
-                              onChange={e => setEditingClient({ ...editingClient, category: e.target.value as any })}
-                              className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800"
-                            >
-                              <option value="Law Firm">Law Firm</option>
-                              <option value="Hedgefund / Fintech">Hedgefund / Fintech</option>
-                              <option value="Institutional / Schools">Institutional / Schools</option>
-                              <option value="Construction & Engineering">Construction & Engineering</option>
-                            </select>
-                          </div>
+                        <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40 space-y-2">
+                          <span className="text-xs font-bold text-slate-900 dark:text-white block">Razak Guyo</span>
+                          <span className="text-[10px] font-mono text-slate-500 block">Systems & Server Lead</span>
+                          <span className="text-[10px] font-mono text-blue-600 block">razak@p3ldev.com</span>
+                          <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-zinc-700 text-[9.5px] font-mono font-bold uppercase inline-block">
+                            Systems Admin
+                          </span>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Email</label>
-                            <input
-                              type="email"
-                              value={editingClient.email}
-                              onChange={e => setEditingClient({ ...editingClient, email: e.target.value })}
-                              className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-mono"
-                            />
-                          </div>
-                          <div>
-                            <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Phone</label>
-                            <input
-                              type="text"
-                              value={editingClient.phone}
-                              onChange={e => setEditingClient({ ...editingClient, phone: e.target.value })}
-                              className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-mono"
-                            />
-                          </div>
+                        <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40 space-y-2">
+                          <span className="text-xs font-bold text-slate-900 dark:text-white block">Victor Karani</span>
+                          <span className="text-[10px] font-mono text-slate-500 block">LegalTech Lead & Reviewer</span>
+                          <span className="text-[10px] font-mono text-blue-600 block">karani@p3ldev.com</span>
+                          <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-zinc-700 text-[9.5px] font-mono font-bold uppercase inline-block">
+                            Legal Engineer
+                          </span>
                         </div>
+                      </div>
+                    </div>
+                  )}
 
-                        <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
-                          <button
-                            type="button"
-                            onClick={() => setEditingClient(null)}
-                            className="px-4 py-2 text-slate-600 hover:text-black dark:hover:text-white font-semibold cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="submit"
-                            className="px-5 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold hover:bg-black cursor-pointer shadow-xs"
-                          >
-                            Save Client
-                          </button>
-                        </div>
-                      </form>
+                </div>
+
+                {/* ========================================================================= */}
+                {/* MARSABIT COUNTY MAP & INTERACTIVE DIAGNOSTICS */}
+                {/* ========================================================================= */}
+                <div 
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setShowDiagnosticsModal(true);
+                  }}
+                  className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-4"
+                  title="Right-click anywhere on the map to inspect full server diagnostics"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-brand font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <MapPin className="w-4 h-4 text-red-500" />
+                        P3L Headquarters & Server Node: Marsabit County, Kenya
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Biftu Construction Company Station &middot; Marsabit Town &middot; Uplink to Azure Cloud
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 px-2.5 py-1 rounded-md font-bold">
+                        GPS: 2.3333&deg; N, 37.9833&deg; E
+                      </span>
+                      <button
+                        onClick={() => setShowDiagnosticsModal(true)}
+                        className="px-3 py-1 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold cursor-pointer"
+                      >
+                        Inspect Server Telemetry
+                      </button>
                     </div>
                   </div>
-                )}
+
+                  {/* Marsabit Embedded Map */}
+                  <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-700 h-56 shadow-inner relative">
+                    <iframe
+                      title="Marsabit County Server Node"
+                      src="https://maps.google.com/maps?q=2.3333,37.9833&z=13&output=embed"
+                      width="100%"
+                      height="100%"
+                      style={{ border: 0, filter: 'grayscale(30%)' }}
+                      allowFullScreen={false}
+                      loading="lazy"
+                    />
+                    <div className="absolute bottom-3 left-3 bg-slate-900/90 text-white px-3 py-1.5 rounded-lg text-[10px] font-mono backdrop-blur-sm pointer-events-none">
+                      Right-click map for Full Server Diagnostics
+                    </div>
+                  </div>
+                </div>
 
               </div>
             )}
 
             {/* ========================================================================= */}
-            {/* 3. USERS AND RBAC PAGE */}
+            {/* 2. PROJECTS AND CLIENTS TAB (FULL CRM VIEW) */}
             {/* ========================================================================= */}
-            {activeTab === 'users_rbac' && (
-              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-zinc-800">
+            {activeTab === 'projects_clients' && (
+              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
+                <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-zinc-800">
                   <div>
                     <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
-                      Global Users & 68-Rule RBAC Matrix ({filteredUsers.length} of {users.length} Users)
+                      Projects Fleet & Client CRM
                     </h2>
                     <p className="text-xs text-slate-500">
-                      Cross-tenant user directory, standardized role archetypes, and security capabilities
+                      Real accounts: Rosemary Wakonyo (Fresh City POS), Sarah Guyatu Rashid (Sayara Aesthetics), Nyagah Kithinji (Karani Law), and OdinBot
                     </p>
                   </div>
-                  
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="relative">
-                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="text"
-                        placeholder="Search users..."
-                        value={userSearch}
-                        onChange={e => setUserSearch(e.target.value)}
-                        className="pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 w-44"
-                      />
-                    </div>
-
-                    <button
-                      onClick={() => setShowAddUserModal(true)}
-                      className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-black flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Add User</span>
-                    </button>
-                  </div>
+                  <button 
+                    onClick={() => setShowAddProjectModal(true)}
+                    className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-black cursor-pointer shadow-xs"
+                  >
+                    + Add New Project
+                  </button>
                 </div>
 
-                <div className="overflow-x-auto w-full">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-200 dark:border-zinc-800 text-[10px] font-mono uppercase text-slate-400 bg-slate-50/50 dark:bg-zinc-800/40">
-                        <th className="py-2.5 px-3.5">User Details</th>
-                        <th className="py-2.5 px-3">Contact</th>
-                        <th className="py-2.5 px-3">Role Template</th>
-                        <th className="py-2.5 px-3">Granted Permissions</th>
-                        <th className="py-2.5 px-3.5 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-zinc-800 font-sans">
-                      {filteredUsers.map((u) => {
-                        const roleCode = userRoleMap[u.id] || (u.role === 'Developer' ? 'developer_sys_admin' : u.role === 'Admin' ? 'managing_partner_exec' : 'senior_advocates_lawyers');
-                        const tpl = roleTemplates.find(t => t.code === roleCode) || roleTemplates[0];
-                        const initials = u.fullName.split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase();
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {projects.map(p => (
+                    <div key={p.id} className="p-5 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs space-y-3 flex flex-col justify-between">
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
+                            {p.category}
+                          </span>
+                          <span className="text-[10px] font-mono font-bold text-emerald-600">
+                            {p.status}
+                          </span>
+                        </div>
+                        <h3 className="font-bold text-sm text-slate-900 dark:text-white font-brand">{p.name}</h3>
+                        <p className="text-xs text-slate-500">Client: <strong>{p.client}</strong></p>
+                        <p className="text-[11px] font-mono text-slate-400">Rate: {p.monthlyFee}</p>
+                        <p className="text-[11px] text-slate-600 dark:text-zinc-300 pt-1">Milestone: {p.nextMilestone}</p>
+                      </div>
 
-                        return (
-                          <tr key={u.id} className="hover:bg-slate-50/60 dark:hover:bg-zinc-800/30 transition-colors">
-                            <td className="py-3 px-3.5">
-                              <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-xl flex items-center justify-center font-brand font-bold text-xs bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 shrink-0">
-                                  {initials}
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="font-bold text-slate-900 dark:text-white truncate">{u.fullName}</div>
-                                  <div className="text-[10px] text-slate-400 truncate">{u.position || u.role}</div>
-                                </div>
-                              </div>
-                            </td>
+                      <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 flex justify-between items-center text-xs font-mono">
+                        <span className="text-slate-400">{p.techStack.slice(0, 2).join(', ')}</span>
+                        <button 
+                          onClick={() => showToast(`Opening ${p.name}`)}
+                          className="px-2.5 py-1 rounded bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-[10px] cursor-pointer"
+                        >
+                          View Dossier
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-                            <td className="py-3 px-3 font-mono text-[10.5px]">
-                              <div className="text-slate-800 dark:text-zinc-200 truncate">{u.workEmail}</div>
-                              <div className="text-slate-400 text-[9.5px]">{u.phonePrimary || '+254 700 000 000'}</div>
-                            </td>
+            {/* ========================================================================= */}
+            {/* 3. USERS AND RBAC */}
+            {/* ========================================================================= */}
+            {activeTab === 'users_rbac' && (
+              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
+                <div className="pb-4 border-b border-slate-100 dark:border-zinc-800">
+                  <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
+                    Access Control & Contributor RBAC
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Role templates, developer privileges, and client access limits
+                  </p>
+                </div>
 
-                            <td className="py-3 px-3">
-                              <select
-                                value={roleCode}
-                                onChange={async (e) => {
-                                  const newCode = e.target.value;
-                                  setUserRoleMap(prev => ({ ...prev, [u.id]: newCode }));
-                                  const targetTpl = roleTemplates.find(t => t.code === newCode);
-                                  if (targetTpl) {
-                                    await assignRoleToUser(u.id, targetTpl.id);
-                                    showToast(`Assigned ${targetTpl.name} to ${u.fullName}`);
-                                  }
-                                }}
-                                className="w-full text-[11px] font-medium text-slate-800 dark:text-zinc-200 py-1.5 px-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800"
-                              >
-                                {roleTemplates.map(t => (
-                                  <option key={t.code} value={t.code}>{t.name}</option>
-                                ))}
-                              </select>
-                            </td>
+                <div className="space-y-3 font-mono text-xs">
+                  <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 flex justify-between items-center">
+                    <div>
+                      <span className="font-bold text-slate-900 dark:text-white block font-sans">Guyoh Halake</span>
+                      <span className="text-[10px] text-slate-400">p3lcodes@gmail.com &middot; Founder / Lead Architect</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-[10px] font-bold">
+                      Full Root Access
+                    </span>
+                  </div>
 
-                            <td className="py-3 px-3">
-                              <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold text-[10.5px]">
-                                {tpl?.permissions.length || 56} Capabilities Granted
-                              </span>
-                            </td>
+                  <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 flex justify-between items-center">
+                    <div>
+                      <span className="font-bold text-slate-900 dark:text-white block font-sans">Razak Guyo</span>
+                      <span className="text-[10px] text-slate-400">razak@p3ldev.com &middot; Systems & Server Lead</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-[10px] font-bold">
+                      Server Operations
+                    </span>
+                  </div>
 
-                            <td className="py-3 px-3.5 text-right">
-                              <div className="flex items-center justify-end gap-1.5 text-xs">
-                                <button
-                                  onClick={() => setSelectedUserForPassword(u)}
-                                  className="p-1.5 text-slate-600 dark:text-zinc-400 hover:text-amber-600 rounded-lg bg-slate-100 dark:bg-zinc-800 cursor-pointer"
-                                  title="Change Password"
-                                >
-                                  <Key className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={async () => {
-                                    if (window.confirm(`Delete account for ${u.fullName}?`)) {
-                                      await deleteFirmUser('firm-001', u.id);
-                                      setUsers(prev => prev.filter(item => item.id !== u.id));
-                                      showToast(`Deleted ${u.fullName}`);
-                                    }
-                                  }}
-                                  className="p-1.5 text-red-500 hover:text-red-700 rounded-lg bg-red-50 dark:bg-red-950/40 cursor-pointer"
-                                  title="Delete User"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                  <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 flex justify-between items-center">
+                    <div>
+                      <span className="font-bold text-slate-900 dark:text-white block font-sans">Victor Karani</span>
+                      <span className="text-[10px] text-slate-400">karani@p3ldev.com &middot; LegalTech Lead</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-[10px] font-bold">
+                      Legal Domain Admin
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
@@ -1548,64 +1677,74 @@ export const AdminDashboard: React.FC = () => {
             {/* 4. FINANCE AND BILLING */}
             {/* ========================================================================= */}
             {activeTab === 'finance_billing' && (
-              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6">
-                <div>
-                  <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
-                    Multi-Product Finance, Invoicing & Billing Operations
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Consolidated financial ledger across pSchool subscriptions, Matta AI tokens, BillsZip legal bills, and custom contracts
-                  </p>
+              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
+                <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-zinc-800">
+                  <div>
+                    <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
+                      Finances, Retainers & Client Accounts
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                      Real startup cashflow: KES 8,000 this month &middot; KES 43,000 last 6 months
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setShowLogPaymentModal(true)}
+                    className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-black cursor-pointer shadow-xs"
+                  >
+                    + Log Client Payment
+                  </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono">
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700">
-                    <span className="text-[10px] text-slate-400 uppercase">Legal Fee Note Volume</span>
-                    <p className="text-xl font-black text-slate-900 dark:text-white mt-1">KES {(totalBilled).toLocaleString()}</p>
-                    <span className="text-[10.5px] text-emerald-600 font-bold">KES {(totalApproved).toLocaleString()} certified</span>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-1">
+                    <span className="text-[10px] font-mono text-slate-400 uppercase block">This Month Received</span>
+                    <span className="text-xl font-bold font-mono text-slate-900 dark:text-white">KES 8,000</span>
+                    <span className="text-[10.5px] text-emerald-600 block">KES 3,200 from Sarah Rashid</span>
                   </div>
-
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700">
-                    <span className="text-[10px] text-slate-400 uppercase">SaaS Annual Recurring Revenue</span>
-                    <p className="text-xl font-black text-blue-600 mt-1">KES 58.80M ARR</p>
-                    <span className="text-[10.5px] text-slate-500">KES 4.90M Monthly MRR</span>
+                  <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-1">
+                    <span className="text-[10px] font-mono text-slate-400 uppercase block">Last 6 Months</span>
+                    <span className="text-xl font-bold font-mono text-slate-900 dark:text-white">KES 43,000</span>
+                    <span className="text-[10.5px] text-slate-500 block">Fresh City POS setup + Sayara build</span>
                   </div>
-
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700">
-                    <span className="text-[10px] text-slate-400 uppercase">KRA eTIMS & 16% VAT Collected</span>
-                    <p className="text-xl font-black text-purple-600 mt-1">KES 5,728,642</p>
-                    <span className="text-[10.5px] text-emerald-600 font-bold">Tax Compliance Active</span>
+                  <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-1">
+                    <span className="text-[10px] font-mono text-slate-400 uppercase block">Pending Invoices</span>
+                    <span className="text-xl font-bold font-mono text-amber-600">KES 45,000</span>
+                    <span className="text-[10.5px] text-slate-500 block">Karani Law stage 4 milestone</span>
                   </div>
                 </div>
 
-                {/* Authoritative Bills Ledger */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-200 dark:border-zinc-800 text-[10px] font-mono uppercase text-slate-400 bg-slate-50/50 dark:bg-zinc-800/40">
-                        <th className="py-2.5 px-3">Bill Number</th>
-                        <th className="py-2.5 px-3">Product / Client Matter</th>
-                        <th className="py-2.5 px-3 text-right">Amount (KES)</th>
-                        <th className="py-2.5 px-3 text-center">Status</th>
+                {/* Clients billing roster */}
+                <div className="overflow-x-auto border border-slate-200 dark:border-zinc-800 rounded-xl font-mono text-xs">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 dark:bg-zinc-800/60 text-[10px] uppercase text-slate-400 border-b border-slate-200 dark:border-zinc-800">
+                      <tr>
+                        <th className="p-3">Client / Business</th>
+                        <th className="p-3">Agreed Terms</th>
+                        <th className="p-3">Initial Setup Fee</th>
+                        <th className="p-3">Current Settlement</th>
+                        <th className="p-3 text-right">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-zinc-800 font-sans">
-                      {feeNotes.map(n => (
-                        <tr key={n.id} className="hover:bg-slate-50/60 dark:hover:bg-zinc-800/30">
-                          <td className="py-3 px-3 font-mono font-bold text-slate-900 dark:text-white">{n.billNumber}</td>
-                          <td className="py-3 px-3">
-                            <div className="font-bold">{n.matterTitle}</div>
-                            <div className="text-[10.5px] text-slate-400">{n.clientName}</div>
+                    <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                      {clients.map(c => (
+                        <tr key={c.id}>
+                          <td className="p-3">
+                            <span className="font-bold text-slate-900 dark:text-white block font-sans">{c.name}</span>
+                            <span className="text-[10px] text-slate-400">{c.company}</span>
                           </td>
-                          <td className="py-3 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
-                            KES {(n.grandTotal || 0).toLocaleString('en-KE', { minimumFractionDigits: 2 })}
-                          </td>
-                          <td className="py-3 px-3 text-center">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                              n.status === 'processed' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-amber-100 text-amber-800'
-                            }`}>
-                              {n.status}
-                            </span>
+                          <td className="p-3">{c.monthlyRetainer}</td>
+                          <td className="p-3">{c.initialPaid}</td>
+                          <td className="p-3 text-emerald-600 font-bold">{c.currentMonthPaid}</td>
+                          <td className="p-3 text-right">
+                            <button 
+                              onClick={() => {
+                                setPaymentClient(c.name);
+                                setShowLogPaymentModal(true);
+                              }}
+                              className="px-2 py-1 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-[10px] font-bold cursor-pointer"
+                            >
+                              Add Invoice
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -1616,43 +1755,35 @@ export const AdminDashboard: React.FC = () => {
             )}
 
             {/* ========================================================================= */}
-            {/* 5. AI AND INFRA (MATTA AI & DATA COCKPIT) */}
+            {/* 5. AI AND INFRASTRUCTURE (ODINBOT OPERATIONS) */}
             {/* ========================================================================= */}
             {activeTab === 'ai_infra' && (
-              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6">
-                <div>
+              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
+                <div className="pb-4 border-b border-slate-100 dark:border-zinc-800">
                   <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
-                    Matta AI & AI-Data-Analyst Telemetry Cockpit
+                    OdinBot AI Engine & Local LLM Ops
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Full RAG agent telemetry, CBC syllabus vector embeddings, model fine-tuning, and live prompt testing
+                    Autonomous agent telemetry, bank mirror integrations, and local model inference
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 font-mono text-xs">
-                  <div className="p-4 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800">
-                    <span className="text-[10px] text-purple-600 font-bold uppercase">Vector Embeddings</span>
-                    <p className="text-xl font-black text-purple-900 dark:text-purple-200 mt-1">148,200</p>
-                    <span className="text-[10px] text-purple-600">AI-Data-Analyst Corpus</span>
-                  </div>
-
-                  <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
-                    <span className="text-[10px] text-blue-600 font-bold uppercase">Tokens Consumed Today</span>
-                    <p className="text-xl font-black text-blue-900 dark:text-blue-200 mt-1">384,920</p>
-                    <span className="text-[10px] text-blue-600">Unit Cost: $0.0004 / query</span>
-                  </div>
-
-                  <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
-                    <span className="text-[10px] text-emerald-600 font-bold uppercase">Agent Latency (p95)</span>
-                    <p className="text-xl font-black text-emerald-900 dark:text-emerald-200 mt-1">38 ms</p>
-                    <span className="text-[10px] text-emerald-600">FastAPI Vector Stream</span>
-                  </div>
-
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700">
-                    <span className="text-[10px] text-slate-500 font-bold uppercase">Precision Index</span>
-                    <p className="text-xl font-black text-slate-900 dark:text-white mt-1">99.4%</p>
-                    <span className="text-[10px] text-slate-400">Pedagogical Guardrails</span>
-                  </div>
+                <div className="p-4 rounded-xl border border-red-300 dark:border-red-900 bg-red-50/40 dark:bg-red-950/20 space-y-2">
+                  <span className="font-bold text-xs text-red-700 dark:text-red-400 font-mono block">
+                    Current Blocker: I&M Bank Mirror 502 Bad Gateway
+                  </span>
+                  <p className="text-xs text-red-900 dark:text-red-300 font-mono">
+                    Endpoint: <code>razak-server/mirrors/api/kenyanbanks/IandM</code>
+                  </p>
+                  <p className="text-xs text-slate-600 dark:text-zinc-400">
+                    OdinBot tool-calling cannot query account balances until the local Python socket listener on port 8082 is re-initialized.
+                  </p>
+                  <button 
+                    onClick={() => showToast('Restarting I&M Bank socket listener on razak-server...')}
+                    className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold hover:bg-red-700 cursor-pointer"
+                  >
+                    Restart I&M Bank Socket
+                  </button>
                 </div>
               </div>
             )}
@@ -1661,87 +1792,193 @@ export const AdminDashboard: React.FC = () => {
             {/* 6. CAREER AND EDUCATION */}
             {/* ========================================================================= */}
             {activeTab === 'career_education' && (
-              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6">
-                <div>
+              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
+                <div className="pb-4 border-b border-slate-100 dark:border-zinc-800">
                   <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
-                    P3L Careers Applicant Tracking (ATS) & Education Syllabus
+                    Academic Coursework, Engineering Syllabus & Zoom Classes
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Incoming builder applications from the public Careers portal alongside pSchool CBC curriculum tracks
+                    Computer Science university syllabus, assignments, exams, and textbook library
                   </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 font-mono">
+                      Assignments & Lab Projects
+                    </h3>
+                    <div className="space-y-2 font-mono text-xs">
+                      {coursework.map(c => (
+                        <div key={c.id} className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/40 border border-slate-100 dark:border-zinc-800 flex justify-between items-center">
+                          <div>
+                            <span className="font-bold text-slate-900 dark:text-white block font-sans">{c.title}</span>
+                            <span className="text-[10px] text-slate-400">{c.subject} &middot; {c.deadline}</span>
+                          </div>
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300 font-bold">
+                            {c.marks}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 font-mono">
+                      Engineering PDF Library
+                    </h3>
+                    <div className="space-y-2 font-mono text-xs">
+                      {readingPdfs.map((pdf, idx) => (
+                        <div key={idx} className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/40 border border-slate-100 dark:border-zinc-800 flex justify-between items-center">
+                          <div className="min-w-0 pr-2">
+                            <span className="font-bold text-slate-900 dark:text-white block truncate font-sans">{pdf.title}</span>
+                            <span className="text-[10px] text-slate-400">{pdf.category} &middot; {pdf.pages}</span>
+                          </div>
+                          <button 
+                            onClick={() => showToast(`Reading ${pdf.title}`)}
+                            className="px-2 py-1 rounded bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[10px] font-bold cursor-pointer shrink-0"
+                          >
+                            Open PDF
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
 
             {/* ========================================================================= */}
-            {/* 7. INTERNAL STAFF */}
+            {/* 7. INTERNAL P3L STAFF */}
             {/* ========================================================================= */}
             {activeTab === 'internal_staff' && (
-              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6">
-                <div>
+              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
+                <div className="pb-4 border-b border-slate-100 dark:border-zinc-800">
                   <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
-                    P3L Core Engineering & Leadership Team
+                    P3L Engineering & Core Leadership
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Internal engineers, AI researchers, and leadership team sprint allocations
+                    Internal founders, systems engineers, and legal domain contributors
                   </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-5 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-2">
+                    <h3 className="font-bold text-sm text-slate-900 dark:text-white font-brand">Guyoh Halake</h3>
+                    <p className="text-xs text-slate-500">Founder & Chief Architect</p>
+                    <p className="text-[11px] font-mono text-blue-600">p3lcodes@gmail.com</p>
+                    <p className="text-xs text-slate-700 dark:text-zinc-300 pt-2">
+                      Leads full-stack architecture, Sayara API, POS integrations, and Karani Law platform build.
+                    </p>
+                  </div>
+
+                  <div className="p-5 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-2">
+                    <h3 className="font-bold text-sm text-slate-900 dark:text-white font-brand">Razak Guyo</h3>
+                    <p className="text-xs text-slate-500">Systems & Infrastructure Lead</p>
+                    <p className="text-[11px] font-mono text-blue-600">razak@p3ldev.com</p>
+                    <p className="text-xs text-slate-700 dark:text-zinc-300 pt-2">
+                      Oversees razak-server host, Marsabit network uplink, port bindings, and backup daemons.
+                    </p>
+                  </div>
+
+                  <div className="p-5 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-2">
+                    <h3 className="font-bold text-sm text-slate-900 dark:text-white font-brand">Victor Karani</h3>
+                    <p className="text-xs text-slate-500">LegalTech Engineering Lead</p>
+                    <p className="text-[11px] font-mono text-blue-600">karani@p3ldev.com</p>
+                    <p className="text-xs text-slate-700 dark:text-zinc-300 pt-2">
+                      Validates Advocates Remuneration Order calculations, High Court taxation scale accuracy, and legal UAT.
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
 
             {/* ========================================================================= */}
-            {/* 8. COMMUNICATION AND MESSAGING */}
+            {/* 8. MESSAGING */}
             {/* ========================================================================= */}
             {activeTab === 'comms_messaging' && (
-              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6">
-                <div>
+              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
+                <div className="pb-4 border-b border-slate-100 dark:border-zinc-800">
                   <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
-                    P3L Internal Omnichannel Chat & Communication Channels
+                    P3L Internal & Client Dispatch Stream
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Real-time collaboration across product engineering channels and client broadcast announcements
+                    Real-time collaboration across client support channels
                   </p>
+                </div>
+
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40 space-y-3 font-mono text-xs">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-zinc-700">
+                    <span className="font-bold text-slate-900 dark:text-white font-sans">Active Channel: #sayara-support</span>
+                    <span className="text-[10px] text-emerald-600 font-bold">Online</span>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-slate-600 dark:text-zinc-300">
+                      <strong>Sarah Rashid:</strong> Sent KES 3,200 via M-Pesa for this month's maintenance. Shein sync catalog working smoothly!
+                    </p>
+                    <p className="text-blue-600 dark:text-blue-400">
+                      <strong>Guyo:</strong> Received, thank you Sarah. Monitoring the automated 18:00 cron run now.
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
 
             {/* ========================================================================= */}
-            {/* 9. SERVER INFRASTRUCTURE WITH MAP OVERLAY */}
+            {/* 9. RAZAK SERVER INFRASTRUCTURE */}
             {/* ========================================================================= */}
             {activeTab === 'server' && (
-              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6">
-                <div>
-                  <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
-                    P3L Server Infrastructure, Microservices & Database Health
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    FastAPI Python engine (`8000`), Supabase PostgreSQL pool, Redis cache, and DB table row metrics
-                  </p>
+              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn font-mono text-xs">
+                <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-zinc-800">
+                  <div>
+                    <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white font-sans">
+                      Razak Server Central Diagnostics
+                    </h2>
+                    <p className="text-xs text-slate-500 font-sans">
+                      Host: Biftu Construction Co. Building, Marsabit &middot; Gateway to Azure Cloud
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setShowDiagnosticsModal(true)}
+                    className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-black cursor-pointer"
+                  >
+                    Full Hardware Dump
+                  </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 space-y-1">
-                    <span className="text-[10.5px] font-mono text-slate-400">PostgreSQL Database</span>
-                    <p className="text-lg font-bold text-emerald-600 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4" /> Connected & Streaming
-                    </p>
-                    <span className="text-[10px] text-slate-400">Supabase Production Pooler Active</span>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800">
+                    <span className="text-[10px] text-slate-400 uppercase block">Host Uptime</span>
+                    <span className="text-base font-bold text-slate-900 dark:text-white">{formatUptime(uptimeSeconds)}</span>
                   </div>
-
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 space-y-1">
-                    <span className="text-[10.5px] font-mono text-slate-400">FastAPI Remuneration Engine</span>
-                    <p className="text-lg font-bold text-emerald-600 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4" /> Port 8000 Active
-                    </p>
-                    <span className="text-[10px] text-slate-400">Latency: {apiLatency} ms</span>
+                  <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800">
+                    <span className="text-[10px] text-slate-400 uppercase block">Network Latency</span>
+                    <span className="text-base font-bold text-emerald-600">7 ms Local / 38ms Azure</span>
                   </div>
+                  <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800">
+                    <span className="text-[10px] text-slate-400 uppercase block">Memory Used</span>
+                    <span className="text-base font-bold text-slate-900 dark:text-white">1.8 GB / 8.0 GB</span>
+                  </div>
+                  <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800">
+                    <span className="text-[10px] text-slate-400 uppercase block">Mirror Sockets</span>
+                    <span className="text-base font-bold text-amber-600">2 Active / 1 Error</span>
+                  </div>
+                </div>
 
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 space-y-1">
-                    <span className="text-[10.5px] font-mono text-slate-400">Emergency Maintenance</span>
-                    <p className={`text-lg font-bold flex items-center gap-1.5 ${isMaintenanceMode ? 'text-red-600' : 'text-slate-700 dark:text-zinc-300'}`}>
-                      {isMaintenanceMode ? 'ACTIVE (Read-Only)' : 'Normal Operations'}
-                    </p>
-                    <span className="text-[10px] text-slate-400">Kill-switch toggled via admin console</span>
+                {/* Mirror APIs */}
+                <div className="space-y-2 pt-2">
+                  <h4 className="font-bold text-xs uppercase text-slate-500">Kenyan Bank API Mirror Sockets</h4>
+                  <div className="space-y-2">
+                    {mirrorApis.map((m, idx) => (
+                      <div key={idx} className="p-3 rounded-xl border border-slate-200 dark:border-zinc-800 flex justify-between items-center">
+                        <div>
+                          <span className="font-bold text-slate-900 dark:text-white block">{m.endpoint}</span>
+                          <span className="text-[10px] text-slate-400">Port {m.port} &middot; {m.protocol}</span>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${m.alert ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                          {m.status}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -1751,58 +1988,80 @@ export const AdminDashboard: React.FC = () => {
             {/* 10. SUPPORT AND TICKETING */}
             {/* ========================================================================= */}
             {activeTab === 'support_ticketing' && (
-              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6">
-                <div>
+              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
+                <div className="pb-4 border-b border-slate-100 dark:border-zinc-800">
                   <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
-                    Client & Advocate Support Desk
+                    Client Support Desk & Incident Routing
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Live ticketing queue across pSchool schools, Matta AI users, and BillsZip law firms
+                    Inbound client support tickets and maintenance requests
                   </p>
+                </div>
+
+                <div className="space-y-3 font-mono text-xs">
+                  <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 flex justify-between items-center">
+                    <div>
+                      <span className="font-bold text-slate-900 dark:text-white block font-sans">Fresh City Supermarket: Barcode Scanner Roll Replacement</span>
+                      <span className="text-[10px] text-slate-400">Rosemary Wakonyo &middot; Station POS-01</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold">Resolved</span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 flex justify-between items-center">
+                    <div>
+                      <span className="font-bold text-slate-900 dark:text-white block font-sans">Sayara Aesthetics: Shein Price Converter Currency Fluctuation</span>
+                      <span className="text-[10px] text-slate-400">Sarah Guyatu Rashid &middot; E-commerce store</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-bold">In Progress</span>
+                  </div>
                 </div>
               </div>
             )}
 
             {/* ========================================================================= */}
-            {/* 11. SYSTEM WIPE AND BACKUPS */}
+            {/* 11. SYSTEM WIPE & MASTER SNAPSHOTS */}
             {/* ========================================================================= */}
             {activeTab === 'system_wipe' && (
-              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6">
-                <div>
+              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs space-y-6 animate-fadeIn">
+                <div className="pb-4 border-b border-slate-100 dark:border-zinc-800">
                   <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
-                    P3L System Wipe, Database Snapshots & Maintenance Controls
+                    System Snapshot Exports & Maintenance Controls
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Full JSON/SQL disaster recovery backups, temporary cache flushing, and maintenance kill-switch
+                    Full master data exports, local cache purges, and emergency controls
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="p-5 rounded-2xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 space-y-3">
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-white">Download Complete P3L Master Snapshot</h3>
-                    <p className="text-xs text-slate-500">
-                      Exports all products, clients, staff rosters, user records, fee notes, and audit logs to an encrypted JSON file.
+                  <div className="p-5 rounded-2xl border border-slate-200 dark:border-zinc-800 space-y-3">
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 font-mono">
+                      Export Full Master Snapshot
+                    </h3>
+                    <p className="text-xs text-slate-600 dark:text-zinc-400">
+                      Creates a portable JSON backup including all projects, client contracts, tasks, and razak-server states.
                     </p>
                     <button
                       onClick={handleExportBackup}
-                      className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-semibold hover:bg-black cursor-pointer flex items-center gap-2"
+                      className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-black cursor-pointer shadow-xs"
                     >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Download Master JSON Snapshot</span>
+                      Export Snapshot JSON
                     </button>
                   </div>
 
-                  <div className="p-5 rounded-2xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 space-y-3">
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-white">Flush System Cache & Vector Memory</h3>
-                    <p className="text-xs text-slate-500">
-                      Clears local storage buffers, session memory, and forces an immediate fresh query against Supabase PostgreSQL.
+                  <div className="p-5 rounded-2xl border border-red-200 dark:border-red-900/60 bg-red-50/30 dark:bg-red-950/20 space-y-3">
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-red-700 dark:text-red-400 font-mono">
+                      Emergency Kill-Switch
+                    </h3>
+                    <p className="text-xs text-slate-600 dark:text-zinc-400">
+                      Puts all client portal endpoints into read-only mode during structural maintenance.
                     </p>
                     <button
-                      onClick={handleFlushCache}
-                      className="px-4 py-2 rounded-xl border border-slate-300 dark:border-zinc-600 text-slate-700 dark:text-zinc-300 text-xs font-semibold hover:bg-slate-200 cursor-pointer flex items-center gap-2"
+                      onClick={toggleMaintenance}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-xs ${
+                        isMaintenanceMode ? 'bg-red-600 text-white animate-pulse' : 'bg-red-700 text-white hover:bg-red-800'
+                      }`}
                     >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      <span>Clear Local Cache</span>
+                      {isMaintenanceMode ? 'Deactivate Kill-Switch' : 'Activate Kill-Switch'}
                     </button>
                   </div>
                 </div>
@@ -1813,92 +2072,197 @@ export const AdminDashboard: React.FC = () => {
         </main>
       </div>
 
-      {/* Add User Modal */}
-      {showAddUserModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xl max-w-lg w-full space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
-              <h3 className="font-brand font-bold text-base text-slate-900 dark:text-white">
-                Onboard New User to P3L Fleet
-              </h3>
-              <button onClick={() => setShowAddUserModal(false)} className="text-slate-400">
+      {/* ========================================================================= */}
+      {/* MODAL 1: FULL SERVER DIAGNOSTICS (TRIGGERED BY RIGHT-CLICK ON MAP) */}
+      {/* ========================================================================= */}
+      {showDiagnosticsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 sm:p-8 max-w-xl w-full shadow-2xl space-y-5 animate-fadeIn font-mono text-xs">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Server className="w-4 h-4 text-slate-900 dark:text-white" />
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white font-brand">
+                  Full Server Diagnostics: razak-server
+                </h3>
+              </div>
+              <button 
+                onClick={() => setShowDiagnosticsModal(false)}
+                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400 hover:text-black cursor-pointer"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleAddUser} className="space-y-3 text-xs">
+            <div className="space-y-3">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-800 space-y-1.5">
+                <div className="flex justify-between"><span className="text-slate-400">Station Node:</span><span className="font-bold text-slate-900 dark:text-white">Biftu Construction Co. Building, Marsabit Town, KE</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">GPS Coordinates:</span><span className="font-bold text-emerald-600">2.3333&deg; N, 37.9833&deg; E</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Public IP / Gateway:</span><span className="font-bold text-slate-900 dark:text-white">197.232.88.14 (Safaricom Dedicated Fiber + Starlink Node)</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Cloud Peers:</span><span className="font-bold text-blue-600">Azure Web App &middot; Vercel Edge &middot; Supabase Pool</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Local Loop Latency:</span><span className="font-bold text-emerald-600">7 ms</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Azure Roundtrip:</span><span className="font-bold text-slate-900 dark:text-white">38 ms</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Hardware Spec:</span><span className="font-bold text-slate-900 dark:text-white">Intel Core i7 (8 Cores), 32GB DDR4, 1TB NVMe SSD</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Kernel Version:</span><span className="font-bold text-slate-900 dark:text-white">Linux 5.15.0-89-generic (Ubuntu 22.04 LTS)</span></div>
+              </div>
+
+              <div className="space-y-1">
+                <span className="font-bold text-slate-400 uppercase text-[10px] block">Mirror Gateway Directory:</span>
+                <code className="p-2 rounded bg-slate-950 text-slate-200 block text-[11px] overflow-x-auto">
+                  /opt/razak-server/mirrors/api/kenyanbanks/IandM<br/>
+                  /opt/razak-server/mirrors/api/mpesa_b2c<br/>
+                  /opt/razak-server/mirrors/api/sms_gateway
+                </code>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-zinc-800">
+              <button
+                onClick={() => setShowDiagnosticsModal(false)}
+                className="px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold cursor-pointer"
+              >
+                Close Telemetry
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 2: RIGHT-CLICK DEPLOYMENT CONTEXT MENU */}
+      {/* ========================================================================= */}
+      {showDeploymentMenu && selectedDeployment && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/20" 
+          onClick={() => setShowDeploymentMenu(false)}
+        >
+          <div 
+            style={{ top: Math.min(window.innerHeight - 200, deploymentMenuPos.y), left: Math.min(window.innerWidth - 240, deploymentMenuPos.x) }}
+            className="absolute z-50 w-56 rounded-xl bg-slate-900 text-white shadow-2xl border border-slate-800 p-1.5 space-y-1 font-mono text-xs animate-fadeIn"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="px-2.5 py-1 border-b border-slate-800 text-[10px] text-slate-400 font-bold uppercase truncate">
+              {selectedDeployment.name}
+            </div>
+            <button
+              onClick={() => {
+                setShowDeploymentMenu(false);
+                if (selectedDeployment.liveUrl.startsWith('http')) {
+                  window.open(selectedDeployment.liveUrl, '_blank');
+                } else {
+                  showToast(`Live station: ${selectedDeployment.liveUrl}`);
+                }
+              }}
+              className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
+              <span>Open Live URL</span>
+            </button>
+            <button
+              onClick={() => {
+                setShowDeploymentMenu(false);
+                showToast(`Fetching deployment logs for ${selectedDeployment.name}...`);
+              }}
+              className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+            >
+              <Terminal className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Inspect Build Logs</span>
+            </button>
+            <button
+              onClick={() => {
+                setShowDeploymentMenu(false);
+                showToast(`Daemon restart command dispatched to ${selectedDeployment.name}.`);
+              }}
+              className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+            >
+              <RefreshCcw className="w-3.5 h-3.5 text-amber-400" />
+              <span>Restart Worker Daemon</span>
+            </button>
+            <button
+              onClick={() => {
+                setShowDeploymentMenu(false);
+                showToast(`Displaying environment secrets for ${selectedDeployment.name}`);
+              }}
+              className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+            >
+              <Lock className="w-3.5 h-3.5 text-slate-400" />
+              <span>View Secrets</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 3: ADD PROJECT */}
+      {/* ========================================================================= */}
+      {showAddProjectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-4 animate-fadeIn">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
+              <h3 className="font-brand font-bold text-sm text-slate-900 dark:text-white">
+                Register New P3L Project
+              </h3>
+              <button onClick={() => setShowAddProjectModal(false)} className="text-slate-400 hover:text-black cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddProject} className="space-y-3 text-xs">
               <div>
-                <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Full Name</label>
-                <input
-                  type="text"
+                <label className="block text-[10.5px] font-mono text-slate-500 mb-1">Project Name</label>
+                <input 
+                  type="text" 
                   required
-                  placeholder="e.g. Adv. Faith Chebet"
-                  value={newUserName}
-                  onChange={e => setNewUserName(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-semibold"
+                  placeholder="e.g. Sayara New Delivery Portal"
+                  value={newProjectName}
+                  onChange={e => setNewProjectName(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Official Email</label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="fchebet@kithinjilegal.co.ke"
-                    value={newUserEmail}
-                    onChange={e => setNewUserEmail(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Telephone</label>
-                  <input
-                    type="text"
-                    value={newUserPhone}
-                    onChange={e => setNewUserPhone(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-mono"
-                  />
-                </div>
+              <div>
+                <label className="block text-[10.5px] font-mono text-slate-500 mb-1">Client Name / Business</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Sarah Guyatu Rashid"
+                  value={newProjectClient}
+                  onChange={e => setNewProjectClient(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs"
+                />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Role Template</label>
-                  <select
-                    value={newUserRole}
-                    onChange={e => setNewUserRole(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800"
+                  <label className="block text-[10.5px] font-mono text-slate-500 mb-1">Category</label>
+                  <select 
+                    value={newProjectCategory}
+                    onChange={e => setNewProjectCategory(e.target.value as any)}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs"
                   >
-                    {roleTemplates.map(t => (
-                      <option key={t.code} value={t.code}>{t.name}</option>
-                    ))}
+                    <option value="Retail & POS">Retail & POS</option>
+                    <option value="E-commerce">E-commerce</option>
+                    <option value="Automation & API">Automation & API</option>
+                    <option value="LegalTech SaaS">LegalTech SaaS</option>
+                    <option value="AI & Automation">AI & Automation</option>
                   </select>
                 </div>
+
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-zinc-300 mb-1">Initial Password</label>
-                  <input
-                    type="text"
-                    value={newUserPassword}
-                    onChange={e => setNewUserPassword(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-mono"
+                  <label className="block text-[10.5px] font-mono text-slate-500 mb-1">Monthly Fee / Retainer</label>
+                  <input 
+                    type="text" 
+                    value={newProjectFee}
+                    onChange={e => setNewProjectFee(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-mono text-xs"
                   />
                 </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
-                <button
-                  type="button"
-                  onClick={() => setShowAddUserModal(false)}
-                  className="px-4 py-2 text-slate-600 hover:text-black dark:hover:text-white font-semibold cursor-pointer"
-                >
+                <button type="button" onClick={() => setShowAddProjectModal(false)} className="px-3 py-1.5 text-xs text-slate-600 hover:text-black cursor-pointer">
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold hover:bg-black cursor-pointer shadow-xs"
-                >
-                  Create Account
+                <button type="submit" className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-xs cursor-pointer">
+                  Save Project
                 </button>
               </div>
             </form>
@@ -1906,37 +2270,134 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Password Reset Modal */}
-      {selectedUserForPassword && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xl max-w-sm w-full space-y-4">
-            <h3 className="font-brand font-bold text-sm text-slate-900 dark:text-white">
-              Reset Password for {selectedUserForPassword.fullName}
-            </h3>
-            <p className="text-[11px] text-slate-500">
-              Enter a new password for account <code>{selectedUserForPassword.workEmail}</code>.
-            </p>
-            <input
-              type="password"
-              placeholder="Enter new password..."
-              value={newPasswordInput}
-              onChange={e => setNewPasswordInput(e.target.value)}
-              className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs font-mono"
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setSelectedUserForPassword(null)}
-                className="px-3 py-1.5 text-xs text-slate-600 hover:text-black cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleResetPassword}
-                className="px-4 py-1.5 text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl cursor-pointer"
-              >
-                Save Password
+      {/* ========================================================================= */}
+      {/* MODAL 4: ADD TASK */}
+      {/* ========================================================================= */}
+      {showAddTaskModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-4 animate-fadeIn">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
+              <h3 className="font-brand font-bold text-sm text-slate-900 dark:text-white">
+                Add Founder Priority Task
+              </h3>
+              <button onClick={() => setShowAddTaskModal(false)} className="text-slate-400 hover:text-black cursor-pointer">
+                <X className="w-4 h-4" />
               </button>
             </div>
+
+            <form onSubmit={handleAddTask} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-[10.5px] font-mono text-slate-500 mb-1">Task Description</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="e.g. Verify Shein catalog sync webhook"
+                  value={newTaskTitle}
+                  onChange={e => setNewTaskTitle(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10.5px] font-mono text-slate-500 mb-1">Category</label>
+                  <select 
+                    value={newTaskCategory}
+                    onChange={e => setNewTaskCategory(e.target.value as any)}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs"
+                  >
+                    <option value="work">Work / Client Sprint</option>
+                    <option value="personal">Personal / University Study</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10.5px] font-mono text-slate-500 mb-1">Priority</label>
+                  <select 
+                    value={newTaskPriority}
+                    onChange={e => setNewTaskPriority(e.target.value as any)}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs"
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="high">High Priority</option>
+                    <option value="critical">Critical Bug / Blocker</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                <button type="button" onClick={() => setShowAddTaskModal(false)} className="px-3 py-1.5 text-xs text-slate-600 hover:text-black cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-xs cursor-pointer">
+                  Save Priority
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 5: LOG CLIENT PAYMENT */}
+      {/* ========================================================================= */}
+      {showLogPaymentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-4 animate-fadeIn">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
+              <h3 className="font-brand font-bold text-sm text-slate-900 dark:text-white">
+                Log Inbound Client Settlement
+              </h3>
+              <button onClick={() => setShowLogPaymentModal(false)} className="text-slate-400 hover:text-black cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleLogPayment} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-[10.5px] font-mono text-slate-500 mb-1">Client Source</label>
+                <select 
+                  value={paymentClient}
+                  onChange={e => setPaymentClient(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs font-mono"
+                >
+                  <option value="Sarah Guyatu Rashid (Sayara Aesthetics)">Sarah Guyatu Rashid (Sayara Aesthetics)</option>
+                  <option value="Rosemary Wakonyo (Fresh City Supermarket)">Rosemary Wakonyo (Fresh City POS)</option>
+                  <option value="Adv. Nyagah B. Kithinji (Karani Law)">Adv. Nyagah B. Kithinji (Karani Law)</option>
+                  <option value="Other Inbound Client">Other Inbound Client</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10.5px] font-mono text-slate-500 mb-1">Amount (KES)</label>
+                <input 
+                  type="number" 
+                  required
+                  value={paymentAmount}
+                  onChange={e => setPaymentAmount(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 font-mono text-xs font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10.5px] font-mono text-slate-500 mb-1">Notes / Description</label>
+                <input 
+                  type="text" 
+                  value={paymentNote}
+                  onChange={e => setPaymentNote(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                <button type="button" onClick={() => setShowLogPaymentModal(false)} className="px-3 py-1.5 text-xs text-slate-600 hover:text-black cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-xs cursor-pointer">
+                  Confirm Payment
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
