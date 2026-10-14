@@ -1,0 +1,19 @@
+# Root .dockerignore
+.git
+.github
+.vscode
+.pytest_cache
+node_modules
+dist
+scratch
+terraform
+backend
+Billszip
+*.pdf
+*.jpeg
+*.jpg
+*.png
+*.zip
+.env*
+!.env.example
+*.log
