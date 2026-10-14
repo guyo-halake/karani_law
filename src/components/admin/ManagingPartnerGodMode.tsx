@@ -122,6 +122,14 @@ export const ManagingPartnerGodMode: React.FC<ManagingPartnerGodModeProps> = ({
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
             <button
+              onClick={() => onNavigateTab ? onNavigateTab('developer_page') : window.open('/developer-page', '_blank')}
+              className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-mono font-bold text-xs rounded-xl border border-slate-700 flex items-center gap-2 transition-all cursor-pointer shadow-md"
+              title="Open System Developer Page"
+            >
+              <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+              Developer Settings (/developers.azure)
+            </button>
+            <button
               onClick={() => onNavigateTab ? onNavigateTab('boc') : onNavigateToBuilder && onNavigateToBuilder()}
               className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/20 flex items-center gap-2 transition-all cursor-pointer"
             >

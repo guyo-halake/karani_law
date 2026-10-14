@@ -29,6 +29,7 @@ import { ToastContainer } from './components/admin/ToastNotification';
 import { AccessDeniedView } from './components/common/AccessDeniedView';
 import { DocumentVerifyView } from './components/verify/DocumentVerifyView';
 import { PaymentsBillingView } from './components/payments/PaymentsBillingView';
+import { DeveloperPage } from './components/admin/DeveloperPage';
 
 import { SystemUser, fetchFeeNotesFromDatabase } from './services/supabase';
 import { getCurrentUserProfile, signOut, subscribeToAuthState } from './services/auth';
@@ -50,7 +51,10 @@ export const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<string>(() => {
     try {
       if (typeof window !== 'undefined' && window.location) {
+        const path = window.location.pathname.toLowerCase();
+        if (path.includes('developer-page') || path.includes('developers.azure') || path.includes('developer')) return 'developer_page';
         const p = new URLSearchParams(window.location.search);
+        if (p.get('tab') === 'developer-page' || p.get('tab') === 'developer_page' || p.get('tab') === 'developers.azure') return 'developer_page';
         if (p.get('tab') === 'verify' || p.get('ref')) return 'verify';
       }
     } catch (e) {}
@@ -178,6 +182,11 @@ export const App: React.FC = () => {
       // Clear any previous note when opening blank BOC Builder from navigation
       setBuilderNote(null);
       setBuilderPreview(false);
+    }
+    if (newTab === 'developer_page' || newTab === 'developer-page') {
+      try {
+        window.history.pushState(null, '', '/developers.azure');
+      } catch (e) {}
     }
     if (newTab !== currentTab) {
       setPreviousTab(currentTab);
@@ -526,6 +535,11 @@ export const App: React.FC = () => {
                 onNavigateHome={() => handleNavigateTab('home')}
               />
             )
+          )}
+
+          {/* DEVELOPER PAGE (ACCESSIBLE VIA /developer-page OR /developers.azure) */}
+          {(currentTab === 'developer_page' || currentTab === 'developer-page') && (
+            <DeveloperPage />
           )}
         </main>
       </div>
