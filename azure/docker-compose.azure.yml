@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   frontend:
-    image: acrnyagahfee.azurecr.io/karani-frontend:latest
+    image: acrnyagahfee.azurecr.io/karani-frontend:c652f66042e9f81036d10f575d23a9428d0e5717
     ports:
       - "80:80"
     restart: always
@@ -10,7 +10,7 @@ services:
       - backend
 
   backend:
-    image: acrnyagahfee.azurecr.io/karani-backend:latest
+    image: acrnyagahfee.azurecr.io/karani-backend:c652f66042e9f81036d10f575d23a9428d0e5717
     expose:
       - "8000"
     environment:
