@@ -45,8 +45,18 @@ import {
   Laptop,
   Database,
   AlertTriangle,
-  AlertCircle
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle,
+  LayoutDashboard,
+  HelpCircle,
+  Send,
+  Settings,
+  Search,
+  RefreshCw,
+  Table
 } from 'lucide-react';
+import { ITTicketRecord, DEFAULT_ADVOCATE_TICKETS } from '../support/TechSupportView';
 
 import {
   SystemUser,
@@ -67,7 +77,10 @@ import {
   fetchFirmUsers,
   createFirmUser,
   updateFirmUser,
-  deleteFirmUser
+  deleteFirmUser,
+  purgeStaleTestUsers,
+  getDeletedUserKeys,
+  isUserRecordDeleted
 } from '../../services/data';
 import { getActivityLogs, logSystemActivity, ActivityLogItem } from '../../services/activityLogger';
 import { sendEmail, sendWelcomeUserEmail } from '../../services/email';
@@ -132,29 +145,47 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [clients, setClients] = useState<ExactClientRecord[]>(() => EXACT_CLIENTS);
   const [users, setUsers] = useState<SystemUser[]>(() => {
     try {
+      const deletedKeys = getDeletedUserKeys();
       const stored = typeof window !== 'undefined' ? localStorage.getItem('EXACT_USERS') : null;
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const valid = parsed.filter(u => !isUserRecordDeleted(u, deletedKeys));
+          if (valid.length > 0) return valid;
+        }
       }
     } catch (e) {}
-    return SEEDED_USERS;
+    const deletedKeys = getDeletedUserKeys();
+    return SEEDED_USERS.filter(u => !isUserRecordDeleted(u, deletedKeys));
   });
   const [roleTemplates, setRoleTemplates] = useState<RoleTemplate[]>(DEFAULT_ROLE_TEMPLATES);
   const [userRoleMap, setUserRoleMap] = useState<Record<string, string>>({});
   const [activityLogs, setActivityLogs] = useState<ActivityLogItem[]>(() => getActivityLogs());
+  const [supportTickets, setSupportTickets] = useState<ITTicketRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('BILLSZIP_SUPPORT_TICKETS_REAL');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return DEFAULT_ADVOCATE_TICKETS;
+  });
+
+  // User Deletion Modal State (Eliminates unreliable browser window.confirm)
+  const [userPendingDelete, setUserPendingDelete] = useState<SystemUser | null>(null);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
 
   // Main Executive Tab State: 'bills' | 'matters' | 'users_permissions' | 'clients'
   const [executiveActiveTab, setExecutiveActiveTab] = useState<'bills' | 'matters' | 'users_permissions' | 'clients'>('users_permissions');
   const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
   const [roleDropdownUser, setRoleDropdownUser] = useState<string | null>(null);
   const [userActionMenuId, setUserActionMenuId] = useState<string | null>(null);
+  const [showFeeBreakdown, setShowFeeBreakdown] = useState(false);
 
   // Matter Table Checkbox Selection State
   const [selectedMatterIds, setSelectedMatterIds] = useState<string[]>([]);
 
   // Modals for Actions
   const [managingUser, setManagingUser] = useState<SystemUser | null>(null);
+  const [isSavingUser, setIsSavingUser] = useState(false);
   const [messagingUser, setMessagingUser] = useState<SystemUser | null>(null);
   const [messageText, setMessageText] = useState('');
 
@@ -166,15 +197,36 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [newCompanyEmail, setNewCompanyEmail] = useState('');
   const [newPhoneNumber, setNewPhoneNumber] = useState('');
   const [newPersonalEmail, setNewPersonalEmail] = useState('');
-  const [newFirstPassword, setNewFirstPassword] = useState('');
-  const [newConfirmPassword, setNewConfirmPassword] = useState('');
+  const [newFirstPassword, setNewFirstPassword] = useState('Nyagah@2026');
+  const [newConfirmPassword, setNewConfirmPassword] = useState('Nyagah@2026');
+  const [showAddUserPassword, setShowAddUserPassword] = useState(false);
   const [newAdvocateTitle, setNewAdvocateTitle] = useState('');
   const [newPosition, setNewPosition] = useState('Senior Advocate');
   const [newRoleTemplate, setNewRoleTemplate] = useState('senior_advocates_lawyers');
+  const [newLskNo, setNewLskNo] = useState('');
+  const [newDepartment, setNewDepartment] = useState('Commercial Litigation & Dispute Resolution');
+  const [newSecondaryPhone, setNewSecondaryPhone] = useState('');
+  const [permViewMode, setPermViewMode] = useState<'pages' | 'catalog'>('pages');
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [selectedUserPermissions, setSelectedUserPermissions] = useState<string[]>([]);
   const [sendInviteEmail, setSendInviteEmail] = useState(true);
   const [giveHistoryAccess, setGiveHistoryAccess] = useState(false);
   const [isSubmittingUser, setIsSubmittingUser] = useState(false);
+
+  // Database Users Directory & Management Modal State
+  const [showUsersDirectoryModal, setShowUsersDirectoryModal] = useState(false);
+  const [directoryRoleFilter, setDirectoryRoleFilter] = useState<'All' | 'Advocate' | 'Admin' | 'Developer'>('All');
+  const [usersSearchQuery, setUsersSearchQuery] = useState('');
+
+  // Database Rules & Role Permissions Matrix Modal State
+  const [showDatabaseRulesModal, setShowDatabaseRulesModal] = useState(false);
+  const [databaseRulesTab, setDatabaseRulesTab] = useState<'tables' | 'roles' | 'matrix'>('tables');
+
+  // Password Reset Modal State
+  const [resetPasswordTargetUser, setResetPasswordTargetUser] = useState<SystemUser | null>(null);
+  const [newResetPasswordInput, setNewResetPasswordInput] = useState('');
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [showPasswordText, setShowPasswordText] = useState(false);
 
   // Load Fee Notes (Firm-Wide Shared Ledger)
   useEffect(() => {
@@ -192,11 +244,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       const detail = (event as CustomEvent<{ table?: string }>).detail;
       if (detail?.table === 'fee_notes') void loadFeeNotes();
     };
+    const handleFeeNotesDirect = (event: Event) => {
+      const detail = (event as CustomEvent<ExactFeeNoteRecord[]>).detail;
+      if (Array.isArray(detail)) {
+        setFeeNotes(detail);
+      }
+    };
     window.addEventListener('databaseRealtimeUpdate', handleRealtime);
-    window.addEventListener('feeNotesUpdated', loadFeeNotes);
+    window.addEventListener('feeNotesUpdated', handleFeeNotesDirect);
     return () => {
       window.removeEventListener('databaseRealtimeUpdate', handleRealtime);
-      window.removeEventListener('feeNotesUpdated', loadFeeNotes);
+      window.removeEventListener('feeNotesUpdated', handleFeeNotesDirect);
     };
   }, [currentUser?.firmId]);
 
@@ -255,13 +313,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     void loadExecutiveData();
 
     const refreshActivity = () => setActivityLogs(getActivityLogs());
+    const handleStorageChange = (e: StorageEvent) => {
+      refreshActivity();
+      if (!e.key || e.key === 'EXACT_USERS' || e.key === 'DELETED_USER_KEYS') {
+        void loadExecutiveData();
+      }
+    };
     window.addEventListener('activityLogsUpdated', refreshActivity);
-    window.addEventListener('storage', refreshActivity);
+    window.addEventListener('storage', handleStorageChange);
     window.addEventListener('permissionsUpdated', loadExecutiveData);
+    window.addEventListener('userProfileUpdated', loadExecutiveData);
 
     const handleRealtime = (event: Event) => {
       const detail = (event as CustomEvent<{ table?: string }>).detail;
-      if (['users', 'clients', 'permissions', 'activity_logs', 'fee_notes'].includes(detail?.table || '')) {
+      if (['users', 'clients', 'permissions', 'activity_logs'].includes(detail?.table || '')) {
         void loadExecutiveData();
         refreshActivity();
       }
@@ -270,8 +335,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
     return () => {
       window.removeEventListener('activityLogsUpdated', refreshActivity);
-      window.removeEventListener('storage', refreshActivity);
+      window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('permissionsUpdated', loadExecutiveData);
+      window.removeEventListener('userProfileUpdated', loadExecutiveData);
       window.removeEventListener('databaseRealtimeUpdate', handleRealtime);
     };
   }, [currentUser?.firmId]);
@@ -829,8 +895,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
   };
 
-  // Interactive BOC Preview State (Synchronized with Fee Note Builder Engine)
-  const [showBocCalc, setShowBocCalc] = useState(true);
+  // Interactive Quick Fee Note / BOC Preview State (Hidden by default, shown when clicked)
+  const [showBocCalc, setShowBocCalc] = useState(false);
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [qqCategory, setQqCategory] = useState<string>('schedule_6_high_court');
   const [qqValue, setQqValue] = useState<number | ''>('');
@@ -920,20 +986,104 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const handleSaveManagedUser = async () => {
     if (!managingUser) return;
+    setIsSavingUser(true);
     const firmId = currentUser?.firmId || 'firm-001';
     try {
-      await updateFirmUser(firmId, managingUser);
-      setUsers(prev => prev.map(u => u.id === managingUser.id ? managingUser : u));
+      const mappedRoleCode = userRoleMap[managingUser.id];
+      let effectiveRole = managingUser.role;
+      if (mappedRoleCode === 'managing_partner_exec') effectiveRole = 'Admin';
+      else if (mappedRoleCode === 'developer_sys_admin') effectiveRole = 'Developer';
+      else if (mappedRoleCode) effectiveRole = 'Advocate';
+
+      const userToSave: SystemUser = {
+        ...managingUser,
+        role: effectiveRole,
+        fullName: managingUser.fullName.trim(),
+        workEmail: managingUser.workEmail.trim(),
+        personalEmail: (managingUser.personalEmail || managingUser.workEmail).trim(),
+        advocateTitle: (managingUser.advocateTitle || managingUser.fullName).trim(),
+        lskNo: (managingUser.lskNo || '').trim(),
+        position: (managingUser.position || '').trim(),
+        department: (managingUser.department || '').trim(),
+        phonePrimary: (managingUser.phonePrimary || '').trim(),
+        phoneSecondary: (managingUser.phoneSecondary || '').trim(),
+      };
+
+      await updateFirmUser(firmId, userToSave);
+      setUsers(prev => prev.map(u => u.id === userToSave.id ? userToSave : u));
       setManagingUser(null);
-      showToast('success', 'User Profile Saved', `Updated details for ${managingUser.fullName}.`);
+      showToast('success', 'User Profile Saved', `Updated details for ${userToSave.fullName}.`);
       logSystemActivity(
         currentUser?.fullName || 'Managing Partner',
-        `updated full profile and credentials for ${managingUser.fullName}`,
+        `updated profile details for ${userToSave.fullName}`,
         'permission',
         'bg-blue-500'
       );
     } catch (e: any) {
       showToast('error', 'Save Failed', e.message || 'Unable to update user details.');
+    } finally {
+      setIsSavingUser(false);
+    }
+  };
+
+  const handleDirectUserRoleChange = async (targetUser: SystemUser, newRole: 'Admin' | 'Developer' | 'Advocate') => {
+    const firmId = currentUser?.firmId || 'firm-001';
+    try {
+      const updatedUser: SystemUser = { ...targetUser, role: newRole };
+      await updateFirmUser(firmId, updatedUser);
+      setUsers(prev => prev.map(u => u.id === targetUser.id ? updatedUser : u));
+
+      const templateCode = newRole === 'Admin' 
+        ? 'managing_partner_exec' 
+        : newRole === 'Developer' 
+          ? 'developer_sys_admin' 
+          : 'senior_advocates_lawyers';
+
+      const newMap = { ...userRoleMap, [targetUser.id]: templateCode };
+      setUserRoleMap(newMap);
+      saveLocalUserRoleAssignments(newMap);
+
+      showToast('success', 'User Role Updated', `${targetUser.fullName}'s role has been set to ${newRole} in the database.`);
+      logSystemActivity(
+        currentUser?.fullName || 'Managing Partner',
+        `updated database role for ${targetUser.fullName} to ${newRole}`,
+        'permission',
+        'bg-blue-500'
+      );
+    } catch (err: any) {
+      showToast('error', 'Role Update Failed', err.message || 'Could not update role in database.');
+    }
+  };
+
+  const handleExecutePasswordReset = async () => {
+    if (!resetPasswordTargetUser) return;
+    if (!newResetPasswordInput || newResetPasswordInput.length < 6) {
+      showToast('error', 'Invalid Password', 'Password must be at least 6 characters long.');
+      return;
+    }
+    setIsResettingPassword(true);
+    const firmId = currentUser?.firmId || 'firm-001';
+    try {
+      const updatedUser: SystemUser = {
+        ...resetPasswordTargetUser,
+        passwordHash: newResetPasswordInput.trim()
+      };
+      await updateFirmUser(firmId, updatedUser);
+      setUsers(prev => prev.map(u => u.id === resetPasswordTargetUser.id ? updatedUser : u));
+      showToast('success', 'Password Reset Successful', `New password saved to database for ${resetPasswordTargetUser.fullName}.`);
+      logSystemActivity(
+        currentUser?.fullName || 'Managing Partner',
+        `reset database credentials for ${resetPasswordTargetUser.fullName} (${resetPasswordTargetUser.workEmail})`,
+        'permission',
+        'bg-amber-500'
+      );
+      setResetPasswordTargetUser(null);
+      setNewResetPasswordInput('');
+      setShowPasswordText(false);
+    } catch (err: any) {
+      showToast('error', 'Reset Failed', err.message || 'Could not reset password in database.');
+    } finally {
+      setIsResettingPassword(false);
     }
   };
 
@@ -944,42 +1094,66 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setMessageText('');
   };
 
-  const handleDeleteUser = async (userToDelete: SystemUser) => {
+  const handleDeleteUser = (userToDelete: SystemUser) => {
     if (userToDelete.id === currentUser?.id) {
       showToast('error', 'Action Restricted', 'You cannot delete your own account.');
       return;
     }
-    if (!window.confirm(`Are you sure you want to permanently remove ${userToDelete.fullName} from the firm database?`)) {
+    setUserActionMenuId(null);
+    setUserPendingDelete(userToDelete);
+  };
+
+  const executeDeleteUser = async (userToDelete: SystemUser) => {
+    if (userToDelete.id === currentUser?.id) {
+      showToast('error', 'Action Restricted', 'You cannot delete your own account.');
       return;
     }
+    setIsDeletingUser(true);
     const firmId = currentUser?.firmId || 'firm-001';
     try {
-      await deleteFirmUser(firmId, userToDelete.id);
-      setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
-      showToast('success', 'User Removed', `${userToDelete.fullName} has been removed.`);
+      await deleteFirmUser(firmId, userToDelete, userToDelete.workEmail, userToDelete);
+      const deletedKeys = getDeletedUserKeys();
+      setUsers(prev => prev.filter(u => !isUserRecordDeleted(u, deletedKeys)));
+      showToast('success', 'User Deleted Permanently', `${userToDelete.fullName} has been removed from all rosters and database.`);
       logSystemActivity(
         currentUser?.fullName || 'Managing Partner',
-        `deleted user ${userToDelete.fullName} (${userToDelete.workEmail})`,
+        `permanently deleted user ${userToDelete.fullName} (${userToDelete.workEmail})`,
         'permission',
         'bg-rose-500'
       );
     } catch (e: any) {
       showToast('error', 'Delete Failed', e.message || 'Unable to delete user.');
     } finally {
+      setIsDeletingUser(false);
+      setUserPendingDelete(null);
       setUserActionMenuId(null);
     }
   };
 
-  // Open 2-Step User Creation Modal
+  const handlePurgeStaleAccounts = async () => {
+    const firmId = currentUser?.firmId || 'firm-001';
+    const count = await purgeStaleTestUsers(firmId);
+    const fresh = await fetchFirmUsers(firmId);
+    setUsers(fresh);
+    showToast('success', 'Roster Purged', count > 0 ? `Successfully purged ${count} test/stale account(s).` : 'No stale test accounts detected.');
+  };
+
+  // Open 2-Step User Creation Full Page View
   const handleOpenAddUserModal = () => {
     setAddUserStep(1);
     setNewUsername('');
     setNewFullName('');
+    setNewAdvocateTitle('');
+    setNewLskNo('');
     setNewCompanyEmail('');
+    setNewPersonalEmail('');
     setNewPhoneNumber('');
+    setNewSecondaryPhone('');
     setNewPosition('Senior Advocate');
+    setNewDepartment('Commercial Litigation & Dispute Resolution');
     const defaultRole = 'senior_advocates_lawyers';
     setNewRoleTemplate(defaultRole);
+    setPermViewMode('pages');
     const tpl = roleTemplates.find(t => t.code === defaultRole) || roleTemplates[0];
     if (tpl) {
       setSelectedUserPermissions(tpl.permissions.map(p => p.code));
@@ -988,8 +1162,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
     setSendInviteEmail(true);
     setGiveHistoryAccess(false);
-    setNewFirstPassword('');
-    setNewConfirmPassword('');
+    setNewFirstPassword('Nyagah@2026');
+    setNewConfirmPassword('Nyagah@2026');
+    setShowAddUserPassword(false);
     setShowAddUserModal(true);
   };
 
@@ -1015,52 +1190,99 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       return;
     }
     if (!newCompanyEmail.trim() || !newCompanyEmail.includes('@')) {
-      showToast('error', 'Invalid Email', 'Please provide a valid work or personal email address.');
+      showToast('error', 'Invalid Email', 'Please provide a valid official work email address.');
       return;
     }
     if (!newUsername.trim()) {
       setNewUsername(newCompanyEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '_'));
     }
+    if (!newAdvocateTitle.trim()) {
+      setNewAdvocateTitle(`Adv. ${newFullName.trim()}`);
+    }
+    if (newFirstPassword.trim() && newConfirmPassword.trim() && newFirstPassword.trim() !== newConfirmPassword.trim()) {
+      showToast('error', 'Password Mismatch', 'Login password and confirmation do not match.');
+      return;
+    }
     setAddUserStep(2);
+  };
+
+  // Broadcast Invite Action
+  const handleBroadcastInvite = async () => {
+    if (!newCompanyEmail.trim() || !newCompanyEmail.includes('@')) {
+      showToast('error', 'Missing Email', 'Please provide a valid work email before broadcasting the invite.');
+      return;
+    }
+    setIsBroadcasting(true);
+    try {
+      const finalUsername = newUsername.trim() || newCompanyEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '_');
+      const targetTpl = roleTemplates.find(t => t.code === newRoleTemplate);
+      const assignedPassword = !sendInviteEmail && newFirstPassword.trim() ? newFirstPassword.trim() : 'Nyagah@2026';
+
+      await sendWelcomeUserEmail({
+        email: newCompanyEmail.trim(),
+        personalEmail: newPersonalEmail.trim() || undefined,
+        username: finalUsername,
+        fullName: newFullName.trim() || finalUsername,
+        roleName: targetTpl?.name || newRoleTemplate,
+        allowSelfPassword: sendInviteEmail,
+        temporaryPassword: assignedPassword,
+        portalUrl: window.location.origin,
+        broadcastDevs: true,
+      });
+
+      showToast(
+        'success',
+        'Invitation Broadcast Dispatched',
+        `Invitation sent to ${newCompanyEmail}${newPersonalEmail ? ` and ${newPersonalEmail}` : ''}, and broadcast to system administrators.`
+      );
+    } catch (err: any) {
+      showToast('error', 'Broadcast Failed', err.message || 'Unable to dispatch invitation broadcast.');
+    } finally {
+      setIsBroadcasting(false);
+    }
   };
 
   // Step 2 Final Save: Register in Database & Dispatch Onboarding Email
   const handleSaveNewUser = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!sendInviteEmail) {
-      if (!newFirstPassword.trim()) {
-        showToast('error', 'Missing Temporary Password', 'Please enter a temporary password.');
-        return;
-      }
-      if (newFirstPassword !== newConfirmPassword) {
-        showToast('error', 'Password Mismatch', 'Temporary password and confirmation do not match.');
-        return;
-      }
+    const assignedPassword = newFirstPassword.trim() || 'Nyagah@2026';
+    if (!assignedPassword) {
+      showToast('error', 'Missing Login Password', 'Please enter a login password.');
+      return;
+    }
+    if (newConfirmPassword.trim() && assignedPassword !== newConfirmPassword.trim()) {
+      showToast('error', 'Password Mismatch', 'Login password and confirmation do not match.');
+      return;
+    }
+    if (assignedPassword.length < 6) {
+      showToast('error', 'Weak Password', 'Password must be at least 6 characters long.');
+      return;
     }
 
     setIsSubmittingUser(true);
     const firmId = currentUser?.firmId || 'firm-001';
     const finalUsername = newUsername.trim() || newCompanyEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '_');
-    const assignedPassword = !sendInviteEmail && newFirstPassword.trim()
-      ? newFirstPassword.trim()
-      : (newFirstPassword.trim() || 'Nyagah@2026');
 
     try {
       // 1. Register user in database in real-time
       const created = await createFirmUser(firmId, {
         fullName: newFullName.trim(),
-        advocateTitle: `Adv. ${newFullName.trim()}`,
+        username: finalUsername,
+        advocateTitle: newAdvocateTitle.trim() || `Adv. ${newFullName.trim()}`,
+        lskNo: newLskNo.trim(),
         workEmail: newCompanyEmail.trim(),
-        personalEmail: newCompanyEmail.trim(),
+        personalEmail: (newPersonalEmail.trim() || newCompanyEmail.trim()),
         phonePrimary: newPhoneNumber.trim(),
+        phoneSecondary: newSecondaryPhone.trim(),
         position: newPosition.trim() || 'Senior Advocate',
+        department: newDepartment.trim() || 'Commercial Litigation & Dispute Resolution',
         role: newRoleTemplate === 'developer_sys_admin' ? 'Developer' : newRoleTemplate === 'managing_partner_exec' ? 'Admin' : 'Advocate',
         passwordHash: assignedPassword
       });
 
       // 2. Immediate state update so new user appears in table in real-time
-      setUsers(prev => [created, ...prev]);
+      setUsers(prev => [created, ...prev.filter(u => u.id !== created.id && u.workEmail?.toLowerCase() !== created.workEmail?.toLowerCase())]);
 
       // 3. Update user role map
       const newMap = { ...userRoleMap, [created.id]: newRoleTemplate };
@@ -1072,33 +1294,39 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         await assignRoleToUser(created.id, targetTpl.id, currentUser?.id);
       }
 
-      // 4. Dispatch official welcome onboarding email from p3lcodes@gmail.com
+      // 4. Dispatch official welcome onboarding email
       let emailNotice = '';
       try {
         await sendWelcomeUserEmail({
           email: newCompanyEmail.trim(),
+          personalEmail: newPersonalEmail.trim() || undefined,
           username: finalUsername,
           fullName: newFullName.trim(),
           roleName: targetTpl?.name || newRoleTemplate,
           allowSelfPassword: sendInviteEmail,
           temporaryPassword: assignedPassword,
-          portalUrl: window.location.origin
+          portalUrl: window.location.origin,
+          broadcastDevs: true,
         });
-        emailNotice = ' Invitation & onboarding email dispatched from p3lcodes@gmail.com.';
+        emailNotice = ' Invitation dispatched to work & personal email and broadcast to system administrators.';
       } catch (emailErr: any) {
         console.warn('Welcome email error:', emailErr);
-        emailNotice = ' (Email queued in system outbox).';
+        emailNotice = ' (Email queued in system delivery queue).';
       }
 
-      showToast('success', 'User Registered in Real Time', `${created.fullName} saved to database.${emailNotice}`);
+      showToast('success', 'User Registered Successfully', `${created.fullName} saved to firm database.${emailNotice}`);
 
-      // Close modal & reset fields
+      // Close view & reset fields
       setShowAddUserModal(false);
       setAddUserStep(1);
       setNewFullName('');
       setNewUsername('');
+      setNewAdvocateTitle('');
+      setNewLskNo('');
       setNewCompanyEmail('');
+      setNewPersonalEmail('');
       setNewPhoneNumber('');
+      setNewSecondaryPhone('');
       setNewFirstPassword('');
       setNewConfirmPassword('');
     } catch (err: any) {
@@ -1596,294 +1824,739 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       )}
 
-      {/* MODAL: ADD NEW USER TO FIRM DATABASE (2-STEP MANAGER WORKFLOW) */}
+      {/* EXPANSIVE FULL-SIZE VIEW: ONBOARD STAFF MEMBER & USER INVITATION */}
       {showAddUserModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="p-6 sm:p-8 w-full max-w-xl bg-white dark:bg-zinc-900 rounded-3xl border border-[var(--border-color)] shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md overflow-y-auto p-4 sm:p-8 flex items-start justify-center animate-fadeIn">
+          <div className="max-w-5xl w-full bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800 shadow-2xl p-6 sm:p-10 my-4 space-y-6">
             
-            {/* Header: Firm Logo + Title + Subtitle */}
-            <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
-              <div className="flex items-center gap-3">
+            {/* Top Bar / Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-slate-200 dark:border-zinc-800 gap-4">
+              <div className="flex items-center gap-4">
                 <img 
                   src="/logo.png" 
-                  alt="Nyagah B Logo" 
-                  className="w-10 h-10 object-contain rounded-xl bg-slate-50 dark:bg-zinc-800 p-1 border border-[var(--border-color)]"
+                  alt="Nyagah B. Kithinji & Co. Advocates Logo" 
+                  className="w-12 h-12 object-contain rounded-2xl bg-slate-50 dark:bg-zinc-800 p-2 border border-slate-200 dark:border-zinc-700 shadow-xs"
                   onError={(e) => { e.currentTarget.style.display = 'none'; }}
                 />
                 <div>
-                  <h3 className="font-brand font-bold text-base text-slate-900 dark:text-white">
-                    Add A new user to Nyagah B databse
-                  </h3>
-                  <p className="text-xs text-slate-500 font-sans">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800">
+                      Team Member
+                    </span>
+                    <span className="text-xs text-slate-400">Step {addUserStep} of 2</span>
+                  </div>
+                  <h2 className="font-brand font-extrabold text-xl sm:text-2xl text-slate-900 dark:text-white mt-1">
+                    Add New User
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
                     {addUserStep === 1 
-                      ? 'Please provide the following information:' 
-                      : 'Step 2: Review Permissions & Credentials'}
+                      ? 'Enter basic details and contact information.' 
+                      : 'Choose user role and set up login password.'}
                   </p>
                 </div>
               </div>
+
+              <div className="flex items-center gap-2 self-start sm:self-center">
+                <button
+                  type="button"
+                  onClick={() => setShowAddUserModal(false)}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-1.5 cursor-pointer border border-slate-200 dark:border-zinc-700"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Back to Users</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Step Indicator Tabs */}
+            <div className="grid grid-cols-2 gap-3 text-xs">
               <button
-                onClick={() => setShowAddUserModal(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+                type="button"
+                onClick={() => setAddUserStep(1)}
+                className={`p-3 rounded-2xl text-left border transition-all cursor-pointer ${
+                  addUserStep === 1
+                    ? 'bg-blue-50/80 dark:bg-blue-950/30 border-blue-300 dark:border-blue-700 text-blue-900 dark:text-blue-200 font-bold shadow-xs'
+                    : 'bg-slate-50/60 dark:bg-zinc-800/40 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-100'
+                }`}
               >
-                <X className="w-5 h-5" />
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                    addUserStep === 1 ? 'bg-blue-600 text-white' : 'bg-slate-300 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300'
+                  }`}>
+                    1
+                  </span>
+                  <span className="text-xs font-bold uppercase tracking-wider">User Details &amp; Contacts</span>
+                </div>
+                <p className="text-[11px] font-normal text-slate-500 dark:text-zinc-400 pl-7">
+                  Name, username, role, email and phone.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (newFullName.trim() && newCompanyEmail.trim()) {
+                    setAddUserStep(2);
+                  }
+                }}
+                className={`p-3 rounded-2xl text-left border transition-all cursor-pointer ${
+                  addUserStep === 2
+                    ? 'bg-blue-50/80 dark:bg-blue-950/30 border-blue-300 dark:border-blue-700 text-blue-900 dark:text-blue-200 font-bold shadow-xs'
+                    : 'bg-slate-50/60 dark:bg-zinc-800/40 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-100'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                    addUserStep === 2 ? 'bg-blue-600 text-white' : 'bg-slate-300 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300'
+                  }`}>
+                    2
+                  </span>
+                  <span className="text-xs font-bold uppercase tracking-wider">Role &amp; Password</span>
+                </div>
+                <p className="text-[11px] font-normal text-slate-500 dark:text-zinc-400 pl-7">
+                  System access permissions and account password.
+                </p>
               </button>
             </div>
 
-            {/* STEP 1: Role Selection & User Details */}
+            {/* STEP 1 FORM: COMPLETE USER PROFILE & CONTACTS */}
             {addUserStep === 1 && (
-              <form onSubmit={handleProceedToStep2} className="space-y-3.5 text-xs">
+              <form onSubmit={handleProceedToStep2} className="space-y-6">
                 
-                {/* Choose Role Dropdown on Top */}
-                <div className="p-3.5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 space-y-1.5">
-                  <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-blue-900 dark:text-blue-300">
-                    Choose Role: <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={newRoleTemplate}
-                    onChange={e => handleSelectRoleTemplate(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-blue-300 dark:border-blue-800 bg-white dark:bg-zinc-800 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                  >
-                    {roleTemplates.map(t => (
-                      <option key={t.code} value={t.code}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-[11px] font-semibold text-blue-600 dark:text-blue-400">
-                    ({selectedUserPermissions.length} permissions) granted
-                  </p>
-                </div>
+                {/* Section A: User Details */}
+                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-800 space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-200/80 dark:border-zinc-700/80 pb-2">
+                    <Briefcase className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 dark:text-zinc-200">
+                      User Details
+                    </h3>
+                  </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Username:
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-2.5 text-slate-400 font-mono text-xs">@</span>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
+                        Full Name <span className="text-red-500">*</span>
+                      </label>
                       <input
                         type="text"
-                        value={newUsername}
-                        onChange={e => setNewUsername(e.target.value)}
-                        placeholder="guyo_halake"
-                        className="w-full pl-7 pr-3 py-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        required
+                        value={newFullName}
+                        onChange={e => setNewFullName(e.target.value)}
+                        placeholder="e.g. Victor Karani"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
+                        Title
+                      </label>
+                      <input
+                        type="text"
+                        value={newAdvocateTitle}
+                        onChange={e => setNewAdvocateTitle(e.target.value)}
+                        placeholder="e.g. Advocate, Senior Partner"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
+                        LSK Number
+                      </label>
+                      <input
+                        type="text"
+                        value={newLskNo}
+                        onChange={e => setNewLskNo(e.target.value)}
+                        placeholder="e.g. P.105/1992"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-mono font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
                       />
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Full Name: <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={newFullName}
-                      onChange={e => setNewFullName(e.target.value)}
-                      placeholder="e.g. Victor Karani"
-                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
+                        Username
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-2.5 text-slate-400 font-mono text-xs">@</span>
+                        <input
+                          type="text"
+                          value={newUsername}
+                          onChange={e => setNewUsername(e.target.value)}
+                          placeholder="username"
+                          className="w-full pl-8 pr-3 py-2.5 rounded-xl border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
+                        Role &amp; Access
+                      </label>
+                      <select
+                        value={newRoleTemplate}
+                        onChange={e => {
+                          const roleVal = e.target.value;
+                          handleSelectRoleTemplate(roleVal);
+                          if (roleVal === 'managing_partner_exec') setNewPosition('Managing Partner & Executive');
+                          else if (roleVal === 'senior_advocates_lawyers') setNewPosition('Senior Advocates and Lawyers');
+                          else if (roleVal === 'it_dept_support') setNewPosition('IT Department and Support');
+                          else if (roleVal === 'developer_sys_admin') setNewPosition('Developer and System Administrators');
+                        }}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs cursor-pointer"
+                      >
+                        <option value="managing_partner_exec">Managing Partner and Executive</option>
+                        <option value="senior_advocates_lawyers">Senior Advocates and Lawyers</option>
+                        <option value="it_dept_support">IT Department and Support</option>
+                        <option value="developer_sys_admin">Developer and System Administrators</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Work or Personal Email: <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={newCompanyEmail}
-                      onChange={e => setNewCompanyEmail(e.target.value)}
-                      placeholder="advocate@karanilaw.co.ke"
-                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
+                {/* Section B: Contact Information */}
+                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-800 space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-200/80 dark:border-zinc-700/80 pb-2">
+                    <Mail className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 dark:text-zinc-200">
+                      Contact Information
+                    </h3>
                   </div>
 
-                  <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Phone Number:
-                    </label>
-                    <input
-                      type="text"
-                      value={newPhoneNumber}
-                      onChange={e => setNewPhoneNumber(e.target.value)}
-                      placeholder="+254 712 345678"
-                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
+                        Work Email <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={newCompanyEmail}
+                        onChange={e => setNewCompanyEmail(e.target.value)}
+                        placeholder="advocate@firm.co.ke"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
+                        Personal Email
+                      </label>
+                      <input
+                        type="email"
+                        value={newPersonalEmail}
+                        onChange={e => setNewPersonalEmail(e.target.value)}
+                        placeholder="personal@gmail.com"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
+                        Phone Number
+                      </label>
+                      <input
+                        type="text"
+                        value={newPhoneNumber}
+                        onChange={e => setNewPhoneNumber(e.target.value)}
+                        placeholder="+254 700 000 000"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
+                        Alternative Phone
+                      </label>
+                      <input
+                        type="text"
+                        value={newSecondaryPhone}
+                        onChange={e => setNewSecondaryPhone(e.target.value)}
+                        placeholder="Extension or backup phone"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                    Department or Position:
-                  </label>
-                  <input
-                    type="text"
-                    value={newPosition}
-                    onChange={e => setNewPosition(e.target.value)}
-                    placeholder="e.g. Senior Counsel / Litigation"
-                    className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
+                {/* Section C: Account Login Password */}
+                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-800 space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-zinc-700/80 pb-2">
+                    <div className="flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 dark:text-zinc-200">
+                        Account Login Password
+                      </h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddUserPassword(prev => !prev)}
+                      className="text-xs text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-1.5 hover:underline cursor-pointer"
+                    >
+                      {showAddUserPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      <span>{showAddUserPassword ? 'Hide Password' : 'Show & Test Password'}</span>
+                    </button>
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                    Assign the initial login password for this account. This credential will be written to the database so the user can log in immediately.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
+                        Login Password <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showAddUserPassword ? 'text' : 'password'}
+                          required
+                          value={newFirstPassword}
+                          onChange={e => setNewFirstPassword(e.target.value)}
+                          placeholder="e.g. Nyagah@2026"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-mono font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
+                        Confirm Login Password <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showAddUserPassword ? 'text' : 'password'}
+                          required
+                          value={newConfirmPassword}
+                          onChange={e => setNewConfirmPassword(e.target.value)}
+                          placeholder="Re-type password"
+                          className={`w-full px-3.5 py-2.5 rounded-xl border bg-white dark:bg-zinc-900 text-xs font-mono font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 shadow-2xs ${
+                            newConfirmPassword && newFirstPassword !== newConfirmPassword
+                              ? 'border-rose-400 focus:ring-rose-500'
+                              : 'border-slate-300 dark:border-zinc-700 focus:ring-blue-500'
+                          }`}
+                        />
+                      </div>
+                      {newConfirmPassword && newFirstPassword !== newConfirmPassword && (
+                        <p className="text-[10px] text-rose-500 font-semibold mt-1">Passwords do not match</p>
+                      )}
+                      {newConfirmPassword && newFirstPassword === newConfirmPassword && (
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1 flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" /> Passwords match &amp; verified
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-3 pt-4 border-t border-[var(--border-color)]">
+                {/* Step 1 Footer Actions */}
+                <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-zinc-800">
                   <button
                     type="button"
                     onClick={() => setShowAddUserModal(false)}
-                    className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 cursor-pointer"
+                    className="px-5 py-2.5 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
                   >
                     Cancel
                   </button>
+
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer shadow-md shadow-blue-600/20 transition-all"
                   >
-                    <span>Continue</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
+                    <span>Next: Role &amp; Password</span>
+                    <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
               </form>
             )}
 
-            {/* STEP 2: Permissions Granted Chips with 'x' & Credentials */}
+            {/* STEP 2 FORM: ROLE SELECTION, PAGE ACCESSIBILITY & CREDENTIALS */}
             {addUserStep === 2 && (
-              <form onSubmit={handleSaveNewUser} className="space-y-4 text-xs">
+              <form onSubmit={handleSaveNewUser} className="space-y-6">
                 
-                {/* Granted Permissions with 'x' to Remove in Real Time */}
-                <div className="space-y-1.5">
+                {/* 1. Database Role Selection */}
+                <div className="p-5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200/80 dark:border-blue-900/40 space-y-3">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500">
-                      Permissions Granted ({selectedUserPermissions.length}):
+                    <label className="block text-xs font-mono font-bold uppercase tracking-wider text-blue-950 dark:text-blue-200">
+                      Select Role: <span className="text-red-500">*</span>
                     </label>
-                    <span className="text-[10px] text-slate-400">
-                      Click ✕ to remove any permission
+                    <span className="text-xs font-bold text-blue-700 dark:text-blue-300">
+                      {selectedUserPermissions.length} Permissions Included
                     </span>
                   </div>
 
-                  <div className="p-3 rounded-2xl bg-slate-50 dark:bg-zinc-800/60 border border-[var(--border-color)] max-h-48 overflow-y-auto flex flex-wrap gap-1.5">
-                    {selectedUserPermissions.length === 0 ? (
-                      <p className="text-xs text-slate-400 italic py-2">
-                        No permissions granted (all removed).
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {[
+                      {
+                        code: 'managing_partner_exec',
+                        name: 'Managing Partner and Executive',
+                        desc: 'Full firm access: finances, bills of costs, users, approvals, and reports.',
+                        badge: 'Executive'
+                      },
+                      {
+                        code: 'senior_advocates_lawyers',
+                        name: 'Senior Advocates and Lawyers',
+                        desc: 'Draft bills of costs, manage court matters, and handle clients.',
+                        badge: 'Advocate'
+                      },
+                      {
+                        code: 'it_dept_support',
+                        name: 'IT Department and Support',
+                        desc: 'User account setup, security, logins, and technical support.',
+                        badge: 'IT Support'
+                      },
+                      {
+                        code: 'developer_sys_admin',
+                        name: 'Developer and System Administrators',
+                        desc: 'Full technical access to database, system settings, and calculation engine.',
+                        badge: 'Developer'
+                      }
+                    ].map(r => {
+                      const isSelected = newRoleTemplate === r.code;
+                      return (
+                        <div
+                          key={r.code}
+                          onClick={() => handleSelectRoleTemplate(r.code)}
+                          className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${
+                            isSelected
+                              ? 'bg-white dark:bg-zinc-900 border-blue-600 dark:border-blue-500 shadow-md ring-2 ring-blue-500/20'
+                              : 'bg-white/60 dark:bg-zinc-900/60 border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="font-bold text-xs text-slate-900 dark:text-white">
+                                {r.name}
+                              </span>
+                              <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${
+                                isSelected 
+                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200' 
+                                  : 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400'
+                              }`}>
+                                {r.badge}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed font-sans">
+                              {r.desc}
+                            </p>
+                          </div>
+                          
+                          <div className="pt-3 mt-2 border-t border-slate-100 dark:border-zinc-800/80 flex items-center justify-between text-[11px]">
+                            <span className="font-mono text-slate-400">{r.code}</span>
+                            {isSelected ? (
+                              <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400 font-bold">
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                <span>Selected</span>
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">Click to Select</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. Permissions View Switcher: Page-by-Page View vs Granular Rules */}
+                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-800 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-zinc-700">
+                    <div>
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-slate-900 dark:text-white">
+                        User Access &amp; Capabilities Overview
+                      </h3>
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                        Inspect which sections and pages this advocate or staff member will be authorized to access.
                       </p>
-                    ) : (
-                      selectedUserPermissions.map(code => {
-                        const permObj = STANDARDIZED_PERMISSIONS.find(p => p.code === code);
-                        const label = permObj?.name || code;
-                        return (
-                          <span
-                            key={code}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-medium bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/80 group"
-                          >
-                            <span className="truncate max-w-[210px]" title={label}>{label}</span>
-                            <button
-                              type="button"
-                              onClick={() => handleRemovePermission(code)}
-                              className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-blue-200 dark:hover:bg-blue-800 text-blue-600 dark:text-blue-400 cursor-pointer transition-colors"
-                              title={`Remove ${label}`}
+                    </div>
+
+                    <div className="inline-flex p-1 rounded-xl bg-slate-200/80 dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setPermViewMode('pages')}
+                        className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                          permViewMode === 'pages'
+                            ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-2xs'
+                            : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
+                        }`}
+                      >
+                        Page Access View
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPermViewMode('catalog')}
+                        className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                          permViewMode === 'catalog'
+                            ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-2xs'
+                            : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
+                        }`}
+                      >
+                        Itemized Permissions ({selectedUserPermissions.length})
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Mode A: Clean Page-by-Page Navigation Access View */}
+                  {permViewMode === 'pages' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 animate-fadeIn">
+                      {[
+                        {
+                          page: 'Executive Dashboard',
+                          path: '/dashboard',
+                          icon: <LayoutDashboard className="w-4 h-4 text-blue-500" />,
+                          status: 'Full Access',
+                          statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400',
+                          desc: 'Live revenue cards, active cause docket, bill statistics, and firm activity feed.'
+                        },
+                        {
+                          page: 'Bills of Costs & Fee Notes',
+                          path: '/feenotes',
+                          icon: <FileText className="w-4 h-4 text-emerald-500" />,
+                          status: newRoleTemplate === 'it_dept_support' ? 'Audit View' : 'Full Access',
+                          statusColor: newRoleTemplate === 'it_dept_support' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400' : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400',
+                          desc: 'Draft folios under Remuneration Orders, record court taxation deductions, export sealed PDFs.'
+                        },
+                        {
+                          page: 'Matters & Causes Registry',
+                          path: '/matters',
+                          icon: <Briefcase className="w-4 h-4 text-purple-500" />,
+                          status: 'Full Access',
+                          statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400',
+                          desc: 'Manage High Court, Commercial & Arbitration causes, client parties, and case status.'
+                        },
+                        {
+                          page: 'Clients & KYC Registry',
+                          path: '/clients',
+                          icon: <Users className="w-4 h-4 text-indigo-500" />,
+                          status: 'Full Access',
+                          statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400',
+                          desc: 'Corporate & individual client registry, KRA PIN compliance, and contact person dossiers.'
+                        },
+                        {
+                          page: 'Legal Document Vault',
+                          path: '/vault',
+                          icon: <Lock className="w-4 h-4 text-rose-500" />,
+                          status: 'Full Access',
+                          statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400',
+                          desc: 'Matter pleadings, evidence storage, affidavits, and secure signed document downloads.'
+                        },
+                        {
+                          page: 'Managing Partner Hub',
+                          path: '/admin',
+                          icon: <ShieldCheck className="w-4 h-4 text-amber-500" />,
+                          status: ['managing_partner_exec', 'developer_sys_admin', 'it_dept_support'].includes(newRoleTemplate) ? 'Authorized' : 'Restricted',
+                          statusColor: ['managing_partner_exec', 'developer_sys_admin', 'it_dept_support'].includes(newRoleTemplate) ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400',
+                          desc: 'Firm banking settings, staff roster, fee approvals, and executive controls.'
+                        },
+                        {
+                          page: 'Database & Tariffs',
+                          path: '/database',
+                          icon: <Database className="w-4 h-4 text-cyan-500" />,
+                          status: ['developer_sys_admin', 'managing_partner_exec'].includes(newRoleTemplate) ? 'Full Access' : 'Tariff Read',
+                          statusColor: ['developer_sys_admin', 'managing_partner_exec'].includes(newRoleTemplate) ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-zinc-800 dark:text-zinc-300',
+                          desc: 'Advocates Remuneration Order statutory tariffs, database health, and calculation engine.'
+                        },
+                        {
+                          page: 'IT Support & Help Desk',
+                          path: '/support',
+                          icon: <HelpCircle className="w-4 h-4 text-teal-500" />,
+                          status: 'Full Access',
+                          statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400',
+                          desc: 'Submit technical inquiries, report billing issues, and view resolved support tickets.'
+                        }
+                      ].map((pg, i) => (
+                        <div
+                          key={i}
+                          className="p-3.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs flex flex-col justify-between"
+                        >
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700">
+                                {pg.icon}
+                              </div>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${pg.statusColor}`}>
+                                {pg.status}
+                              </span>
+                            </div>
+                            <div className="font-bold text-xs text-slate-900 dark:text-white">
+                              {pg.page}
+                            </div>
+                            <div className="text-[10px] font-mono text-slate-400 mt-0.5">
+                              {pg.path}
+                            </div>
+                            <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1.5 leading-snug">
+                              {pg.desc}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Mode B: Detailed Granular Permissions Catalog */}
+                  {permViewMode === 'catalog' && (
+                    <div className="p-3.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-h-56 overflow-y-auto flex flex-wrap gap-2 animate-fadeIn">
+                      {selectedUserPermissions.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic py-3">
+                          No permissions selected. User will have restricted read-only mode.
+                        </p>
+                      ) : (
+                        selectedUserPermissions.map(code => {
+                          const permObj = STANDARDIZED_PERMISSIONS.find(p => p.code === code);
+                          const label = permObj?.name || code;
+                          return (
+                            <span
+                              key={code}
+                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-medium bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 border border-blue-200 dark:border-blue-800"
                             >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </span>
-                        );
-                      })
+                              <span className="truncate max-w-[240px]" title={label}>{label}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemovePermission(code)}
+                                className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-blue-200 dark:hover:bg-blue-800 text-blue-600 dark:text-blue-400 cursor-pointer transition-colors"
+                                title={`Revoke ${label}`}
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </span>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Credentials & Communication Preferences */}
+                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-800 space-y-4">
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-slate-900 dark:text-white border-b border-slate-200 dark:border-zinc-700 pb-2">
+                    Security Credentials &amp; Welcome Dispatch
+                  </h3>
+
+                  <div className="space-y-3">
+                    <label className="flex items-start gap-3 cursor-pointer p-3 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-blue-400 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={sendInviteEmail}
+                        onChange={e => setSendInviteEmail(e.target.checked)}
+                        className="w-4 h-4 text-blue-600 rounded-md mt-0.5 border-slate-300 dark:border-zinc-700 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <div>
+                        <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                          Send Invitation Email &amp; Allow Self Password Setup
+                        </span>
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                          An official onboarding email will be delivered to the advocate containing secure instructions to establish their own private password upon first sign-in.
+                        </p>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start gap-3 cursor-pointer p-3 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-blue-400 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={giveHistoryAccess}
+                        onChange={e => setGiveHistoryAccess(e.target.checked)}
+                        className="w-4 h-4 text-blue-600 rounded-md mt-0.5 border-slate-300 dark:border-zinc-700 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <div>
+                        <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                          Include Past Firm Activity &amp; Case History
+                        </span>
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                          Grants visibility into previously archived practice causes and settled bills of costs related to the assigned department.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Account Login Password Configuration */}
+                  <div className="p-4 rounded-xl bg-blue-50/60 dark:bg-zinc-850 border border-blue-200/80 dark:border-zinc-750 space-y-3 animate-fadeIn">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Lock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">
+                          Account Login Password
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddUserPassword(prev => !prev)}
+                        className="text-xs text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-1.5 hover:underline cursor-pointer"
+                      >
+                        {showAddUserPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        <span>{showAddUserPassword ? 'Hide Password' : 'Show & Test Password'}</span>
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-600 dark:text-zinc-400">
+                      This password will be securely hashed and stored in the database. The user can immediately sign in with this credential.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                          Login Password <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type={showAddUserPassword ? 'text' : 'password'}
+                          required
+                          value={newFirstPassword}
+                          onChange={e => setNewFirstPassword(e.target.value)}
+                          placeholder="e.g. Nyagah@2026"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-mono font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                          Confirm Login Password <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type={showAddUserPassword ? 'text' : 'password'}
+                          required
+                          value={newConfirmPassword}
+                          onChange={e => setNewConfirmPassword(e.target.value)}
+                          placeholder="Re-type password"
+                          className={`w-full px-3.5 py-2.5 rounded-xl border bg-white dark:bg-zinc-900 text-xs font-mono font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 shadow-2xs ${
+                            newConfirmPassword && newFirstPassword !== newConfirmPassword
+                              ? 'border-rose-400 focus:ring-rose-500'
+                              : 'border-slate-300 dark:border-zinc-700 focus:ring-blue-500'
+                          }`}
+                        />
+                      </div>
+                    </div>
+                    {newConfirmPassword && newFirstPassword !== newConfirmPassword && (
+                      <p className="text-[10px] text-rose-500 font-semibold">Passwords do not match</p>
+                    )}
+                    {newConfirmPassword && newFirstPassword === newConfirmPassword && (
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" /> Passwords match &amp; verified for live login
+                      </p>
                     )}
                   </div>
                 </div>
 
-                {/* Checkboxes */}
-                <div className="space-y-2.5 p-3 rounded-2xl bg-slate-50 dark:bg-zinc-800/40 border border-[var(--border-color)]">
-                  <label className="flex items-center gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={sendInviteEmail}
-                      onChange={e => setSendInviteEmail(e.target.checked)}
-                      className="w-4 h-4 text-blue-600 rounded-md border-slate-300 dark:border-zinc-600 focus:ring-blue-500"
-                    />
-                    <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200">
-                      Send Invitation Email and allow self password
-                    </span>
-                  </label>
-
-                  <label className="flex items-center gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={giveHistoryAccess}
-                      onChange={e => setGiveHistoryAccess(e.target.checked)}
-                      className="w-4 h-4 text-blue-600 rounded-md border-slate-300 dark:border-zinc-600 focus:ring-blue-500"
-                    />
-                    <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200">
-                      Give Previous History access
-                    </span>
-                  </label>
-                </div>
-
-                {/* If Send Invitation Email and allow self password is unchecked -> show temporary password fields */}
-                {!sendInviteEmail && (
-                  <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 space-y-3 animate-fadeIn">
-                    <p className="text-[11px] font-semibold text-amber-900 dark:text-amber-300">
-                      Specify temporary credentials for user account creation:
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-1">
-                          Enter temporary password: <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="password"
-                          required
-                          value={newFirstPassword}
-                          onChange={e => setNewFirstPassword(e.target.value)}
-                          placeholder="••••••••"
-                          className="w-full p-2.5 rounded-xl border border-amber-300 dark:border-amber-800 bg-white dark:bg-zinc-800 text-xs font-mono text-slate-900 dark:text-white focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-1">
-                          Confirm temporary password: <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="password"
-                          required
-                          value={newConfirmPassword}
-                          onChange={e => setNewConfirmPassword(e.target.value)}
-                          placeholder="••••••••"
-                          className="w-full p-2.5 rounded-xl border border-amber-300 dark:border-amber-800 bg-white dark:bg-zinc-800 text-xs font-mono text-slate-900 dark:text-white focus:outline-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Footer Buttons */}
-                <div className="flex items-center justify-between pt-4 border-t border-[var(--border-color)]">
+                {/* Step 2 Footer Buttons */}
+                <div className="flex items-center justify-between gap-3 pt-6 border-t border-slate-200 dark:border-zinc-800">
                   <button
                     type="button"
                     onClick={() => setAddUserStep(1)}
-                    className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                    className="px-5 py-2.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer border border-slate-200 dark:border-zinc-700"
                   >
-                    ← Back
+                    &larr; Back
                   </button>
 
-                  <div className="flex items-center gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => setShowAddUserModal(false)}
-                      className="px-3.5 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-zinc-200 cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSubmittingUser}
-                      className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
-                    >
-                      <Save className="w-3.5 h-3.5" />
-                      <span>{isSubmittingUser ? 'Saving to Database...' : 'Save'}</span>
-                    </button>
-                  </div>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingUser}
+                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer shadow-md shadow-emerald-600/20 transition-all"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{isSubmittingUser ? 'Creating User...' : 'Create User'}</span>
+                  </button>
                 </div>
+
               </form>
             )}
 
@@ -1892,16 +2565,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL: FULL-PAGE ADVOCATE PROFILE & PERSONNEL DOSSIER COMMAND CENTER */}
+      {/* USER PROFILE MODAL */}
       {/* ========================================================================= */}
       {managingUser && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 z-50 animate-fadeIn">
-          <div className="modulix-card w-full max-w-4xl bg-white dark:bg-zinc-900 rounded-3xl border border-[var(--border-color)] shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+          <div className="modulix-card w-full max-w-3xl bg-white dark:bg-zinc-900 rounded-3xl border border-[var(--border-color)] shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
 
-            {/* Dossier Header Bar */}
+            {/* Profile Header */}
             <div className="p-6 border-b border-[var(--border-color)] bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-zinc-900 dark:via-zinc-900/90 dark:to-zinc-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 
-              {/* Hero Identity */}
+              {/* User Identity */}
               <div className="flex items-center gap-4">
                 {managingUser.avatarUrl ? (
                   <img
@@ -1920,17 +2593,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       {managingUser.advocateTitle || managingUser.fullName}
                     </h2>
                     <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 font-bold">
-                      Active Account
+                      Active
                     </span>
                   </div>
-                  <div className="text-xs text-slate-500 font-mono flex items-center gap-2 flex-wrap">
-                    <span>ID: {managingUser.id}</span>
+                  <div className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-slate-400">ID: {managingUser.id}</span>
                     <span className="text-slate-300">•</span>
                     <span>{managingUser.position || managingUser.role}</span>
                     {managingUser.lskNo && (
                       <>
                         <span className="text-slate-300">•</span>
-                        <span className="text-purple-600 dark:text-purple-400 font-bold">LSK: {managingUser.lskNo}</span>
+                        <span className="text-purple-600 dark:text-purple-400 font-semibold font-mono">LSK: {managingUser.lskNo}</span>
                       </>
                     )}
                   </div>
@@ -1945,10 +2618,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     setManagingUser(null);
                     onNavigateTab('permissions', targetId);
                   }}
-                  className="px-3.5 py-2 text-xs font-bold rounded-xl bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Permissions Studio</span>
+                  <span>Permissions</span>
                 </button>
 
                 <button
@@ -1967,256 +2640,322 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <button
                   onClick={() => setManagingUser(null)}
                   className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                  title="Close"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            {/* Dossier Body (Scrollable Multi-Section CV) */}
+            {/* Profile Form Body */}
             <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1">
 
-              {/* Section 1: Professional & Legal Identity */}
+              {/* Section 1: Professional Details */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2 pb-2 border-b border-[var(--border-color)]">
                   <Briefcase className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   <h4 className="font-brand font-bold text-sm text-slate-900 dark:text-white">
-                    1. Professional & Legal Identity
+                    1. Professional Details
                   </h4>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                   <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Full Legal Name:
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                      Full Name
                     </label>
                     <input
                       type="text"
                       value={managingUser.fullName}
                       onChange={e => setManagingUser({ ...managingUser, fullName: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-bold text-xs text-slate-900 dark:text-white focus:outline-none"
+                      placeholder="e.g. Guyo Halake"
+                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-semibold text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Advocate Honorific Title:
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                      Title
                     </label>
                     <input
                       type="text"
                       value={managingUser.advocateTitle || ''}
                       onChange={e => setManagingUser({ ...managingUser, advocateTitle: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none"
+                      placeholder="e.g. Adv. Guyo Halake"
+                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      LSK Roll / Admission No:
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                      LSK Admission No.
                     </label>
                     <input
                       type="text"
                       value={managingUser.lskNo || ''}
                       onChange={e => setManagingUser({ ...managingUser, lskNo: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-mono text-xs text-slate-900 dark:text-white focus:outline-none"
+                      placeholder="e.g. ADMIN/2026/001"
+                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                   <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Firm Position / Practice Title:
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                      Position / Job Title
                     </label>
                     <input
                       type="text"
                       value={managingUser.position || ''}
                       onChange={e => setManagingUser({ ...managingUser, position: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none"
+                      placeholder="e.g. Senior Managing Partner"
+                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Department / Practice Group:
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                      Department
                     </label>
                     <input
                       type="text"
-                      value={managingUser.department || 'Commercial & Civil Litigation'}
+                      value={managingUser.department || ''}
                       onChange={e => setManagingUser({ ...managingUser, department: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none"
+                      placeholder="e.g. Commercial & Civil Litigation"
+                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Section 2: Contact Coordinates */}
+              {/* Section 2: Contact Information */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2 pb-2 border-b border-[var(--border-color)]">
                   <Mail className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <h4 className="font-brand font-bold text-sm text-slate-900 dark:text-white">
-                    2. Contact Coordinates & Work Profile
+                    2. Contact Information
                   </h4>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                   <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Work Company Email:
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                      Work Email
                     </label>
                     <input
                       type="email"
                       value={managingUser.workEmail}
                       onChange={e => setManagingUser({ ...managingUser, workEmail: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-mono text-xs text-slate-900 dark:text-white focus:outline-none"
+                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Personal Direct Email:
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                      Personal Email
                     </label>
                     <input
                       type="email"
                       value={managingUser.personalEmail || ''}
                       onChange={e => setManagingUser({ ...managingUser, personalEmail: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-mono text-xs text-slate-900 dark:text-white focus:outline-none"
+                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                   <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Primary Phone Number:
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                      Primary Phone
                     </label>
                     <input
                       type="text"
                       value={managingUser.phonePrimary || ''}
                       onChange={e => setManagingUser({ ...managingUser, phonePrimary: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-mono text-xs text-slate-900 dark:text-white focus:outline-none"
+                      placeholder="e.g. +254 700 888 999"
+                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Secondary Contact / Mobile:
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                      Mobile Phone
                     </label>
                     <input
                       type="text"
                       value={managingUser.phoneSecondary || ''}
                       onChange={e => setManagingUser({ ...managingUser, phoneSecondary: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-mono text-xs text-slate-900 dark:text-white focus:outline-none"
+                      placeholder="e.g. +254 722 000 888"
+                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Section 3: Role Template & Authorization Matrix */}
+              {/* Section 3: Role & Permissions */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-[var(--border-color)]">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                     <h4 className="font-brand font-bold text-sm text-slate-900 dark:text-white">
-                      3. Role Template & Access Authorization
+                      3. Role & Permissions
                     </h4>
                   </div>
-                  <span className="text-[10px] font-mono text-slate-400">
-                    Active RBAC Engine
-                  </span>
+                  <button
+                    onClick={() => {
+                      const targetId = managingUser.id;
+                      setManagingUser(null);
+                      onNavigateTab('permissions', targetId);
+                    }}
+                    className="text-xs text-purple-600 dark:text-purple-400 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Manage Permissions</span>
+                  </button>
                 </div>
 
                 <div className="p-4 bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-2xl space-y-3">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                        Assigned Role Template:
+                    <div className="flex-1">
+                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                        Assigned Role
                       </label>
                       <select
                         value={userRoleMap[managingUser.id] || (managingUser.role === 'Admin' ? 'managing_partner_exec' : managingUser.role === 'Developer' ? 'developer_sys_admin' : 'senior_advocates_lawyers')}
-                        onChange={e => handleChangeUserRole(managingUser.id, e.target.value)}
-                        className="px-3 py-1.5 rounded-xl border border-[var(--border-color)] bg-white dark:bg-zinc-900 font-bold text-xs text-slate-900 dark:text-white focus:outline-none cursor-pointer"
+                        onChange={e => {
+                          handleChangeUserRole(managingUser.id, e.target.value);
+                          const newRole = e.target.value === 'managing_partner_exec' ? 'Admin' : e.target.value === 'developer_sys_admin' ? 'Developer' : 'Advocate';
+                          setManagingUser({ ...managingUser, role: newRole });
+                        }}
+                        className="w-full sm:w-auto min-w-[260px] px-3.5 py-2 rounded-xl border border-[var(--border-color)] bg-white dark:bg-zinc-900 font-semibold text-xs text-slate-900 dark:text-white focus:outline-none cursor-pointer"
                       >
                         {roleTemplates.map(t => (
                           <option key={t.code} value={t.code}>
-                            {t.name} ({t.permissions.length} perms)
+                            {t.name} ({t.permissions.length} permissions)
                           </option>
                         ))}
                       </select>
                     </div>
 
-                    <div className="text-right">
-                      <div className="text-xs font-bold text-slate-900 dark:text-white">
-                        {roleTemplates.find(t => t.code === (userRoleMap[managingUser.id] || 'senior_advocates_lawyers'))?.permissions.length || 26} Permissions Granted
+                    <div className="text-left sm:text-right">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/40 text-purple-700 dark:text-purple-300 font-semibold text-xs">
+                        <CheckCircle className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                        <span>{roleTemplates.find(t => t.code === (userRoleMap[managingUser.id] || 'senior_advocates_lawyers'))?.permissions.length || 26} Permissions Active</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Capabilities Tags - All Permissions */}
-                  <div className="space-y-1.5 pt-2">
-                    <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider block font-bold">
-                      Granted Permissions ({roleTemplates.find(t => t.code === (userRoleMap[managingUser.id] || 'senior_advocates_lawyers'))?.permissions.length || 0}):
-                    </span>
-                    <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1">
-                      {roleTemplates.find(t => t.code === (userRoleMap[managingUser.id] || 'senior_advocates_lawyers'))?.permissions.map(p => (
-                        <span key={p.code} className="px-2 py-0.5 rounded-lg bg-white dark:bg-zinc-900 border border-[var(--border-color)] text-[10px] font-mono text-slate-800 dark:text-zinc-200 flex items-center gap-1 shadow-2xs">
-                          <span className="text-emerald-500 font-bold">✓</span>
-                          <span>{p.code}</span>
-                          <span className="text-[8.5px] px-1 rounded bg-slate-100 dark:bg-zinc-800 text-slate-500 font-sans">{p.scope}</span>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed pt-1">
+                    {roleTemplates.find(t => t.code === (userRoleMap[managingUser.id] || 'senior_advocates_lawyers'))?.description || 'Standard legal practice permissions.'}
+                  </p>
                 </div>
               </div>
 
-              {/* Section 4: Recent Activity */}
+              {/* Section 4: Account Details */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2 pb-2 border-b border-[var(--border-color)]">
                   <Activity className="w-4 h-4 text-slate-600 dark:text-zinc-400" />
                   <h4 className="font-brand font-bold text-sm text-slate-900 dark:text-white">
-                    4. Recent Activity
+                    4. Account Details
                   </h4>
                 </div>
 
-                <div className="space-y-2">
-                  {activityLogs.slice(0, 3).map(act => (
-                    <div key={act.id} className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-[var(--border-color)] flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2.5">
-                        <div className={`w-2 h-2 rounded-full ${act.badgeColor || 'bg-emerald-500'}`} />
-                        <div>
-                          <span className="font-semibold text-slate-900 dark:text-white">{managingUser.fullName}</span>
-                          <span className="text-slate-500 mx-1.5">&middot;</span>
-                          <span className="text-slate-600 dark:text-zinc-300">{act.action || act.actionDescription}</span>
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-mono text-slate-400 shrink-0">{act.timeAgo || 'Recent'}</span>
-                    </div>
-                  ))}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]">
+                    <span className="text-[10px] text-slate-400 uppercase font-mono block">Account ID</span>
+                    <span className="font-mono font-semibold text-slate-800 dark:text-zinc-200 truncate block mt-0.5">{managingUser.id}</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]">
+                    <span className="text-[10px] text-slate-400 uppercase font-mono block">Status</span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> Active
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]">
+                    <span className="text-[10px] text-slate-400 uppercase font-mono block">Access Tier</span>
+                    <span className="font-semibold text-slate-800 dark:text-zinc-200 block mt-0.5">{managingUser.role}</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]">
+                    <span className="text-[10px] text-slate-400 uppercase font-mono block">Firm Organization</span>
+                    <span className="font-mono font-semibold text-slate-800 dark:text-zinc-200 block mt-0.5">{managingUser.firmId || 'firm-001'}</span>
+                  </div>
                 </div>
               </div>
 
             </div>
 
-            {/* Dossier Footer Bar */}
-            <div className="p-5 border-t border-[var(--border-color)] bg-[var(--bg-subtle)] flex items-center justify-end gap-4">
-              <div className="flex items-center gap-2.5 ml-auto">
+            {/* Profile Footer */}
+            <div className="p-5 border-t border-[var(--border-color)] bg-[var(--bg-subtle)] flex items-center justify-between gap-4">
+              <button
+                onClick={() => {
+                  const toDelete = managingUser;
+                  setManagingUser(null);
+                  handleDeleteUser(toDelete);
+                }}
+                className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 dark:text-rose-400 font-semibold text-xs rounded-xl flex items-center gap-2 cursor-pointer transition-colors"
+                title="Permanently remove user"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                <span>Delete User</span>
+              </button>
+
+              <div className="flex items-center gap-2.5">
                 <button
                   onClick={() => setManagingUser(null)}
                   className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                 >
-                  Close Dossier
+                  Cancel
                 </button>
                 <button
+                  disabled={isSavingUser}
                   onClick={handleSaveManagedUser}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer shadow-xs transition-colors"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer shadow-xs transition-colors"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  <span>Save Profile Changes</span>
+                  <span>{isSavingUser ? 'Saving...' : 'Save Changes'}</span>
                 </button>
               </div>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* IN-APP USER DELETION CONFIRMATION MODAL */}
+      {userPendingDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn font-sans">
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl border border-[var(--border-color)] shadow-2xl p-6 space-y-4 text-left">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/50 flex items-center justify-center text-rose-600 dark:text-rose-400 mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div className="text-center space-y-1.5">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                Permanently Delete User?
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
+                Are you sure you want to permanently remove <strong className="text-slate-800 dark:text-zinc-200">{userPendingDelete.fullName}</strong> ({userPendingDelete.workEmail}) from the firm database and all rosters? This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                disabled={isDeletingUser}
+                onClick={() => setUserPendingDelete(null)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={isDeletingUser}
+                onClick={async () => {
+                  const u = userPendingDelete;
+                  await executeDeleteUser(u);
+                }}
+                className="px-5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors cursor-pointer shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeletingUser ? 'Deleting...' : 'Yes, Permanently Delete'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2255,6 +2994,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* ================================================================== */}
+      {/* 1. DATABASE USERS DIRECTORY & MANAGEMENT MODAL (COMMENTED OUT)     */}
+      {/* ================================================================== */}
+      {/* showUsersDirectoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-xs animate-fadeIn font-sans">
+          ...
+        </div>
+      ) */}
+
+      {/* ================================================================== */}
+      {/* 2. DATABASE ACCESS RULES & ROLE PERMISSIONS MATRIX MODAL (COMMENTED OUT) */}
+      {/* ================================================================== */}
+      {/* showDatabaseRulesModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-xs animate-fadeIn font-sans">
+          ...
+        </div>
+      ) */}
+
+      {/* ================================================================== */}
+      {/* 3. IN-APP PASSWORD RESET MODAL (COMMENTED OUT)                     */}
+      {/* ================================================================== */}
+      {/* resetPasswordTargetUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn font-sans">
+          ...
+        </div>
+      ) */}
 
       {/* Welcome Header & Action Chips: Dropped down with generous spacing */}
       <div className="pt-6 sm:pt-8 mb-8 sm:mb-10 flex flex-col md:flex-row md:items-center justify-between gap-5 pb-8 border-b border-[var(--border-color)]/60">
@@ -2308,7 +3074,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             }`}
           >
             <Calculator className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            <span>Quick Estimator</span>
+            <span>{showBocCalc ? 'Hide Quick Fee Note' : 'Quick Fee Note'}</span>
           </button>
 
           <button
@@ -2321,6 +3087,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* ================================================================== */}
+      {/* ADMIN & DEVELOPER EXECUTIVE COMMAND SUITE (COMMENTED OUT)          */}
+      {/* ================================================================== */}
+      {/* isExecutive && (
+        <div className="mb-8 space-y-3 animate-fadeIn">
+          ...
+        </div>
+      ) */}
 
       {/* Main 12-Column Modulix Dashboard Grid Layout */}
       <div className="grid grid-cols-12 gap-6 lg:gap-8">
@@ -2401,7 +3176,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                   <div className="border-t border-[var(--border-color)]/60" />
 
-                  {/* Fee Notes Processed Row with View Breakdown & Open Financial Ledger */}
+                  {/* Fee Notes Processed Row with View Breakdown & Open Fee Notes */}
                   <div className="pt-1 space-y-2">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
@@ -2413,11 +3188,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         </span>
                         <button
                           type="button"
-                          onClick={() => onNavigateTab('feenotes')}
+                          onClick={() => setShowFeeBreakdown(!showFeeBreakdown)}
                           className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer transition-colors ml-1"
                         >
-                          <span>View breakdown</span>
-                          <ChevronRight className="w-3.5 h-3.5" />
+                          <span>{showFeeBreakdown ? 'Hide fee notes' : 'View breakdown'}</span>
+                          {showFeeBreakdown ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                         </button>
                       </div>
 
@@ -2427,9 +3202,35 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         className="px-4 py-2 bg-slate-900 hover:bg-black dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-sm cursor-pointer shrink-0"
                       >
                         <FileText className="w-3.5 h-3.5" />
-                        <span>Open financial ledger</span>
+                        <span>Open Fee Notes</span>
                       </button>
                     </div>
+
+                    {/* Collapsible Fee Notes List (Hidden by default, shown when clicked) */}
+                    {showFeeBreakdown && (
+                      <div className="mt-3 p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-[var(--border-color)] space-y-2 animate-fadeIn max-h-56 overflow-y-auto">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 pb-1 border-b border-[var(--border-color)]">
+                          <span>Fee Note</span>
+                          <span>Amount</span>
+                        </div>
+                        {feeNotes.length === 0 ? (
+                          <p className="text-center text-xs text-slate-400 py-2 font-sans">No fee notes recorded yet.</p>
+                        ) : (
+                          feeNotes.slice(0, 6).map(fn => (
+                            <div key={fn.id} className="flex items-center justify-between text-xs py-1 border-b border-[var(--border-color)]/30 last:border-0">
+                              <div className="min-w-0 pr-2">
+                                <span className="font-bold text-slate-900 dark:text-white font-mono block truncate">{fn.billNumber}</span>
+                                <span className="text-[11px] text-slate-500 truncate block">{fn.matterTitle || fn.clientName}</span>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className="font-mono font-bold text-slate-900 dark:text-white block">KES {fn.grandTotal.toLocaleString('en-KE', { minimumFractionDigits: 2 })}</span>
+                                <span className={`text-[10px] font-bold capitalize ${fn.status === 'processed' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>{fn.status}</span>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
 
                     <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-sans">
                       Inspect the records contributing to each total.
@@ -2829,37 +3630,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         </div>
 
-        {/* RIGHT AUXILIARY COLUMN (4 Columns): Live Practice Timeline */}
+        {/* RIGHT AUXILIARY COLUMN (4 Columns): Recent Activities */}
         <div className="col-span-12 lg:col-span-4 space-y-6">
           {isExecutive ? (
             <div className="modulix-card space-y-4 border border-[var(--border-color)] bg-white dark:bg-zinc-900 shadow-xs">
               <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]/70">
                 <h3 className="font-brand font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-slate-700 dark:text-zinc-300" /> Live Practice Timeline
+                  <Activity className="w-4 h-4 text-slate-700 dark:text-zinc-300" /> Recent Activities
                 </h3>
               </div>
 
-              {/* Dynamic Live Activity Log Feed (Connected Timeline with Relative Timestamps) */}
+              {/* Dynamic Real Activity Feed (Fee Notes, Users, Emails & Messages) */}
               {(() => {
                 const realLegalActivities = activityLogs.filter(log => {
-                  if (log.type === 'login' || log.type === 'profile' || log.type === 'settings' || log.type === 'permission') return false;
                   const text = `${log.action || ''} ${log.actionDescription || ''}`.toLowerCase();
-                  if (
-                    text.includes('coordinate') ||
-                    text.includes('preference') ||
-                    text.includes('authenticated') ||
-                    text.includes('logged in') ||
-                    text.includes('assigned role template') ||
-                    text.includes('registered user') ||
-                    text.includes('invited new advocate') ||
-                    text.includes('updated role') ||
-                    text.includes('template developer') ||
-                    text.includes('oversight docket') ||
-                    text.includes('sent note to')
-                  ) {
-                    return false;
-                  }
-                  return true;
+                  const isFeeNote = text.includes('fee note') || text.includes('bill of cost') || text.includes('boc') || text.includes('billing');
+                  const isUser = text.includes('user') || text.includes('advocate');
+                  const isComm = text.includes('email') || text.includes('message') || text.includes('dispatch') || text.includes('invite');
+                  return isFeeNote || isUser || isComm;
                 });
 
                 const displayList = showAllActivities ? realLegalActivities : realLegalActivities.slice(0, 6);
@@ -2869,7 +3657,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <div className="relative pl-6 space-y-4 max-h-[520px] overflow-y-auto pr-1 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-zinc-800">
                       {realLegalActivities.length === 0 ? (
                         <div className="p-6 text-center text-slate-400 text-xs font-sans">
-                          Docket is clear. No activity recorded today.
+                          No recent activities recorded yet.
                         </div>
                       ) : (
                         displayList.map((log, idx) => {
@@ -3330,7 +4118,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                               </div>
                             </td>
 
-                            {/* 4. Actions Column: Clean [View Profile] + [Permissions] + subtle [···] */}
+                            {/* 4. Actions Column: Clean [View Profile] + [Permissions] + direct [Delete] */}
                             <td className="py-3.5 px-4 text-right whitespace-nowrap">
                               <div className="flex items-center justify-end gap-2">
                                 <button
@@ -3351,44 +4139,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                                   <span>Permissions</span>
                                 </button>
 
-                                <div className="relative inline-block text-left">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setUserActionMenuId(userActionMenuId === user.id ? null : user.id);
-                                    }}
-                                    className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
-                                    title="More Options"
-                                  >
-                                    <MoreVertical className="w-4 h-4" />
-                                  </button>
+                                <button
+                                  onClick={() => {
+                                    setMessagingUser(user);
+                                    setMessageText('');
+                                  }}
+                                  className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg transition-colors cursor-pointer"
+                                  title="Send Note to User"
+                                >
+                                  <MessageSquare className="w-4 h-4" />
+                                </button>
 
-                                  {userActionMenuId === user.id && (
-                                    <div className="absolute right-0 mt-1 w-44 rounded-xl bg-white dark:bg-zinc-900 border border-[var(--border-color)] shadow-xl py-1 z-30 font-sans text-left">
-                                      <button
-                                        onClick={() => {
-                                          setUserActionMenuId(null);
-                                          setMessagingUser(user);
-                                          setMessageText('');
-                                        }}
-                                        className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2 cursor-pointer"
-                                      >
-                                        <MessageSquare className="w-3.5 h-3.5 text-blue-500" />
-                                        <span>Send Direct Note</span>
-                                      </button>
-                                      <button
-                                        onClick={() => {
-                                          setUserActionMenuId(null);
-                                          handleDeleteUser(user);
-                                        }}
-                                        className="w-full px-3 py-2 text-left text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer border-t border-[var(--border-color)]/60"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                                        <span>Delete User</span>
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
+                                <button
+                                  onClick={() => handleDeleteUser(user)}
+                                  className="px-2.5 py-1.5 text-xs font-semibold bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-900/60 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+                                  title={`Permanently delete ${user.fullName} from firm database`}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                  <span>Delete</span>
+                                </button>
                               </div>
                             </td>
                           </tr>

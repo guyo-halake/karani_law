@@ -47,26 +47,71 @@ export const Navbar: React.FC<NavbarProps> = ({
     return () => window.removeEventListener('firmSettingsChanged', handleSettingsChange);
   }, []);
 
-  const notifications = [
-    {
-      id: 'n1',
-      title: 'Taxation Sheet Ready',
-      desc: 'Seyani Brothers & Co. (K) Ltd v Greenhills Investment Ltd (HCCC E104/2025) is ready for filing.',
-      time: '10 mins ago',
-    },
-    {
-      id: 'n2',
-      title: 'Fee Note Generated',
-      desc: 'Bill of Costs BOC-2026-FEE generated for Seyani Brothers (Kshs 30,820,193.28).',
-      time: '1 hour ago',
-    },
-    {
-      id: 'n3',
-      title: 'New Matter Registered',
-      desc: 'Dhanya Construction Kenya Ltd v Sunil Shah added to firm database.',
-      time: 'Yesterday',
-    }
-  ];
+  const [realNotifications, setRealNotifications] = useState<Array<{ id: string; title: string; desc: string; time: string }>>([]);
+
+  const loadRealNotifications = () => {
+    const items: Array<{ id: string; title: string; desc: string; time: string; timestamp: number }> = [];
+
+    // 1. Outgoing emails / dispatches
+    try {
+      const storedMails = localStorage.getItem('OUTGOING_EMAILS');
+      if (storedMails) {
+        const mails = JSON.parse(storedMails);
+        if (Array.isArray(mails)) {
+          mails.slice(0, 10).forEach((m: any, idx: number) => {
+            const recipient = Array.isArray(m.to) ? m.to.join(', ') : (m.to || 'Recipient');
+            const sentAt = m.timestamp ? new Date(m.timestamp).getTime() : Date.now();
+            const minutesAgo = Math.max(1, Math.floor((Date.now() - sentAt) / 60000));
+            const timeStr = minutesAgo < 60 ? `${minutesAgo} mins ago` : `${Math.floor(minutesAgo / 60)}h ago`;
+            items.push({
+              id: `mail-${m.id || idx}`,
+              title: `Email Sent: ${m.subject || 'Dispatch'}`,
+              desc: `To: ${recipient} • ${m.category || 'Notification'} delivered.`,
+              time: timeStr,
+              timestamp: sentAt
+            });
+          });
+        }
+      }
+    } catch (e) {}
+
+    // 2. Real System activities (Fee notes created, users added, etc.)
+    try {
+      const savedLogs = localStorage.getItem('SYSTEM_ACTIVITY_LOGS');
+      if (savedLogs) {
+        const logs = JSON.parse(savedLogs);
+        if (Array.isArray(logs)) {
+          logs.slice(0, 10).forEach((l: any, idx: number) => {
+            const ts = l.timestamp || Date.now();
+            const minutesAgo = Math.max(1, Math.floor((Date.now() - ts) / 60000));
+            const timeStr = minutesAgo < 60 ? `${minutesAgo} mins ago` : `${Math.floor(minutesAgo / 60)}h ago`;
+            let title = 'System Activity';
+            if (l.type === 'feenote') title = 'Fee Note Activity';
+            else if (l.type === 'permission') title = 'User & Access Update';
+            else if (l.type === 'letter') title = 'Legal Document';
+
+            items.push({
+              id: `log-${l.id || idx}`,
+              title,
+              desc: `${l.advocateName}: ${l.action}`,
+              time: l.timeAgo || timeStr,
+              timestamp: ts
+            });
+          });
+        }
+      }
+    } catch (e) {}
+
+    // Sort newest first
+    items.sort((a, b) => b.timestamp - a.timestamp);
+    setRealNotifications(items.slice(0, 15));
+  };
+
+  useEffect(() => {
+    loadRealNotifications();
+    const interval = setInterval(loadRealNotifications, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogOut = () => {
     setShowProfileMenu(false);
@@ -160,23 +205,29 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="absolute right-0 top-12 w-80 sm:w-96 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl shadow-2xl z-50 p-4 space-y-3">
               <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-2">
                 <h4 className="font-brand font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider">
-                  Notifications & Dispatch
+                  Notifications &amp; Activity
                 </h4>
                 <span className="text-[10px] bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-full font-bold">
-                  3 Unread
+                  {realNotifications.length > 0 ? `${realNotifications.length} Recent` : '0 New'}
                 </span>
               </div>
 
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {notifications.map((n) => (
-                  <div key={n.id} className="p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/60 dark:border-zinc-700/60 text-xs space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-900 dark:text-white">{n.title}</span>
-                      <span className="text-[10px] text-slate-400 font-mono">{n.time}</span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">{n.desc}</p>
+              <div className="space-y-2 max-h-72 overflow-y-auto">
+                {realNotifications.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-slate-400">
+                    No new notifications right now.
                   </div>
-                ))}
+                ) : (
+                  realNotifications.map((n) => (
+                    <div key={n.id} className="p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/60 dark:border-zinc-700/60 text-xs space-y-1 hover:border-blue-400/50 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-900 dark:text-white truncate max-w-[200px]">{n.title}</span>
+                        <span className="text-[10px] text-slate-400 font-mono shrink-0 ml-2">{n.time}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">{n.desc}</p>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}

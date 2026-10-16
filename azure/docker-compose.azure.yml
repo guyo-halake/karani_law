@@ -16,7 +16,7 @@ services:
     environment:
       - PORT=8000
       - APP_ENV=production
-      - CORS_ORIGINS=https://nyagahkithinji.advocates.azurewebsites.net,https://nyagahkithinji-advocates.azurewebsites.net,https://nyagah-b-fee-notes.azurewebsites.net,http://localhost:3000
+      - CORS_ORIGINS=https://nyagahkithinji-advocates.azurewebsites.net,https://nyagah-b-fee-notes.azurewebsites.net,http://localhost:3000
       - JWT_SECRET_KEY=karani-law-advocates-production-jwt-security-key-2026-auth-token-secret-string-9920
       - SUPABASE_URL=https://hhkbypvdwikxdlwivmrn.supabase.co
       - SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhoa2J5cHZkd2lreGRsd2l2bXJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NTg2NTUsImV4cCI6MjEwNTAzNDY1NX0.WBtSdlFX-DFG_Rfaf_19GU7meTBSvDUTzkosft-hjlc

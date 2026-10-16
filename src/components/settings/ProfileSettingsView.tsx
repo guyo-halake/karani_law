@@ -48,7 +48,7 @@ interface SettingsProps {
   currentUser?: SystemUser | null;
   isDarkMode?: boolean;
   toggleTheme?: () => void;
-  initialTab?: 'profile' | 'firm' | 'calculator' | 'appearance' | 'notifications' | 'security';
+  initialTab?: 'profile' | 'firm' | 'calculator' | 'appearance' | 'notifications';
 }
 
 export const ProfileSettingsView: React.FC<SettingsProps> = ({
@@ -57,7 +57,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
   toggleTheme,
   initialTab = 'profile'
 }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'firm' | 'calculator' | 'appearance' | 'notifications' | 'security'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'profile' | 'firm' | 'calculator' | 'appearance' | 'notifications'>(initialTab);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -335,46 +335,38 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
   const [sidebarHoverEnabled, setSidebarHoverEnabled] = useState<boolean>(() => localStorage.getItem('BILLSZIP_SIDEBAR_HOVER') !== 'false');
 
   // --------------------------------------------------------------------------
-  // MODULE 5: NOTIFICATIONS & STATUTORY DISPATCH STATE
+  // MODULE 5: NOTIFICATIONS & RECEIVING EMAIL STATE
   // --------------------------------------------------------------------------
+  const [receivingEmail, setReceivingEmail] = useState(() => {
+    return localStorage.getItem('BILLSZIP_RECEIVING_EMAIL') || initialUser.workEmail || initialUser.personalEmail || '';
+  });
+
   const [notifSettings, setNotifSettings] = useState(() => {
     const saved = localStorage.getItem('BILLSZIP_NOTIF_SETTINGS');
     if (saved) {
       try { 
         const p = JSON.parse(saved);
         return {
-          rule11AppealWarning: p.rule11AppealWarning !== false,
-          rule77NoticeWarning: p.rule77NoticeWarning !== false,
-          rule7InterestAlert: p.rule7InterestAlert !== false,
-          trustAccountThresholdAlert: p.trustAccountThresholdAlert !== false,
-          kraEtimsSyncAlert: p.kraEtimsSyncAlert !== false,
-          emailOnDraft: p.emailOnDraft !== false,
-          emailOnApproval: p.emailOnApproval !== false,
-          dailyMorningDigest: p.dailyMorningDigest !== false,
+          loginSecurityAlert: p.loginSecurityAlert !== false,
+          feeNoteAlert: p.feeNoteAlert !== false,
+          matterUpdateAlert: p.matterUpdateAlert !== false,
+          clientMessageAlert: p.clientMessageAlert !== false,
+          weeklySummaryAlert: p.weeklySummaryAlert !== false,
           clientDeliveryChannel: p.clientDeliveryChannel || 'both',
           toastDuration: p.toastDuration || '4'
         };
       } catch (e) {}
     }
     return {
-      rule11AppealWarning: true,
-      rule77NoticeWarning: true,
-      rule7InterestAlert: true,
-      trustAccountThresholdAlert: true,
-      kraEtimsSyncAlert: true,
-      emailOnDraft: true,
-      emailOnApproval: true,
-      dailyMorningDigest: true,
+      loginSecurityAlert: true,
+      feeNoteAlert: true,
+      matterUpdateAlert: true,
+      clientMessageAlert: true,
+      weeklySummaryAlert: true,
       clientDeliveryChannel: 'both',
       toastDuration: '4'
     };
   });
-
-  // --------------------------------------------------------------------------
-  // MODULE 6: SECURITY & SESSION TIMEOUT STATE
-  // --------------------------------------------------------------------------
-  const [sessionTimeout, setSessionTimeout] = useState(() => localStorage.getItem('BILLSZIP_SESSION_TIMEOUT') || '30');
-  const [auditLoggingEnabled, setAuditLoggingEnabled] = useState(() => localStorage.getItem('BILLSZIP_AUDIT_LOGGING') !== 'false');
 
   // --------------------------------------------------------------------------
   // HANDLERS: SAVE & DISPATCH
@@ -562,11 +554,14 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
       }
 
       // 3. Persist to Supabase public.users using exact supported table columns
+      let dbUpdated = false;
+      let dbErrorMessage = '';
       try {
         const supabaseData: any = {
           full_name: mergedUser.fullName,
           lsk_no: mergedUser.lskNo,
           position: mergedUser.position,
+          department: mergedUser.department,
           phone_primary: mergedUser.phonePrimary,
           phone_secondary: mergedUser.phoneSecondary,
           avatar_url: mergedUser.avatarUrl
@@ -575,12 +570,18 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
           supabaseData.email = mergedUser.workEmail;
         }
 
-        await supabase
+        const { error: sbErr } = await supabase
           .from('users')
           .update(supabaseData)
           .eq('id', mergedUser.id);
-      } catch (sbErr) {
-        console.warn('Supabase profile sync notice:', sbErr);
+
+        if (sbErr) {
+          dbErrorMessage = sbErr.message;
+        } else {
+          dbUpdated = true;
+        }
+      } catch (sbErr: any) {
+        dbErrorMessage = sbErr?.message || 'Database connection issue';
       }
 
       logSystemActivity(
@@ -591,9 +592,15 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
       );
 
       setIsEditingProfile(false);
-      showToast('Profile successfully updated & permanently saved.');
+      if (dbUpdated) {
+        showToast('Profile updated and saved to database successfully!');
+      } else if (dbErrorMessage) {
+        showToast(`Profile saved locally. Database update failed: ${dbErrorMessage}`);
+      } else {
+        showToast('Profile updated and saved successfully.');
+      }
     } catch (err: any) {
-      showToast(err.message || 'Saved to session.');
+      showToast(err.message || 'Profile save failed.');
       setIsEditingProfile(false);
     }
   };
@@ -684,17 +691,11 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
     showToast('Display & UI preferences saved and applied in real time.');
   };
 
-  // Save Notifications
+  // Save Notifications & Receiving Email
   const handleSaveNotifications = () => {
+    localStorage.setItem('BILLSZIP_RECEIVING_EMAIL', receivingEmail);
     localStorage.setItem('BILLSZIP_NOTIF_SETTINGS', JSON.stringify(notifSettings));
-    showToast('Notification & Dispatch preferences saved.');
-  };
-
-  // Save Security & Session
-  const handleSaveSecurity = () => {
-    localStorage.setItem('BILLSZIP_SESSION_TIMEOUT', sessionTimeout);
-    localStorage.setItem('BILLSZIP_AUDIT_LOGGING', auditLoggingEnabled ? 'true' : 'false');
-    showToast('Security & Session configurations updated.');
+    showToast('Alert preferences and receiving email saved successfully.');
   };
 
   // Master Save All
@@ -704,7 +705,6 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
     handleSaveCalcSettings();
     handleSaveAppearance();
     handleSaveNotifications();
-    handleSaveSecurity();
   };
 
   // Export Complete Firm Data (JSON Backup)
@@ -795,7 +795,6 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
           { id: 'calculator' as const, label: 'Calculation Engine', icon: Calculator },
           { id: 'appearance' as const, label: 'Appearance & UI', icon: Palette },
           { id: 'notifications' as const, label: 'Alerts & Dispatch', icon: Bell },
-          { id: 'security' as const, label: 'Security & Access', icon: ShieldCheck },
         ].map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -1039,7 +1038,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                   </h3>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]/60">
+                    <div className="p-3 rounded-xl bg-transparent border border-[var(--border-color)]/70">
                       <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-0.5">
                         Full Legal Name
                       </span>
@@ -1048,7 +1047,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                       </span>
                     </div>
 
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]/60">
+                    <div className="p-3 rounded-xl bg-transparent border border-[var(--border-color)]/70">
                       <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-0.5">
                         Honorific Title / Salutation
                       </span>
@@ -1057,7 +1056,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                       </span>
                     </div>
 
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]/60">
+                    <div className="p-3 rounded-xl bg-transparent border border-[var(--border-color)]/70">
                       <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-0.5">
                         LSK Admission Roll No
                       </span>
@@ -1066,7 +1065,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                       </span>
                     </div>
 
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]/60">
+                    <div className="p-3 rounded-xl bg-transparent border border-[var(--border-color)]/70">
                       <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-0.5">
                         Firm Practice Designation
                       </span>
@@ -1075,7 +1074,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                       </span>
                     </div>
 
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]/60 sm:col-span-2">
+                    <div className="p-3 rounded-xl bg-transparent border border-[var(--border-color)]/70 sm:col-span-2">
                       <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-0.5">
                         Practice Department
                       </span>
@@ -1094,7 +1093,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                   </h3>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]/60">
+                    <div className="p-3 rounded-xl bg-transparent border border-[var(--border-color)]/70">
                       <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-0.5">
                         Work Company Email
                       </span>
@@ -1103,7 +1102,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                       </span>
                     </div>
 
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]/60">
+                    <div className="p-3 rounded-xl bg-transparent border border-[var(--border-color)]/70">
                       <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-0.5">
                         Personal Alternate Email
                       </span>
@@ -1112,7 +1111,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                       </span>
                     </div>
 
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]/60">
+                    <div className="p-3 rounded-xl bg-transparent border border-[var(--border-color)]/70">
                       <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-0.5">
                         Primary Mobile / Telephone
                       </span>
@@ -1121,7 +1120,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                       </span>
                     </div>
 
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]/60">
+                    <div className="p-3 rounded-xl bg-transparent border border-[var(--border-color)]/70">
                       <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-0.5">
                         Secondary Mobile / WhatsApp
                       </span>
@@ -1139,7 +1138,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                     <span>Security & Authentication</span>
                   </h3>
 
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="p-4 rounded-xl bg-transparent border border-[var(--border-color)]/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="space-y-0.5">
                       <p className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
                         <Lock className="w-3.5 h-3.5 text-emerald-500" />
@@ -1153,7 +1152,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                     <button
                       type="button"
                       onClick={() => setShowPasswordModal(true)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium border border-[var(--border-color)] bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors shrink-0"
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium border border-[var(--border-color)] bg-transparent text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors shrink-0"
                     >
                       Update Password
                     </button>
@@ -1352,10 +1351,6 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                     <h2 className="font-brand font-bold text-xl text-slate-900 dark:text-white">
                       {firmSettings.topbarTitle}
                     </h2>
-                    <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-200 dark:border-emerald-800/50 flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                      Verified Law Practice
-                    </span>
                   </div>
 
                   <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold tracking-wider font-sans">
@@ -1421,7 +1416,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                   </h3>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                    <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]/60 sm:col-span-2">
+                    <div className="p-3.5 rounded-xl bg-transparent border border-[var(--border-color)]/70 sm:col-span-2">
                       <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-0.5">
                         Physical Office Chambers (Service Address)
                       </span>
@@ -1430,7 +1425,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                       </span>
                     </div>
 
-                    <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]/60">
+                    <div className="p-3.5 rounded-xl bg-transparent border border-[var(--border-color)]/70">
                       <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-0.5">
                         Registered Postal Box
                       </span>
@@ -1439,7 +1434,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                       </span>
                     </div>
 
-                    <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]/60">
+                    <div className="p-3.5 rounded-xl bg-transparent border border-[var(--border-color)]/70">
                       <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-0.5">
                         Court Electronic Service Email
                       </span>
@@ -1448,7 +1443,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                       </span>
                     </div>
 
-                    <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]/60">
+                    <div className="p-3.5 rounded-xl bg-transparent border border-[var(--border-color)]/70">
                       <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-0.5">
                         General Inquiries Email
                       </span>
@@ -1457,7 +1452,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                       </span>
                     </div>
 
-                    <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]/60">
+                    <div className="p-3.5 rounded-xl bg-transparent border border-[var(--border-color)]/70">
                       <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-0.5">
                         Official Switchboard Telephone
                       </span>
@@ -1476,7 +1471,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                   </h3>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                    <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]/60">
+                    <div className="p-3.5 rounded-xl bg-transparent border border-[var(--border-color)]/70">
                       <div className="flex items-center justify-between mb-0.5">
                         <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
                           Firm KRA PIN
@@ -1490,7 +1485,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                       </span>
                     </div>
 
-                    <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]/60">
+                    <div className="p-3.5 rounded-xl bg-transparent border border-[var(--border-color)]/70">
                       <div className="flex items-center justify-between mb-0.5">
                         <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
                           VAT Registration No
@@ -1504,7 +1499,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                       </span>
                     </div>
 
-                    <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]/60">
+                    <div className="p-3.5 rounded-xl bg-transparent border border-[var(--border-color)]/70">
                       <div className="flex items-center justify-between mb-0.5">
                         <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
                           LSK Firm Practice No
@@ -1520,21 +1515,18 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                   </div>
                 </div>
 
-                {/* Pillar 3: Two-Tier Legal Banking & Trust Accounting (Advocates Act Cap 16) */}
+                {/* Pillar 3: Two-Tier Legal Banking & Settlement */}
                 <div className="space-y-3 pt-3 border-t border-[var(--border-color)]/60">
                   <div className="flex items-center justify-between">
                     <h3 className="font-brand font-bold text-xs uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                       <Landmark className="w-3.5 h-3.5" />
                       <span>Two-Tier Legal Banking Architecture (Advocates Act Cap 16)</span>
                     </h3>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      Strict statutory segregation of Client Monies
-                    </span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Office Operating Account Card */}
-                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700/60 space-y-3 shadow-xs">
+                    {/* Bank 1 */}
+                    <div className="p-4 rounded-2xl bg-transparent border border-[var(--border-color)]/70 space-y-3 shadow-xs">
                       <div className="flex items-center justify-between border-b border-[var(--border-color)]/60 pb-2">
                         <div className="flex items-center gap-2">
                           <div className="p-1.5 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900">
@@ -1542,16 +1534,10 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                           </div>
                           <div>
                             <h4 className="font-brand font-bold text-xs text-slate-900 dark:text-white">
-                              Office Operating Account
+                              Bank 1
                             </h4>
-                            <p className="text-[10px] text-slate-500">
-                              Legal Fees, Billing & Firm Operations
-                            </p>
                           </div>
                         </div>
-                        <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-200 font-bold uppercase">
-                          Revenue
-                        </span>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
@@ -1574,25 +1560,19 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                       </div>
                     </div>
 
-                    {/* Client Trust Account Card */}
-                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700/60 space-y-3 shadow-xs">
+                    {/* Bank 2 */}
+                    <div className="p-4 rounded-2xl bg-transparent border border-[var(--border-color)]/70 space-y-3 shadow-xs">
                       <div className="flex items-center justify-between border-b border-[var(--border-color)]/60 pb-2">
                         <div className="flex items-center gap-2">
                           <div className="p-1.5 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900">
-                            <ShieldCheck className="w-3.5 h-3.5" />
+                            <Landmark className="w-3.5 h-3.5" />
                           </div>
                           <div>
                             <h4 className="font-brand font-bold text-xs text-slate-900 dark:text-white">
-                              Client / Trust Account
+                              Bank 2
                             </h4>
-                            <p className="text-[10px] text-slate-500">
-                              Stakeholder Deposits, Conveyance & Escrow Funds
-                            </p>
                           </div>
                         </div>
-                        <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-200 font-bold uppercase">
-                          Fiduciary
-                        </span>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
@@ -1616,22 +1596,19 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                     </div>
                   </div>
 
-                  {/* Corporate M-Pesa Settlement */}
-                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                  {/* MPESA */}
+                  <div className="p-3.5 rounded-xl bg-transparent border border-[var(--border-color)]/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900 flex items-center justify-center font-bold text-xs tracking-tight">
                         M
                       </div>
                       <div>
                         <span className="font-bold text-xs text-slate-900 dark:text-white block">
-                          Corporate M-Pesa Paybill / Disbursements
-                        </span>
-                        <span className="text-[11px] text-slate-500">
-                          Court Registry Filing Fees & Search Disbursements
+                          MPESA
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4 text-xs font-mono">
+                    <div className="flex items-center gap-6 text-xs font-mono">
                       <div>
                         <span className="text-[9.5px] text-slate-400 uppercase block">Paybill No:</span>
                         <span className="font-bold text-slate-900 dark:text-white">{firmSettings.mpesaPaybill || '522522'}</span>
@@ -1815,9 +1792,10 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                   </h3>
 
                   {/* Office Operating Account */}
-                  <div className="p-4 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800/40 space-y-3">
+                  {/* Bank 1 */}
+                  <div className="p-4 rounded-xl border border-[var(--border-color)] bg-transparent space-y-3">
                     <h4 className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider">
-                      1. Office Operating Account (Legal Fee Notes)
+                      1. Bank 1
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
                       <div>
@@ -1826,7 +1804,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                           type="text"
                           value={firmSettings.officeBankName}
                           onChange={e => setFirmSettings({ ...firmSettings, officeBankName: e.target.value })}
-                          className="w-full p-2 rounded-lg border border-[var(--border-color)] bg-white dark:bg-zinc-900 text-xs"
+                          className="w-full p-2 rounded-lg border border-[var(--border-color)] bg-transparent text-xs text-slate-900 dark:text-white"
                         />
                       </div>
                       <div>
@@ -1835,7 +1813,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                           type="text"
                           value={firmSettings.officeBranch}
                           onChange={e => setFirmSettings({ ...firmSettings, officeBranch: e.target.value })}
-                          className="w-full p-2 rounded-lg border border-[var(--border-color)] bg-white dark:bg-zinc-900 text-xs"
+                          className="w-full p-2 rounded-lg border border-[var(--border-color)] bg-transparent text-xs text-slate-900 dark:text-white"
                         />
                       </div>
                       <div>
@@ -1844,7 +1822,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                           type="text"
                           value={firmSettings.officeAccountNo}
                           onChange={e => setFirmSettings({ ...firmSettings, officeAccountNo: e.target.value })}
-                          className="w-full p-2 rounded-lg border border-[var(--border-color)] bg-white dark:bg-zinc-900 font-mono text-xs"
+                          className="w-full p-2 rounded-lg border border-[var(--border-color)] bg-transparent font-mono text-xs text-slate-900 dark:text-white"
                         />
                       </div>
                       <div>
@@ -1853,16 +1831,16 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                           type="text"
                           value={firmSettings.officeSwift}
                           onChange={e => setFirmSettings({ ...firmSettings, officeSwift: e.target.value })}
-                          className="w-full p-2 rounded-lg border border-[var(--border-color)] bg-white dark:bg-zinc-900 font-mono text-xs"
+                          className="w-full p-2 rounded-lg border border-[var(--border-color)] bg-transparent font-mono text-xs text-slate-900 dark:text-white"
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* Client Trust Account */}
-                  <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-700/60 bg-slate-50 dark:bg-zinc-800/40 space-y-3">
+                  {/* Bank 2 */}
+                  <div className="p-4 rounded-xl border border-[var(--border-color)] bg-transparent space-y-3">
                     <h4 className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider">
-                      2. Client Trust Account (Fiduciary Deposits)
+                      2. Bank 2
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
                       <div>
@@ -1871,7 +1849,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                           type="text"
                           value={firmSettings.clientTrustBankName}
                           onChange={e => setFirmSettings({ ...firmSettings, clientTrustBankName: e.target.value })}
-                          className="w-full p-2 rounded-lg border border-[var(--border-color)] bg-white dark:bg-zinc-900 text-xs"
+                          className="w-full p-2 rounded-lg border border-[var(--border-color)] bg-transparent text-xs text-slate-900 dark:text-white"
                         />
                       </div>
                       <div>
@@ -1880,7 +1858,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                           type="text"
                           value={firmSettings.clientTrustBranch}
                           onChange={e => setFirmSettings({ ...firmSettings, clientTrustBranch: e.target.value })}
-                          className="w-full p-2 rounded-lg border border-[var(--border-color)] bg-white dark:bg-zinc-900 text-xs"
+                          className="w-full p-2 rounded-lg border border-[var(--border-color)] bg-transparent text-xs text-slate-900 dark:text-white"
                         />
                       </div>
                       <div>
@@ -1889,7 +1867,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                           type="text"
                           value={firmSettings.clientTrustAccountNo}
                           onChange={e => setFirmSettings({ ...firmSettings, clientTrustAccountNo: e.target.value })}
-                          className="w-full p-2 rounded-lg border border-[var(--border-color)] bg-white dark:bg-zinc-900 font-mono text-xs"
+                          className="w-full p-2 rounded-lg border border-[var(--border-color)] bg-transparent font-mono text-xs text-slate-900 dark:text-white"
                         />
                       </div>
                       <div>
@@ -1898,34 +1876,34 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                           type="text"
                           value={firmSettings.clientTrustSwift}
                           onChange={e => setFirmSettings({ ...firmSettings, clientTrustSwift: e.target.value })}
-                          className="w-full p-2 rounded-lg border border-[var(--border-color)] bg-white dark:bg-zinc-900 font-mono text-xs"
+                          className="w-full p-2 rounded-lg border border-[var(--border-color)] bg-transparent font-mono text-xs text-slate-900 dark:text-white"
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* Corporate M-Pesa */}
+                  {/* MPESA */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                     <div>
                       <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                        Corporate M-Pesa Paybill No:
+                        MPESA Paybill No:
                       </label>
                       <input
                         type="text"
                         value={firmSettings.mpesaPaybill}
                         onChange={e => setFirmSettings({ ...firmSettings, mpesaPaybill: e.target.value })}
-                        className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:border-slate-400"
+                        className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-transparent font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:border-slate-400"
                       />
                     </div>
                     <div>
                       <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                        Paybill Account Reference:
+                        MPESA Account Reference:
                       </label>
                       <input
                         type="text"
                         value={firmSettings.mpesaAccountRef}
                         onChange={e => setFirmSettings({ ...firmSettings, mpesaAccountRef: e.target.value })}
-                        className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:border-slate-400"
+                        className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-transparent font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:border-slate-400"
                       />
                     </div>
                   </div>
@@ -2297,63 +2275,118 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
         </div>
       )}
 
-      {/* TAB 4: APPEARANCE & LEGAL TYPOGRAPHY */}
+      {/* TAB 4: APPEARANCE & UI */}
       {activeTab === 'appearance' && (
         <div className="modulix-card p-6 sm:p-8 space-y-6 border border-[var(--border-color)] bg-white dark:bg-zinc-900 shadow-xs animate-fadeIn">
           <div>
             <h2 className="font-brand font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
               <Palette className="w-4 h-4 text-emerald-600" />
-              <span>Visual Appearance, Density & Court Typography</span>
+              <span>Appearance & UI Theme</span>
             </h2>
             <p className="text-xs text-slate-500">
-              Configure table density for dense folio reviews, court serif typography, and contrast themes
+              Choose your interface color theme, table density, and font style
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-            <div>
-              <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                Interface Color Theme:
-              </label>
+          {/* Theme Switcher Cards: Light Modern Theme & Dark Modern Theme */}
+          <div className="space-y-2">
+            <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500">
+              Interface Color Theme:
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Light Modern Theme Card */}
               <button
                 type="button"
-                onClick={toggleTheme}
-                className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs font-semibold text-slate-900 dark:text-white flex items-center justify-between cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-700 transition-colors"
+                onClick={() => {
+                  if (isDarkMode && toggleTheme) toggleTheme();
+                }}
+                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                  !isDarkMode
+                    ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 shadow-xs'
+                    : 'border-[var(--border-color)]/70 hover:border-slate-400 bg-transparent'
+                }`}
               >
-                <span className="flex items-center gap-2">
-                  {isDarkMode ? <Moon className="w-4 h-4 text-amber-400" /> : <Sun className="w-4 h-4 text-amber-500" />}
-                  {isDarkMode ? 'OLED Dark Mode' : 'Legal Paper White'}
-                </span>
-                <span className="text-[10px] text-slate-400 font-mono">Toggle</span>
+                <div className="flex items-center gap-3">
+                  <div className={`p-2.5 rounded-xl ${!isDarkMode ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'}`}>
+                    <Sun className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-xs text-slate-900 dark:text-white">
+                      Light Modern Theme
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      Clean and crisp bright interface
+                    </p>
+                  </div>
+                </div>
+                {!isDarkMode && (
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                    Active
+                  </span>
+                )}
+              </button>
+
+              {/* Dark Modern Theme Card */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isDarkMode && toggleTheme) toggleTheme();
+                }}
+                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                  isDarkMode
+                    ? 'border-emerald-500 bg-emerald-950/20 shadow-xs'
+                    : 'border-[var(--border-color)]/70 hover:border-slate-400 bg-transparent'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`p-2.5 rounded-xl ${isDarkMode ? 'bg-indigo-900/60 text-indigo-400' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'}`}>
+                    <Moon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-xs text-slate-900 dark:text-white">
+                      Dark Modern Theme
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      Sleek low-glare dark layout
+                    </p>
+                  </div>
+                </div>
+                {isDarkMode && (
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-900/80 text-emerald-300">
+                    Active
+                  </span>
+                )}
               </button>
             </div>
+          </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-2">
             <div>
               <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                Table Density (Folio Grid):
+                Table Density:
               </label>
               <select
                 value={tableDensity}
                 onChange={e => setTableDensity(e.target.value)}
-                className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none"
+                className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-transparent text-xs text-slate-900 dark:text-white focus:outline-none"
               >
-                <option value="compact">Compact (Court Taxation Ledger Mode - 24px rows)</option>
-                <option value="standard">Standard (32px rows)</option>
-                <option value="comfortable">Comfortable (Spacious Client Review)</option>
+                <option value="compact">Compact (Dense folios)</option>
+                <option value="standard">Standard</option>
+                <option value="comfortable">Comfortable</option>
               </select>
             </div>
 
             <div>
               <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                Document Pleading Typography:
+                Document Typography:
               </label>
               <select
                 value={documentFont}
                 onChange={e => setDocumentFont(e.target.value)}
-                className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none"
+                className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-transparent text-xs text-slate-900 dark:text-white focus:outline-none"
               >
-                <option value="serif">Formal Statutory Serif (Times New Roman / Garamond)</option>
-                <option value="sans">Modern Executive Sans (Inter / Plus Jakarta Sans)</option>
+                <option value="sans">Modern Sans (Inter / Plus Jakarta Sans)</option>
+                <option value="serif">Formal Serif (Times New Roman / Garamond)</option>
               </select>
             </div>
           </div>
@@ -2366,10 +2399,10 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
               <select
                 value={sealAlignment}
                 onChange={e => setSealAlignment(e.target.value)}
-                className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none"
+                className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-transparent text-xs text-slate-900 dark:text-white focus:outline-none"
               >
-                <option value="left">Left Aligned (Modern Corporate)</option>
-                <option value="center">Centered Traditional (Kenya Gazette Advocate Style)</option>
+                <option value="left">Left Aligned</option>
+                <option value="center">Centered</option>
               </select>
             </div>
 
@@ -2380,7 +2413,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
               <select
                 value={accentColor}
                 onChange={e => setAccentColor(e.target.value)}
-                className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none"
+                className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-transparent text-xs text-slate-900 dark:text-white focus:outline-none"
               >
                 <option value="emerald">High Court Emerald Green</option>
                 <option value="obsidian">Obsidian Minimalist Black</option>
@@ -2403,84 +2436,122 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
         </div>
       )}
 
-      {/* TAB 5: ALERTS & STATUTORY DISPATCH */}
+      {/* TAB 5: ALERTS & DISPATCH */}
       {activeTab === 'notifications' && (
         <div className="modulix-card p-6 sm:p-8 space-y-6 border border-[var(--border-color)] bg-white dark:bg-zinc-900 shadow-xs animate-fadeIn">
           <div>
             <h2 className="font-brand font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
               <Bell className="w-4 h-4 text-emerald-600" />
-              <span>Statutory Court Deadlines, Trust Alarms & Client Dispatch</span>
+              <span>Alerts & Dispatch</span>
             </h2>
             <p className="text-xs text-slate-500">
-              Manage automatic Civil Procedure Rule deadlines, fiduciary trust warnings, and multi-channel client dispatches
+              Manage your alert notifications and receiving email address
             </p>
           </div>
 
+          {/* Receiving Email Address Input */}
+          <div className="p-4 rounded-2xl border border-[var(--border-color)]/70 bg-transparent space-y-2">
+            <label className="block text-xs font-bold text-slate-900 dark:text-white">
+              Receiving Email Address:
+            </label>
+            <p className="text-[11px] text-slate-500">
+              All system notifications, sign-in alerts, and matter updates will be sent to this email address.
+            </p>
+            <div className="relative mt-1">
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <input
+                type="email"
+                value={receivingEmail}
+                onChange={e => setReceivingEmail(e.target.value)}
+                placeholder="e.g. advocate@firm.com"
+                className="w-full pl-9 pr-3 py-2 rounded-xl border border-[var(--border-color)] bg-transparent font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:border-slate-400"
+              />
+            </div>
+          </div>
+
+          {/* Alert Toggles */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-[var(--border-color)]">
+            <div className="flex items-center justify-between p-3.5 rounded-xl border border-[var(--border-color)]/70 bg-transparent">
               <div>
                 <span className="font-semibold text-xs text-slate-900 dark:text-white block">
-                  Rule 11 14-Day Taxation Objection / Reference Alert
+                  Sign-in & Security Alerts
                 </span>
                 <span className="text-[11px] text-slate-500">
-                  Sends countdown notification 3 days prior to the statutory 14-day deadline to file reference to a Judge in Chambers
+                  Notify me when someone logs into my account from a new browser or device
                 </span>
               </div>
               <input
                 type="checkbox"
-                checked={notifSettings.rule11AppealWarning}
-                onChange={e => setNotifSettings({ ...notifSettings, rule11AppealWarning: e.target.checked })}
+                checked={notifSettings.loginSecurityAlert}
+                onChange={e => setNotifSettings({ ...notifSettings, loginSecurityAlert: e.target.checked })}
                 className="rounded w-4 h-4 cursor-pointer"
               />
             </div>
 
-            <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-[var(--border-color)]">
+            <div className="flex items-center justify-between p-3.5 rounded-xl border border-[var(--border-color)]/70 bg-transparent">
               <div>
                 <span className="font-semibold text-xs text-slate-900 dark:text-white block">
-                  Rule 77 21-Day Notice of Taxation Hearing Filing Alarm
+                  Fee Note & Billing Alerts
                 </span>
                 <span className="text-[11px] text-slate-500">
-                  Reminds advocate to file and serve the formal Notice of Taxation within the statutory registry window
+                  Notify me when a fee note or bill of costs is generated, shared, or marked paid
                 </span>
               </div>
               <input
                 type="checkbox"
-                checked={notifSettings.rule77NoticeWarning}
-                onChange={e => setNotifSettings({ ...notifSettings, rule77NoticeWarning: e.target.checked })}
+                checked={notifSettings.feeNoteAlert}
+                onChange={e => setNotifSettings({ ...notifSettings, feeNoteAlert: e.target.checked })}
                 className="rounded w-4 h-4 cursor-pointer"
               />
             </div>
 
-            <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-[var(--border-color)]">
+            <div className="flex items-center justify-between p-3.5 rounded-xl border border-[var(--border-color)]/70 bg-transparent">
               <div>
                 <span className="font-semibold text-xs text-slate-900 dark:text-white block">
-                  Client Trust Account Fiduciary Balance Alarm
+                  Court Matter & Case Updates
                 </span>
                 <span className="text-[11px] text-slate-500">
-                  Warns managing partner when a client trust deposit is insufficient to cover pending court filing disbursements
+                  Notify me when court causes or pleadings are registered, modified, or linked
                 </span>
               </div>
               <input
                 type="checkbox"
-                checked={notifSettings.trustAccountThresholdAlert}
-                onChange={e => setNotifSettings({ ...notifSettings, trustAccountThresholdAlert: e.target.checked })}
+                checked={notifSettings.matterUpdateAlert}
+                onChange={e => setNotifSettings({ ...notifSettings, matterUpdateAlert: e.target.checked })}
                 className="rounded w-4 h-4 cursor-pointer"
               />
             </div>
 
-            <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-[var(--border-color)]">
+            <div className="flex items-center justify-between p-3.5 rounded-xl border border-[var(--border-color)]/70 bg-transparent">
               <div>
                 <span className="font-semibold text-xs text-slate-900 dark:text-white block">
-                  KRA e-TIMS Tax Invoice Sync Monitor
+                  Client Messages & Inquiries
                 </span>
                 <span className="text-[11px] text-slate-500">
-                  Alerts finance clerks if any fee note issued within 24 hours hasn't synchronized with the electronic tax register
+                  Notify me when clients submit inquiries, service requests, or portal messages
                 </span>
               </div>
               <input
                 type="checkbox"
-                checked={notifSettings.kraEtimsSyncAlert}
-                onChange={e => setNotifSettings({ ...notifSettings, kraEtimsSyncAlert: e.target.checked })}
+                checked={notifSettings.clientMessageAlert}
+                onChange={e => setNotifSettings({ ...notifSettings, clientMessageAlert: e.target.checked })}
+                className="rounded w-4 h-4 cursor-pointer"
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-3.5 rounded-xl border border-[var(--border-color)]/70 bg-transparent">
+              <div>
+                <span className="font-semibold text-xs text-slate-900 dark:text-white block">
+                  Weekly Summary & System Backup
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  Receive a weekly summary report of firm activity and database backup status
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={notifSettings.weeklySummaryAlert}
+                onChange={e => setNotifSettings({ ...notifSettings, weeklySummaryAlert: e.target.checked })}
                 className="rounded w-4 h-4 cursor-pointer"
               />
             </div>
@@ -2494,7 +2565,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
               <select
                 value={notifSettings.clientDeliveryChannel}
                 onChange={e => setNotifSettings({ ...notifSettings, clientDeliveryChannel: e.target.value })}
-                className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none"
+                className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-transparent text-xs text-slate-900 dark:text-white focus:outline-none"
               >
                 <option value="both">Email PDF Attachment & WhatsApp Notification</option>
                 <option value="email">Email PDF Attachment Only</option>
@@ -2509,7 +2580,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
               <select
                 value={notifSettings.toastDuration}
                 onChange={e => setNotifSettings({ ...notifSettings, toastDuration: e.target.value })}
-                className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none"
+                className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-transparent text-xs text-slate-900 dark:text-white focus:outline-none"
               >
                 <option value="3">3 Seconds</option>
                 <option value="4">4 Seconds (Standard)</option>
@@ -2526,131 +2597,6 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
             >
               <Save className="w-3.5 h-3.5" />
               <span>Save Alert Preferences</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 6: SECURITY, ACCESS CONTROL & RBAC */}
-      {activeTab === 'security' && (
-        <div className="modulix-card p-6 sm:p-8 space-y-6 border border-[var(--border-color)] bg-white dark:bg-zinc-900 shadow-xs animate-fadeIn">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--border-color)]/60">
-            <div>
-              <h2 className="font-brand font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span>Firm Security, RBAC Matrix & Disaster Recovery</span>
-              </h2>
-              <p className="text-xs text-slate-500">
-                Institutional access control, active session management, and encrypted database backup
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleExportBackup}
-              className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export Firm Database (JSON)</span>
-            </button>
-          </div>
-
-          {/* RBAC ROLES PERMISSION MATRIX */}
-          <div className="space-y-3">
-            <h3 className="font-brand font-bold text-xs uppercase tracking-wider text-slate-500">
-              Role-Based Access Control (RBAC) Governance
-            </h3>
-
-            <div className="overflow-x-auto border border-[var(--border-color)] rounded-xl">
-              <table className="w-full text-left text-xs font-sans">
-                <thead className="bg-slate-50 dark:bg-zinc-800/80 font-mono text-[10px] text-slate-500 uppercase border-b border-[var(--border-color)]">
-                  <tr>
-                    <th className="p-3">Practice Role</th>
-                    <th className="p-3">Billing & Fee Notes</th>
-                    <th className="p-3">Client Trust A/C</th>
-                    <th className="p-3">Court Pleadings</th>
-                    <th className="p-3">Firm Settings</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--border-color)]/60 text-[11px]">
-                  <tr>
-                    <td className="p-3 font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                      Managing Partner / Admin
-                    </td>
-                    <td className="p-3 text-emerald-600 font-semibold">Full Approval & Sign-off</td>
-                    <td className="p-3 text-emerald-600 font-semibold">Full Access</td>
-                    <td className="p-3 text-emerald-600 font-semibold">Full Authority</td>
-                    <td className="p-3 text-emerald-600 font-semibold">Full Control</td>
-                  </tr>
-                  <tr>
-                    <td className="p-3 font-semibold text-slate-800 dark:text-zinc-200">Senior Associate</td>
-                    <td className="p-3 text-slate-700 dark:text-zinc-300">Draft & Review</td>
-                    <td className="p-3 text-slate-400">View Only</td>
-                    <td className="p-3 text-emerald-600 font-semibold">Full Authority</td>
-                    <td className="p-3 text-slate-400">Read-Only</td>
-                  </tr>
-                  <tr>
-                    <td className="p-3 font-semibold text-slate-800 dark:text-zinc-200">Associate Advocate</td>
-                    <td className="p-3 text-slate-700 dark:text-zinc-300">Draft Only (Requires Sign-off)</td>
-                    <td className="p-3 text-rose-500 font-medium">Restricted</td>
-                    <td className="p-3 text-slate-700 dark:text-zinc-300">Draft & File</td>
-                    <td className="p-3 text-slate-400">Read-Only</td>
-                  </tr>
-                  <tr>
-                    <td className="p-3 font-semibold text-slate-800 dark:text-zinc-200">Pupil / Legal Assistant</td>
-                    <td className="p-3 text-slate-400">Time Logging Only</td>
-                    <td className="p-3 text-rose-500 font-medium">Restricted</td>
-                    <td className="p-3 text-slate-700 dark:text-zinc-300">Research & Folio Draft</td>
-                    <td className="p-3 text-rose-500 font-medium">Restricted</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* ACTIVE DEVICE SESSION COORDINATES */}
-          <div className="space-y-3 pt-2 border-t border-[var(--border-color)]/60">
-            <div className="flex items-center justify-between">
-              <h3 className="font-brand font-bold text-xs uppercase tracking-wider text-slate-500">
-                Active Authenticated Session
-              </h3>
-              <span className="text-[10px] font-mono text-emerald-600 font-bold">
-                Encrypted Session
-              </span>
-            </div>
-
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-[var(--border-color)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="space-y-1 text-xs">
-                <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Lock className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>Chambers Workstation: {currentUser?.workEmail || 'advocate'}</span>
-                </div>
-                <div className="text-[11px] text-slate-500 font-mono">
-                  Role: <strong className="text-slate-700 dark:text-zinc-300">{currentUser?.role || 'Admin'}</strong> &middot; Client: Chrome on Windows 11
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  showToast('All other remote device sessions revoked.');
-                }}
-                className="px-3.5 py-1.5 rounded-lg text-xs font-medium border border-rose-300 dark:border-rose-800/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
-              >
-                Revoke All Other Sessions
-              </button>
-            </div>
-          </div>
-
-          <div className="flex justify-end pt-4 border-t border-[var(--border-color)]">
-            <button
-              type="button"
-              onClick={handleSaveSecurity}
-              className="px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-xs font-semibold hover:bg-black dark:hover:bg-slate-100 transition-colors flex items-center gap-1.5 shadow-xs"
-            >
-              <Save className="w-3.5 h-3.5" />
-              <span>Save Security Settings</span>
             </button>
           </div>
         </div>

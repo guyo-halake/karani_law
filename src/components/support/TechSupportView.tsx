@@ -37,8 +37,7 @@ import {
   X,
   ShieldCheck,
   LifeBuoy,
-  Wrench,
-  Bot
+  Wrench
 } from 'lucide-react';
 import { sendEmail } from '../../services/email';
 import {
@@ -106,14 +105,6 @@ export interface ITTicketRecord {
   messages: ITTicketMessage[];
   createdAt: string;
   updatedAt: string;
-}
-
-export interface LiveChatMessage {
-  id: string;
-  sender: 'user' | 'wakili_bot' | 'razak_guyo' | 'victor_karani';
-  senderName: string;
-  text: string;
-  timestamp: string;
 }
 
 export interface RealProbeResult {
@@ -235,17 +226,33 @@ interface TechSupportViewProps {
 }
 
 export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser }) => {
-  // Navigation Tabs: exactly 4 minimalist tabs
-  const [activeTab, setActiveTab] = useState<'tickets' | 'chat' | 'telemetry' | 'recovery'>('tickets');
+  // Navigation Tabs: exactly 3 minimalist tabs (tickets, telemetry, recovery)
+  const [activeTab, setActiveTab] = useState<'tickets' | 'telemetry' | 'recovery'>('tickets');
 
   // Matters & Fee Notes for dropdown context
   const [firmMatters, setFirmMatters] = useState<ExactMatterRecord[]>([]);
   const [firmFeeNotes, setFirmFeeNotes] = useState<ExactFeeNoteRecord[]>([]);
 
-  // Current User context
-  const userName = currentUser?.fullName || currentUser?.advocateTitle || 'Advocate User';
-  const userEmail = currentUser?.workEmail || 'advocate@kithinjilaw.co.ke';
-  const userRole = currentUser?.role || 'Senior Associate';
+  // Resolve current active logged-in user
+  const getActiveUser = (): Partial<SystemUser> => {
+    if (currentUser && (currentUser.fullName || currentUser.workEmail || currentUser.id)) return currentUser;
+    try {
+      const saved = localStorage.getItem('BILLSZIP_SESSION');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && (parsed.fullName || parsed.workEmail || parsed.id)) return parsed;
+      }
+    } catch (e) {}
+    return currentUser || {};
+  };
+
+  const activeUser = getActiveUser();
+  const userName = activeUser.fullName || activeUser.advocateTitle || 'Advocate User';
+  const userEmail = activeUser.workEmail || activeUser.personalEmail || 'advocate@kithinjilaw.co.ke';
+  const userRole = activeUser.role || 'Senior Associate';
+  const currentUserId = activeUser.id || '';
+  const currentUserEmail = userEmail.trim().toLowerCase();
+  const currentUserName = userName.trim().toLowerCase();
 
   // --------------------------------------------------------------------------
   // TAB 1: TICKETS STATE
@@ -277,34 +284,13 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
   const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
 
   // --------------------------------------------------------------------------
-  // TAB 2: LIVE CHAT STATE
-  // --------------------------------------------------------------------------
-  const [chatMessages, setChatMessages] = useState<LiveChatMessage[]>(() => {
-    try {
-      const saved = localStorage.getItem('BILLSZIP_CHAT_MESSAGES_REAL');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return [
-      {
-        id: 'c-welcome',
-        sender: 'razak_guyo',
-        senderName: 'Razak Guyo (Admin)',
-        text: 'Welcome to P3L Developers IT Support. Senior engineers Razak Guyo and Victor Karani are online to support your practice. How may we assist you today?',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }
-    ];
-  });
-  const [inputChatMessage, setInputChatMessage] = useState('');
-  const chatScrollRef = useRef<HTMLDivElement>(null);
-
-  // --------------------------------------------------------------------------
   // TAB 3: INFRASTRUCTURE TELEMETRY STATE
   // --------------------------------------------------------------------------
   const [telemetryProbes, setTelemetryProbes] = useState<RealProbeResult[]>([
     {
       id: 'fastapi',
       name: 'FastAPI Remuneration Engine (Python)',
-      target: 'Azure Web App (nyagahkithinji.advocates.azurewebsites.net)',
+      target: 'Azure Web App (nyagahkithinji-advocates.azurewebsites.net)',
       endpoint: '/api/v1/support/telemetry',
       status: 'operational',
       latencyMs: 16,
@@ -364,8 +350,8 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
     {
       id: 'azure',
       name: 'P3L Server (Azure Web App)',
-      target: 'nyagahkithinji.advocates.azurewebsites.net',
-      endpoint: 'https://nyagahkithinji.advocates.azurewebsites.net/health',
+      target: 'nyagahkithinji-advocates.azurewebsites.net',
+      endpoint: 'https://nyagahkithinji-advocates.azurewebsites.net/api/v1/health',
       status: 'operational',
       latencyMs: 22,
       details: 'Cloud deployment healthy and handling active traffic.',
@@ -434,9 +420,9 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
           const mapped: ITTicketRecord[] = dbTickets.map((t: any) => ({
             id: t.id,
             firmId: t.firm_id,
-            creatorId: 'u-db',
-            creatorName: t.created_by_name,
-            creatorEmail: t.created_by_email,
+            creatorId: t.creator_id || t.created_by_id || 'u-db',
+            creatorName: t.created_by_name || 'Advocate',
+            creatorEmail: t.created_by_email || '',
             creatorRole: t.created_by_role || 'Advocate',
             title: t.title,
             category: t.category,
@@ -465,29 +451,34 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
     } catch (e) {}
   }, [tickets]);
 
-  // Save Chat to LocalStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem('BILLSZIP_CHAT_MESSAGES_REAL', JSON.stringify(chatMessages));
-      if (chatScrollRef.current) {
-        chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
-      }
-    } catch (e) {}
-  }, [chatMessages]);
+  // User Tickets: strictly only tickets created by the logged-in user
+  const userTickets = useMemo(() => {
+    return tickets.filter(t => {
+      if (currentUserId && t.creatorId === currentUserId) return true;
+      if (currentUserEmail && t.creatorEmail && t.creatorEmail.trim().toLowerCase() === currentUserEmail) return true;
+      if (currentUserName && t.creatorName && t.creatorName.trim().toLowerCase().includes(currentUserName)) return true;
+      if (currentUserName.includes('guyoh') && t.creatorName?.toLowerCase().includes('guyoh')) return true;
+      return false;
+    });
+  }, [tickets, currentUserId, currentUserEmail, currentUserName]);
 
   // Active selected ticket
   const selectedTicket = useMemo(() => {
-    return tickets.find(t => t.id === selectedTicketId) || null;
-  }, [tickets, selectedTicketId]);
+    if (selectedTicketId) {
+      const found = userTickets.find(t => t.id === selectedTicketId);
+      if (found) return found;
+    }
+    return userTickets[0] || null;
+  }, [userTickets, selectedTicketId]);
 
-  // Filtered tickets
+  // Filtered tickets based on priority and status
   const filteredTickets = useMemo(() => {
-    return tickets.filter(t => {
+    return userTickets.filter(t => {
       if (ticketFilterPriority !== 'ALL' && t.priority !== ticketFilterPriority) return false;
       if (ticketFilterStatus !== 'ALL' && t.status !== ticketFilterStatus) return false;
       return true;
     });
-  }, [tickets, ticketFilterPriority, ticketFilterStatus]);
+  }, [userTickets, ticketFilterPriority, ticketFilterStatus]);
 
   // --------------------------------------------------------------------------
   // HANDLER: SEND A SUPPORT TICKET
@@ -507,7 +498,7 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
     const ticketRecord: ITTicketRecord = {
       id: newId,
       firmId: EXACT_FIRM_INFO.firmRegNo,
-      creatorId: currentUser?.id || 'u-advocate',
+      creatorId: currentUserId || currentUser?.id || 'u-advocate',
       creatorName: userName,
       creatorEmail: userEmail,
       creatorRole: userRole,
@@ -644,78 +635,7 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
     showToast('info', 'Status Updated', `Ticket marked as ${newStatus.replace('_', ' ')}.`);
   };
 
-  // --------------------------------------------------------------------------
-  // HANDLER: LIVE CHAT
-  // --------------------------------------------------------------------------
-  const handleSendChatMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputChatMessage.trim()) return;
 
-    const text = inputChatMessage.trim();
-    const userMsg: LiveChatMessage = {
-      id: `c-${Date.now()}`,
-      sender: 'user',
-      senderName: userName,
-      text,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    setChatMessages(prev => [...prev, userMsg]);
-    setInputChatMessage('');
-
-    // Save to Supabase support_chat_messages
-    try {
-      await supabase.from('support_chat_messages').insert({
-        firm_id: EXACT_FIRM_INFO.firmRegNo,
-        sender_name: userName,
-        sender_role: userRole,
-        message: text
-      });
-    } catch (e) {}
-
-    // Smart Legal Triage Detection
-    const lower = text.toLowerCase();
-    setTimeout(() => {
-      let botReply: LiveChatMessage | null = null;
-      if (lower.includes('getting-up') || lower.includes('item 2')) {
-        botReply = {
-          id: `bot-${Date.now()}`,
-          sender: 'wakili_bot',
-          senderName: 'Wakili-Bot',
-          text: 'Under Schedule 6 Item 2 of L.N. 35/2014, the Getting-Up fee is permitted where a defense or counterclaim is filed, calculated at not less than 1/3 of the instruction fee allowed on taxation.',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-      } else if (lower.includes('rule 77') || lower.includes('1/6') || lower.includes('taxed off')) {
-        botReply = {
-          id: `bot-${Date.now()}`,
-          sender: 'wakili_bot',
-          senderName: 'Wakili-Bot',
-          text: 'Under Rule 77 of L.N. 35/2014, if more than 1/6th of your taxable bill (excluding disbursements) is disallowed on taxation, the advocate must pay the costs of taxation. Check the Recovery tab for the live Rule 77 auditor.',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-      } else if (lower.includes('50%') || lower.includes('part b') || lower.includes('advocate and client')) {
-        botReply = {
-          id: `bot-${Date.now()}`,
-          sender: 'wakili_bot',
-          senderName: 'Wakili-Bot',
-          text: 'Under Section 45 & 48 of the Advocates Act and Schedule 6 Part B, costs between Advocate and Client may be increased by up to 50% over the party-and-party scale provided an agreement exists.',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-      } else {
-        botReply = {
-          id: `bot-${Date.now()}`,
-          sender: 'razak_guyo',
-          senderName: 'Razak Guyo (Admin)',
-          text: `Thank you Adv. ${userName}. Your message has been received by P3L engineering. We are looking into your query.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-      }
-
-      if (botReply) {
-        setChatMessages(prev => [...prev, botReply!]);
-      }
-    }, 600);
-  };
 
   // --------------------------------------------------------------------------
   // HANDLER: RE-RUN REAL TESTS (INFRASTRUCTURE TELEMETRY)
@@ -766,7 +686,7 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
     const tAzure = performance.now();
     let azureLatency = 22;
     try {
-      await fetch('https://nyagahkithinji.advocates.azurewebsites.net/api/health', { method: 'GET', mode: 'no-cors' }).catch(() => null);
+      await fetch('https://nyagahkithinji-advocates.azurewebsites.net/api/v1/health', { method: 'GET', mode: 'no-cors' }).catch(() => null);
       azureLatency = Math.round(performance.now() - tAzure);
     } catch (e) {
       azureLatency = 35;
@@ -777,7 +697,7 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
         {
           id: 'fastapi',
           name: 'FastAPI Remuneration Engine (Python)',
-          target: 'Azure Web App (nyagahkithinji.advocates.azurewebsites.net)',
+          target: 'Azure Web App (nyagahkithinji-advocates.azurewebsites.net)',
           endpoint: '/api/v1/support/telemetry',
           status: fastApiStatus,
           latencyMs: fastApiLatency,
@@ -837,8 +757,8 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
         {
           id: 'azure',
           name: 'P3L Server (Azure Web App)',
-          target: 'nyagahkithinji.advocates.azurewebsites.net',
-          endpoint: 'https://nyagahkithinji.advocates.azurewebsites.net/health',
+          target: 'nyagahkithinji-advocates.azurewebsites.net',
+          endpoint: 'https://nyagahkithinji-advocates.azurewebsites.net/api/v1/health',
           status: 'operational',
           latencyMs: azureLatency,
           details: 'Cloud deployment healthy and handling active traffic.',
@@ -1058,7 +978,7 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
       </div>
 
       {/* ================================================================== */}
-      {/* 3. NAVIGATION TABS (EXACTLY 4 MINIMALIST TABS)                      */}
+      {/* 3. NAVIGATION TABS (EXACTLY 3 TABS)                                */}
       {/* ================================================================== */}
       <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto pb-1 border-b border-[var(--border-color)] text-xs font-medium scrollbar-thin">
         <button
@@ -1070,25 +990,12 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
           }`}
         >
           <FileText className="w-4 h-4" />
-          <span>Tickets and Support</span>
-          {tickets.length > 0 && (
+          <span>Tickets & Support</span>
+          {userTickets.length > 0 && (
             <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${activeTab === 'tickets' ? 'bg-white/20 dark:bg-slate-900/20' : 'bg-slate-200 dark:bg-zinc-700'}`}>
-              {tickets.length}
+              {userTickets.length}
             </span>
           )}
-        </button>
-
-        <button
-          onClick={() => setActiveTab('chat')}
-          className={`px-4 py-2 rounded-xl flex items-center gap-2 font-bold transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'chat'
-              ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
-              : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800'
-          }`}
-        >
-          <MessageCircle className="w-4 h-4" />
-          <span>Live Chat and Bot</span>
-          <span className="w-2 h-2 rounded-full bg-emerald-500" />
         </button>
 
         <button
@@ -1100,7 +1007,7 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
           }`}
         >
           <Activity className="w-4 h-4" />
-          <span>Infrastructure Support</span>
+          <span>System Health</span>
         </button>
 
         <button
@@ -1112,7 +1019,7 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
           }`}
         >
           <Wrench className="w-4 h-4" />
-          <span>System Recovery & Database Fixes</span>
+          <span>Database Tools & Recovery</span>
         </button>
       </div>
 
@@ -1165,15 +1072,15 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
             {/* Left Ledger Column (5 cols) */}
             <div className="lg:col-span-5 space-y-3">
               <div className="flex items-center justify-between text-xs text-slate-500 font-mono px-1">
-                <span>SUPPORT TICKETS ({filteredTickets.length})</span>
+                <span>MY SUPPORT TICKETS ({filteredTickets.length})</span>
                 <span>DESTINATION: P3L DEVELOPERS</span>
               </div>
 
               {filteredTickets.length === 0 ? (
                 <div className="p-10 text-center bg-white dark:bg-zinc-900 border border-[var(--border-color)] rounded-2xl text-slate-400 text-xs space-y-2">
                   <FileText className="w-8 h-8 text-slate-300 dark:text-zinc-700 mx-auto" />
-                  <div className="font-bold text-slate-600 dark:text-zinc-400">No support tickets submitted yet.</div>
-                  <p className="text-[11px] font-mono text-slate-400">Click &ldquo;Send a Support Ticket&rdquo; to report an issue or request assistance.</p>
+                  <div className="font-bold text-slate-600 dark:text-zinc-400">No support tickets found for your account.</div>
+                  <p className="text-[11px] font-mono text-slate-400">Click &ldquo;Send a Support Ticket&rdquo; to submit an issue or request help.</p>
                 </div>
               ) : (
                 filteredTickets.map(ticket => {
@@ -1533,99 +1440,20 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
         </div>
       )}
 
-      {/* ================================================================== */}
-      {/* TAB 2: LIVE CHAT AND BOT                                           */}
-      {/* ================================================================== */}
-      {activeTab === 'chat' && (
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-[var(--border-color)] p-5 flex flex-col justify-between h-[600px] shadow-xs">
-          <div className="border-b border-[var(--border-color)] pb-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 flex items-center justify-center font-bold text-xs">
-                <Bot className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-brand font-bold text-sm text-slate-900 dark:text-white">
-                  Live Chat and Bot
-                </h3>
-                <p className="text-[11px] text-slate-400 font-mono">
-                  Engineers: Razak Guyo &middot; Victor Karani
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => {
-                if (confirm('Clear chat messages?')) {
-                  setChatMessages([]);
-                  localStorage.removeItem('BILLSZIP_CHAT_MESSAGES_REAL');
-                }
-              }}
-              className="text-[11px] text-slate-400 hover:text-red-500 font-mono flex items-center gap-1 cursor-pointer"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Clear</span>
-            </button>
-          </div>
-
-          <div
-            ref={chatScrollRef}
-            className="flex-1 overflow-y-auto space-y-3 my-4 pr-1 text-xs"
-          >
-            {chatMessages.map(msg => {
-              const isUser = msg.sender === 'user';
-              return (
-                <div
-                  key={msg.id}
-                  className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
-                >
-                  <div className="text-[10px] font-mono text-slate-400 mb-1 px-1">
-                    {msg.senderName} &middot; {msg.timestamp}
-                  </div>
-                  <div
-                    className={`max-w-[80%] p-3 rounded-2xl text-xs leading-relaxed ${
-                      isUser
-                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
-                        : 'bg-slate-100 dark:bg-zinc-800 text-slate-900 dark:text-zinc-100'
-                    }`}
-                  >
-                    {msg.text}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <form onSubmit={handleSendChatMessage} className="border-t border-[var(--border-color)] pt-3 flex items-center gap-2">
-            <input
-              type="text"
-              placeholder="Type your message..."
-              value={inputChatMessage}
-              onChange={(e) => setInputChatMessage(e.target.value)}
-              className="flex-1 bg-slate-50 dark:bg-zinc-800 border border-[var(--border-color)] rounded-xl px-4 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 font-sans"
-            />
-            <button
-              type="submit"
-              className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>Send</span>
-            </button>
-          </form>
-        </div>
-      )}
 
       {/* ================================================================== */}
-      {/* TAB 3: INFRASTRUCTURE SUPPORT                                      */}
+      {/* ================================================================== */}
+      {/* TAB 2: SYSTEM HEALTH & SERVICES                                    */}
       {/* ================================================================== */}
       {activeTab === 'telemetry' && (
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-[var(--border-color)]">
             <div>
               <h3 className="font-brand font-bold text-sm text-slate-900 dark:text-white">
-                Live Infrastructure Health Probes & Telemetry
+                System Health & Live Status
               </h3>
               <p className="text-xs text-slate-400 font-mono mt-0.5">
-                Real-time latency metrics &middot; Azure FastAPI &middot; PostgreSQL &middot; S3 Vault
+                Real-time connection and speed checks for servers, database, and storage
               </p>
             </div>
 
@@ -1635,14 +1463,14 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
               className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-bold text-xs flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50 shadow-xs"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isTestingProbes ? 'animate-spin' : ''}`} />
-              <span>{isTestingProbes ? 'Testing Systems...' : 'Re-Run Tests'}</span>
+              <span>{isTestingProbes ? 'Checking Systems...' : 'Check Systems Now'}</span>
             </button>
           </div>
 
           {/* Database working stats */}
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-800/60 border border-[var(--border-color)]">
             <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-2 font-bold">
-              Database Working State (Live PostgreSQL Pool)
+              Database Records
             </div>
             <div className="grid grid-cols-3 gap-3 text-xs font-mono">
               <div>
@@ -1678,8 +1506,8 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
                 </div>
 
                 <div className="space-y-0.5 font-mono text-[10.5px]">
-                  <div className="text-slate-400 truncate">Target: {probe.target}</div>
-                  <div className="text-slate-500 truncate">Endpoint: {probe.endpoint}</div>
+                  <div className="text-slate-400 truncate">Service: {probe.target}</div>
+                  <div className="text-slate-500 truncate">Route: {probe.endpoint}</div>
                 </div>
 
                 <p className="text-xs text-slate-600 dark:text-zinc-400 pt-2 border-t border-[var(--border-color)] leading-relaxed">
@@ -1692,7 +1520,7 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
       )}
 
       {/* ================================================================== */}
-      {/* TAB 4: SYSTEM RECOVERY & DATABASE FIXES                            */}
+      {/* TAB 3: SYSTEM RECOVERY & DATABASE TOOLS                            */}
       {/* ================================================================== */}
       {activeTab === 'recovery' && (
         <div className="space-y-6">
@@ -1705,12 +1533,12 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
                 <div className="flex items-center gap-2 pb-2 border-b border-[var(--border-color)]">
                   <RefreshCw className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   <h3 className="font-brand font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wider">
-                    Three-Way Database Re-Sync
+                    Sync Database
                   </h3>
                 </div>
 
                 <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed font-sans">
-                  Pulls authoritative fresh rows from Supabase PostgreSQL, resolving any local browser drift or missing client matters without losing your currently open drafts.
+                  Pulls fresh data from the cloud database so your screen matches the server, without losing any unsaved work.
                 </p>
 
                 {syncFeedback && (
@@ -1727,7 +1555,7 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
                   className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-xs disabled:opacity-50"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isSyncingCloud ? 'animate-spin' : ''}`} />
-                  <span>{isSyncingCloud ? 'Synchronizing...' : 'Force Cloud Database Re-Sync'}</span>
+                  <span>{isSyncingCloud ? 'Syncing...' : 'Sync Database Now'}</span>
                 </button>
               </div>
             </div>
@@ -1738,12 +1566,12 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
                 <div className="flex items-center gap-2 pb-2 border-b border-[var(--border-color)]">
                   <QrCode className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                   <h3 className="font-brand font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wider">
-                    Micro-QR & Cryptographic Seal Repair
+                    Verify Document Seal
                   </h3>
                 </div>
 
                 <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed font-sans">
-                  Validates document SHA-256 fingerprint against the immutable firm ledger and repairs short verification tokens (e.g. for Milimani Court registry clerks).
+                  Checks that a fee note's QR code and security seal match court and firm records.
                 </p>
 
                 <div className="grid grid-cols-2 gap-2 text-xs">
@@ -1776,7 +1604,7 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
                   className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-xs"
                 >
                   <Lock className="w-3.5 h-3.5" />
-                  <span>Audit & Re-Verify Digital Seal</span>
+                  <span>Verify Document Seal</span>
                 </button>
               </div>
             </div>
@@ -1787,12 +1615,12 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
                 <div className="flex items-center gap-2 pb-2 border-b border-[var(--border-color)]">
                   <Download className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <h3 className="font-brand font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wider">
-                    Full System & Database Backup
+                    Full Database Backup
                   </h3>
                 </div>
 
                 <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed font-sans">
-                  Downloads a complete database snapshot containing all firm matters, fee notes, client profiles, and support records as a single verified JSON backup.
+                  Downloads a complete backup file containing all your matters, fee notes, clients, and support tickets.
                 </p>
               </div>
 
@@ -1802,11 +1630,11 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
                   className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-xs"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>Download Full Database Backup (.json)</span>
+                  <span>Download Full Backup (.json)</span>
                 </button>
                 <button
                   onClick={handleExportOfflineVault}
-                  title="Export Encrypted Courtroom Snapshot"
+                  title="Export Encrypted Backup"
                   className="px-3 py-2.5 rounded-xl border border-[var(--border-color)] hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-600 dark:text-zinc-300 font-bold text-xs cursor-pointer"
                 >
                   .vault
@@ -1820,12 +1648,12 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
                 <div className="flex items-center gap-2 pb-2 border-b border-[var(--border-color)]">
                   <Radio className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   <h3 className="font-brand font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wider">
-                    1-Click Remote Desk Assistance
+                    Screen Share & Remote Help
                   </h3>
                 </div>
 
                 <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed font-sans">
-                  Request an immediate AnyDesk / TeamViewer hands-on session with senior engineers Razak Guyo or Victor Karani.
+                  Ask support engineers Razak Guyo or Victor Karani to connect and assist you with your screen.
                 </p>
 
                 <form onSubmit={handleSendRemoteDeskRequest} className="space-y-2 text-xs">
@@ -1853,7 +1681,7 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
                     className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-xs disabled:opacity-50"
                   >
                     <Send className="w-3.5 h-3.5" />
-                    <span>{isSendingRemoteReq ? 'Dispatching...' : 'Dispatch Remote Desk Invitation'}</span>
+                    <span>{isSendingRemoteReq ? 'Sending...' : 'Send Help Request'}</span>
                   </button>
                 </form>
               </div>
@@ -1868,11 +1696,11 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
                 <div className="flex items-center gap-2">
                   <Scale className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   <h3 className="font-brand font-bold text-sm text-slate-900 dark:text-white">
-                    Pre-Taxation Rule 77 Disallowance Auditor
+                    Rule 77 (1/6th Cost Rule Checker)
                   </h3>
                 </div>
                 <p className="text-xs text-slate-400 font-mono">
-                  1/6th Taxed-Off Floor Protection (L.N. 35/2014)
+                  Under Rule 77, if more than 1/6th of taxed costs is removed, the advocate pays taxation costs.
                 </p>
               </div>
 
@@ -1887,7 +1715,7 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-mono">
               <div>
-                <label className="text-slate-400 uppercase text-[10px] block mb-1">Original Bill Total (KES):</label>
+                <label className="text-slate-400 uppercase text-[10px] block mb-1">Total Bill Amount (KES):</label>
                 <input
                   type="number"
                   value={rule77BillTotal}
@@ -1907,7 +1735,7 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
               </div>
 
               <div>
-                <label className="text-slate-400 uppercase text-[10px] block mb-1">Anticipated Taxed-Off (KES):</label>
+                <label className="text-slate-400 uppercase text-[10px] block mb-1">Amount Deducted / Taxed Off (KES):</label>
                 <input
                   type="number"
                   value={rule77TaxedOffAmount}

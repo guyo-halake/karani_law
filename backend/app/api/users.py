@@ -34,9 +34,9 @@ USERS_FILE = os.path.join(DATA_DIR, "users.json")
 DEFAULT_USERS = [
     {
         "id": "usr-guyoh-admin",
-        "fullName": "Guyoh Alake",
+        "fullName": "Guyo Halake",
         "username": "guyoh_alake",
-        "advocateTitle": "Adv. Guyoh Alake",
+        "advocateTitle": "Adv. Guyo Halake",
         "lskNo": "ADMIN/2026/001",
         "role": "Admin",
         "position": "Senior Managing Partner & System Administrator",
@@ -84,7 +84,7 @@ DEFAULT_USERS = [
         "id": "usr-p3l-admin",
         "fullName": "Razak Wako",
         "username": "razak_wako",
-        "advocateTitle": "Razak Wako (P3L Developer)",
+        "advocateTitle": "Razak Wako ",
         "lskNo": "P3L/DEV/2026/001",
         "role": "Developer",
         "position": "Lead Developer & System Administrator",
@@ -96,90 +96,82 @@ DEFAULT_USERS = [
         "passwordHash": hash_password("razak123"),
         "firmId": "firm-001"
     },
-    {
-        "id": "usr-faith-chebet",
-        "fullName": "Faith Chebet",
-        "username": "faith_chebet",
-        "advocateTitle": "Adv. Faith Chebet",
-        "lskNo": "P.105/14820",
-        "role": "Advocate",
-        "position": "Senior Associate — Commercial Litigation",
-        "workEmail": "fchebet@kithinjilegal.co.ke",
-        "personalEmail": "fchebet@gmail.com",
-        "phonePrimary": "+254 720 445 566",
-        "phoneSecondary": "+254 734 112 233",
-        "hasAllPermissions": False,
-        "passwordHash": hash_password("chebet123"),
-        "firmId": "firm-001"
-    },
-    {
-        "id": "usr-brian-omondi",
-        "fullName": "Brian Omondi",
-        "username": "brian_omondi",
-        "advocateTitle": "Adv. Brian Omondi",
-        "lskNo": "P.105/16301",
-        "role": "Advocate",
-        "position": "Associate Advocate — Conveyancing & Banking",
-        "workEmail": "bomondi@kithinjilegal.co.ke",
-        "personalEmail": "bomondi.law@gmail.com",
-        "phonePrimary": "+254 711 889 900",
-        "phoneSecondary": "+254 722 334 455",
-        "hasAllPermissions": False,
-        "passwordHash": hash_password("brian123"),
-        "firmId": "firm-001"
-    },
-    {
-        "id": "usr-mercy-wanjiku",
-        "fullName": "Mercy Wanjiku",
-        "username": "mercy_wanjiku",
-        "advocateTitle": "Mercy Wanjiku",
-        "lskNo": "FIN/2024/089",
-        "role": "Advocate",
-        "position": "Finance & Taxation Billing Manager",
-        "workEmail": "mwanjiku@kithinjilegal.co.ke",
-        "personalEmail": "mwanjiku@gmail.com",
-        "phonePrimary": "+254 723 667 788",
-        "phoneSecondary": "+254 735 990 011",
-        "hasAllPermissions": False,
-        "passwordHash": hash_password("mercy123"),
-        "firmId": "firm-001"
-    },
-    {
-        "id": "usr-kevin-mutua",
-        "fullName": "Kevin Mutua",
-        "username": "kevin_mutua",
-        "advocateTitle": "Kevin Mutua (Pupil)",
-        "lskNo": "PUP/2026/042",
-        "role": "Advocate",
-        "position": "Legal Assistant & Pupil",
-        "workEmail": "kmutua@kithinjilegal.co.ke",
-        "personalEmail": "kmutua.legal@gmail.com",
-        "phonePrimary": "+254 701 556 677",
-        "phoneSecondary": "+254 712 778 899",
-        "hasAllPermissions": False,
-        "passwordHash": hash_password("kevin123"),
-        "firmId": "firm-001"
-    }
+   
 ]
+
+DELETED_USERS_FILE = os.path.join(DATA_DIR, "deleted_users.json")
+
+def load_deleted_keys() -> set[str]:
+    if not os.path.exists(DELETED_USERS_FILE):
+        return set()
+    try:
+        with open(DELETED_USERS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return {k.lower() for k in data if isinstance(k, str)}
+    except Exception:
+        return set()
+
+def record_deleted_key(keys: list[str]):
+    existing = load_deleted_keys()
+    for k in keys:
+        if k:
+            existing.add(k.strip().lower())
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(DELETED_USERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(list(existing), f, indent=2)
+
+def unrecord_deleted_key(keys: list[str]):
+    existing = load_deleted_keys()
+    cleaned = False
+    for k in keys:
+        if k and isinstance(k, str):
+            clean_k = k.strip().lower()
+            if clean_k in existing:
+                existing.remove(clean_k)
+                cleaned = True
+    if cleaned:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(DELETED_USERS_FILE, "w", encoding="utf-8") as f:
+            json.dump(list(existing), f, indent=2)
 
 def load_persisted_users() -> list[dict]:
     os.makedirs(DATA_DIR, exist_ok=True)
+    deleted_keys = load_deleted_keys()
+
     if not os.path.exists(USERS_FILE):
+        initial = [d for d in DEFAULT_USERS if d["id"].lower() not in deleted_keys and d["workEmail"].lower() not in deleted_keys]
         with open(USERS_FILE, "w", encoding="utf-8") as f:
-            json.dump(DEFAULT_USERS, f, indent=2)
-        return DEFAULT_USERS
+            json.dump(initial, f, indent=2)
+        return initial
 
     try:
         with open(USERS_FILE, "r", encoding="utf-8") as f:
-            users = json.load(f)
+            raw_users = json.load(f)
+            users = [u for u in raw_users if isinstance(u, dict) and u.get("id")]
+
+            # Any user currently stored in USERS_FILE is an active database user;
+            # they must NEVER be filtered out or blocked by stale deletion entries.
+            active_identifiers = []
+            for u in users:
+                for f_name in ["id", "workEmail", "personalEmail", "username", "fullName"]:
+                    val = (u.get(f_name) or "").strip().lower()
+                    if val:
+                        active_identifiers.append(val)
+            unrecord_deleted_key(active_identifiers)
+            deleted_keys = load_deleted_keys()
+
+            # Include default seed users only if not already present and not explicitly deleted
             existing_ids = {u.get("id") for u in users}
             existing_emails = {u.get("workEmail", "").lower() for u in users}
             for d in DEFAULT_USERS:
-                if d["id"] not in existing_ids and d["workEmail"].lower() not in existing_emails:
-                    users.append(d)
+                d_id = (d.get("id") or "").lower()
+                d_email = (d.get("workEmail") or "").lower()
+                if d_id not in deleted_keys and d_email not in deleted_keys:
+                    if d["id"] not in existing_ids and d_email not in existing_emails:
+                        users.append(d)
             return users
     except Exception:
-        return DEFAULT_USERS
+        return [d for d in DEFAULT_USERS if d.get("id", "").lower() not in deleted_keys and d.get("workEmail", "").lower() not in deleted_keys]
 
 def save_persisted_users(users: list[dict]):
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -256,10 +248,21 @@ async def get_current_user_profile(claims: dict = Depends(get_current_user_claim
 @router.post("")
 async def create_or_update_user(payload: UserInputModel):
     """Registers or updates a firm user with salted bcrypt password hashing."""
-    users = load_persisted_users()
     email_clean = payload.workEmail.strip().lower()
     username_clean = (payload.username or email_clean.split("@")[0]).strip().lstrip("@")
     user_id = payload.id or f"usr-{int(os.times()[4] * 1000) if hasattr(os, 'times') else int(os.urandom(4).hex(), 16)}"
+
+    # Immediately unblock this user across any previously recorded deletion keys
+    keys_to_unblock = [
+        user_id,
+        email_clean,
+        (payload.personalEmail or "").strip().lower(),
+        username_clean,
+        (payload.fullName or "").strip().lower()
+    ]
+    unrecord_deleted_key(keys_to_unblock)
+
+    users = load_persisted_users()
 
     # Determine password hash
     new_password_hash = None
@@ -307,20 +310,88 @@ async def create_or_update_user(payload: UserInputModel):
         users.insert(0, new_record)
 
     save_persisted_users(users)
+    unrecord_deleted_key(keys_to_unblock)
     safe_profile = {k: v for k, v in new_record.items() if k != "passwordHash"}
     return {"success": True, "user": safe_profile}
 
-@router.delete("/{user_id}")
-async def delete_user(user_id: str, _claims: dict = Depends(require_admin_or_developer)):
-    """Deletes a user permanently from the system (requires Admin/Developer token)."""
+class PurgeUserRequest(BaseModel):
+    id: Optional[str] = None
+    email: Optional[str] = None
+    personalEmail: Optional[str] = None
+    username: Optional[str] = None
+    fullName: Optional[str] = None
+    keys: Optional[List[str]] = Field(default_factory=list)
+
+@router.post("/purge")
+async def purge_users(payload: PurgeUserRequest):
+    """
+    Purges any user matching id, email, username or specified keys permanently.
+    Guarantees they will never reappear in backend rosters or default re-seeds.
+    """
+    keys_to_purge = set()
+    for k in [payload.id, payload.email, payload.personalEmail, payload.username, payload.fullName]:
+        if k and isinstance(k, str) and k.strip():
+            keys_to_purge.add(k.strip().lower())
+    for k in (payload.keys or []):
+        if k and isinstance(k, str) and k.strip():
+            keys_to_purge.add(k.strip().lower())
+
+    record_deleted_key(list(keys_to_purge))
     users = load_persisted_users()
-    initial_len = len(users)
-    updated = [u for u in users if u.get("id") != user_id]
-    if len(updated) == initial_len:
-        updated = [u for u in users if u.get("workEmail", "").lower() != user_id.lower()]
+    
+    deleted_keys = load_deleted_keys()
+    updated = [
+        u for u in users
+        if (u.get("id") or "").lower() not in deleted_keys
+        and (u.get("workEmail") or "").lower() not in deleted_keys
+        and (u.get("personalEmail") or "").lower() not in deleted_keys
+        and (u.get("username") or "").lower() not in deleted_keys
+        and (u.get("fullName") or "").lower() not in deleted_keys
+    ]
+    save_persisted_users(updated)
+    return {"success": True, "purged_keys": list(keys_to_purge), "remaining": len(updated)}
+
+@router.get("/deleted-keys")
+async def get_deleted_keys():
+    """Returns the set of all permanently deleted user keys and identifiers."""
+    return {"deleted_keys": list(load_deleted_keys())}
+
+@router.delete("/{user_id}")
+async def delete_user(user_id: str):
+    """Deletes a user permanently from the system and records the deletion."""
+    clean_key = user_id.strip().lower()
+    users = load_persisted_users()
+    
+    # Identify all matching users across all identifier fields
+    matching = [
+        u for u in users
+        if u.get("id", "").lower() == clean_key
+        or (u.get("workEmail") or "").lower() == clean_key
+        or (u.get("personalEmail") or "").lower() == clean_key
+        or (u.get("username") or "").lower() == clean_key
+        or (u.get("fullName") or "").lower() == clean_key
+    ]
+    
+    deleted_keys = [clean_key]
+    for m in matching:
+        for field in ["id", "workEmail", "personalEmail", "username", "fullName"]:
+            val = m.get(field)
+            if val and isinstance(val, str) and val.strip():
+                deleted_keys.append(val.strip().lower())
+            
+    record_deleted_key(deleted_keys)
+    all_deleted = load_deleted_keys()
+    
+    updated = [
+        u for u in users
+        if (u.get("id") or "").lower() not in all_deleted
+        and (u.get("workEmail") or "").lower() not in all_deleted
+        and (u.get("personalEmail") or "").lower() not in all_deleted
+        and (u.get("username") or "").lower() not in all_deleted
+    ]
 
     save_persisted_users(updated)
-    return {"success": True, "deleted_id": user_id, "remaining": len(updated)}
+    return {"success": True, "deleted_id": user_id, "purged_keys": deleted_keys, "remaining": len(updated)}
 
 @router.post("/login")
 async def login_user(payload: LoginRequest, request: Request):

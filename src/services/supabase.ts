@@ -84,8 +84,8 @@ export const saveUserProfile = (user: SystemUser) => {
 export const SEEDED_USERS: SystemUser[] = [
   {
     id: "usr-guyoh-admin",
-    fullName: "Guyoh Alake",
-    advocateTitle: "Adv. Guyoh Alake",
+    fullName: "Guyo Halake",
+    advocateTitle: "Adv. Guyo Halake",
     lskNo: "ADMIN/2026/001",
     role: "Admin",
     position: "Senior Managing Partner & System Administrator",
@@ -243,6 +243,9 @@ export interface ExactClientRecord {
   contactPerson?: string;
   activeMattersCount?: number;
   totalBilledAmount?: number;
+  primaryFeeNoteNo?: string;
+  primaryMatterTitle?: string;
+  totalBilled?: number;
 }
 
 export const EXACT_CLIENTS: ExactClientRecord[] = [
@@ -563,13 +566,15 @@ export const getFeeNotes = (): ExactFeeNoteRecord[] => {
 
 EXACT_FEE_NOTES = getFeeNotes();
 
-export const persistFeeNotes = (notes: ExactFeeNoteRecord[]) => {
+export const persistFeeNotes = (notes: ExactFeeNoteRecord[], skipRealtimeEvent?: boolean) => {
   EXACT_FEE_NOTES = [...notes];
   try {
     localStorage.setItem('EXACT_FEE_NOTES', JSON.stringify(notes));
   } catch (e) {}
   window.dispatchEvent(new CustomEvent('feeNotesUpdated', { detail: notes }));
-  window.dispatchEvent(new CustomEvent('databaseRealtimeUpdate', { detail: { table: 'fee_notes' } }));
+  if (!skipRealtimeEvent) {
+    window.dispatchEvent(new CustomEvent('databaseRealtimeUpdate', { detail: { table: 'fee_notes' } }));
+  }
 };
 
 export const saveFeeNotes = () => {
@@ -629,14 +634,16 @@ export const getClients = (): ExactClientRecord[] => {
   return EXACT_CLIENTS;
 };
 
-export const persistClients = (clients: ExactClientRecord[]) => {
+export const persistClients = (clients: ExactClientRecord[], skipRealtimeEvent = false) => {
   EXACT_CLIENTS.length = 0;
   EXACT_CLIENTS.push(...clients);
   try {
     localStorage.setItem('EXACT_CLIENTS', JSON.stringify(clients));
   } catch (e) {}
   window.dispatchEvent(new CustomEvent('clientsUpdated', { detail: clients }));
-  window.dispatchEvent(new CustomEvent('databaseRealtimeUpdate', { detail: { table: 'clients' } }));
+  if (!skipRealtimeEvent) {
+    window.dispatchEvent(new CustomEvent('databaseRealtimeUpdate', { detail: { table: 'clients' } }));
+  }
 };
 
 export const getMatters = (): ExactMatterRecord[] => {
@@ -652,14 +659,16 @@ export const getMatters = (): ExactMatterRecord[] => {
   return EXACT_MATTERS;
 };
 
-export const persistMatters = (matters: ExactMatterRecord[]) => {
+export const persistMatters = (matters: ExactMatterRecord[], skipRealtimeEvent = false) => {
   EXACT_MATTERS.length = 0;
   EXACT_MATTERS.push(...matters);
   try {
     localStorage.setItem('EXACT_MATTERS', JSON.stringify(matters));
   } catch (e) {}
   window.dispatchEvent(new CustomEvent('mattersUpdated', { detail: matters }));
-  window.dispatchEvent(new CustomEvent('databaseRealtimeUpdate', { detail: { table: 'matters' } }));
+  if (!skipRealtimeEvent) {
+    window.dispatchEvent(new CustomEvent('databaseRealtimeUpdate', { detail: { table: 'matters' } }));
+  }
 };
 
 export const fetchFeeNotesFromDatabase = async (firmId?: string): Promise<ExactFeeNoteRecord[]> => {
@@ -669,7 +678,7 @@ export const fetchFeeNotesFromDatabase = async (firmId?: string): Promise<ExactF
     if (res.ok) {
       const remoteNotes: ExactFeeNoteRecord[] = await res.json();
       if (Array.isArray(remoteNotes) && remoteNotes.length > 0) {
-        persistFeeNotes(remoteNotes);
+        persistFeeNotes(remoteNotes, true);
         return remoteNotes;
       }
     }
@@ -680,7 +689,8 @@ export const fetchFeeNotesFromDatabase = async (firmId?: string): Promise<ExactF
   try {
     // 2. Secondary: Supabase cloud backup
     let query = supabase.from('fee_notes').select('*').order('created_at', { ascending: false });
-    if (firmId) {
+    const isUuid = firmId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(firmId);
+    if (isUuid) {
       query = query.or(`firm_id.eq.${firmId},firm_id.is.null`);
     }
     const { data, error } = await query;
@@ -716,7 +726,7 @@ export const fetchFeeNotesFromDatabase = async (firmId?: string): Promise<ExactF
         }
       });
       const combined = Array.from(combinedMap.values());
-      persistFeeNotes(combined);
+      persistFeeNotes(combined, true);
       return combined;
     }
   } catch (e) {

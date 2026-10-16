@@ -5,7 +5,7 @@ import {
   ChevronRight, ChevronLeft, CheckCircle2, AlertCircle, 
   ArrowRight, ArrowLeft, Sparkles, Edit3, Eye, Calendar,
   Building, User, FileCheck, DollarSign, Receipt, Briefcase, Landmark,
-  Stamp, PenTool, FileSpreadsheet
+  Stamp, PenTool, FileSpreadsheet, Upload, RotateCcw
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { fetchMatters, fetchClients, syncMatterAndClientFromFeeNote } from '../../services/data';
@@ -182,8 +182,17 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
   );
   const [servedUponAddress, setServedUponAddress] = useState('');
 
-  // Execution Controls (2 Minimalist Checks)
+  // Execution Controls (2 Minimalist Checks & Stamp Customization)
   const [stampOfficial, setStampOfficial] = useState(true);
+  const [stampImageUrl, setStampImageUrl] = useState<string>(() => {
+    try {
+      return localStorage.getItem('karani_firm_stamp_url') || '/stamp.png';
+    } catch {
+      return '/stamp.png';
+    }
+  });
+  const [stampModalOpen, setStampModalOpen] = useState(false);
+  const stampFileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [signMeOff, setSignMeOff] = useState(true);
   const [securityRecord, setSecurityRecord] = useState<DocumentSecurityRecord | null>(null);
 
@@ -205,6 +214,38 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
         setActionToast(prev => (prev?.message === message ? null : prev));
       }, autoDismiss);
     }
+  };
+
+  const handleStampFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      triggerToast('error', 'Please select a valid image file (PNG, JPG, SVG).');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        setStampImageUrl(dataUrl);
+        try {
+          localStorage.setItem('karani_firm_stamp_url', dataUrl);
+        } catch (err) {
+          console.warn('Unable to save custom stamp to localStorage', err);
+        }
+        triggerToast('success', 'Official stamp updated successfully!');
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleResetStamp = () => {
+    setStampImageUrl('/stamp.png');
+    try {
+      localStorage.removeItem('karani_firm_stamp_url');
+    } catch {}
+    triggerToast('success', 'Restored default firm stamp.');
   };
 
   // Legal Date Formatter (e.g. "13th day of October, 2026")
@@ -1040,10 +1081,10 @@ ${c.email ? `Email: ${c.email}
 
           // Real stamp PNG on top
           try {
-            doc.addImage('/stamp.png', 'PNG', stampX, stampY, stampSize, stampSize);
+            doc.addImage(stampImageUrl, 'PNG', stampX, stampY, stampSize, stampSize);
           } catch {
             // Fallback: fetch and embed
-            const resp = await fetch('/stamp.png');
+            const resp = await fetch(stampImageUrl);
             const blob = await resp.blob();
             const b64 = await new Promise<string>(res => { const fr = new FileReader(); fr.onload = () => res(fr.result as string); fr.readAsDataURL(blob); });
             doc.addImage(b64, 'PNG', stampX, stampY, stampSize, stampSize);
@@ -1286,9 +1327,9 @@ ${c.email ? `Email: ${c.email}
 
           // Real stamp PNG on top
           try {
-            doc.addImage('/stamp.png', 'PNG', stampX, stampY, stampSize, stampSize);
+            doc.addImage(stampImageUrl, 'PNG', stampX, stampY, stampSize, stampSize);
           } catch {
-            const resp = await fetch('/stamp.png');
+            const resp = await fetch(stampImageUrl);
             const blob = await resp.blob();
             const b64 = await new Promise<string>(res => { const fr = new FileReader(); fr.onload = () => res(fr.result as string); fr.readAsDataURL(blob); });
             doc.addImage(b64, 'PNG', stampX, stampY, stampSize, stampSize);
@@ -1525,7 +1566,7 @@ ${c.email ? `Email: ${c.email}
                 </p>
               </div>
 
-              {/* Document Classification (Restructures Document Context) */}
+              {/* Document Classification (Minimalist Selector without Heavy Backgrounds) */}
               <div>
                 <label className="block text-xs font-semibold text-[var(--text-muted)] mb-2">Document Classification</label>
                 <div className="grid grid-cols-2 gap-2 text-xs">
@@ -1534,21 +1575,27 @@ ${c.email ? `Email: ${c.email}
                     { id: 'advocate_client', title: 'Advocate & Client', note: '+50% statutory uplift' },
                     { id: 'fee_note', title: 'Fee Note Proforma', note: 'Client direct invoice' },
                     { id: 'taxation_estimate', title: 'Taxation Estimate', note: 'Cost risk exposure' }
-                  ].map(dt => (
-                    <button
-                      key={dt.id}
-                      type="button"
-                      onClick={() => setDocType(dt.id)}
-                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                        docType === dt.id
-                          ? 'border-slate-900 dark:border-white bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
-                          : 'border-[var(--border-color)] bg-[var(--bg-subtle)] text-[var(--text-main)] hover:border-slate-400'
-                      }`}
-                    >
-                      <span className="block font-bold text-xs">{dt.title}</span>
-                      <span className={`text-[10px] block mt-0.5 ${docType === dt.id ? 'opacity-80' : 'text-[var(--text-muted)]'}`}>{dt.note}</span>
-                    </button>
-                  ))}
+                  ].map(dt => {
+                    const isSelected = docType === dt.id;
+                    return (
+                      <button
+                        key={dt.id}
+                        type="button"
+                        onClick={() => setDocType(dt.id)}
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer bg-transparent ${
+                          isSelected
+                            ? 'border-slate-900 dark:border-white text-[var(--text-main)] ring-1 ring-slate-900 dark:ring-white'
+                            : 'border-slate-200 dark:border-zinc-800 text-[var(--text-muted)] hover:border-slate-400 hover:text-[var(--text-main)]'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className={`block text-xs ${isSelected ? 'font-bold text-[var(--text-main)]' : 'font-medium'}`}>{dt.title}</span>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-slate-900 dark:text-white shrink-0" />}
+                        </div>
+                        <span className={`text-[10px] block mt-0.5 ${isSelected ? 'text-[var(--text-muted)] font-medium' : 'text-slate-400 dark:text-zinc-500'}`}>{dt.note}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -2436,17 +2483,23 @@ ${c.email ? `Email: ${c.email}
           
           {/* Top Real-Time Action Bar */}
           <div className="bg-white dark:bg-zinc-900 border border-[var(--border-color)] rounded-2xl p-3 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
-            {/* Live Financial Pill */}
-            <div className="flex items-center gap-2">
+            {/* Live Financial Pill & Stamp Trigger Button */}
+            <div className="flex items-center gap-2.5">
               <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 font-sans">Total Due:</span>
               <span className="text-base font-extrabold font-mono text-[var(--text-main)]">
                 KES {(result?.grand_total || 0).toLocaleString('en-KE', { minimumFractionDigits: 2 })}
               </span>
-              {applyVat && (
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-bold">
-                  VAT Incl.
-                </span>
-              )}
+
+              {/* Stamp Trigger Button */}
+              <button
+                type="button"
+                onClick={() => setStampModalOpen(true)}
+                className="ml-1 px-2.5 py-1 rounded-xl text-xs font-semibold border border-[var(--border-color)] bg-[var(--bg-subtle)] text-[var(--text-main)] hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                title="View & customize official stamp"
+              >
+                <Stamp className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
+                <span>Stamp</span>
+              </button>
             </div>
 
             {/* Exactly 2 Primary Action Buttons + Print & Share */}
@@ -2750,7 +2803,7 @@ ${c.email ? `Email: ${c.email}
                           )}
                           {/* Real firm stamp PNG on top */}
                           <img
-                            src="/stamp.png"
+                            src={stampImageUrl}
                             alt="Official Firm Stamp"
                             className="absolute inset-0 w-full h-full object-contain"
                           />
@@ -2992,7 +3045,7 @@ ${c.email ? `Email: ${c.email}
                           )}
                           {/* Real firm stamp PNG on top */}
                           <img
-                            src="/stamp.png"
+                            src={stampImageUrl}
                             alt="Official Firm Stamp"
                             className="absolute inset-0 w-full h-full object-contain"
                           />
@@ -3032,6 +3085,101 @@ ${c.email ? `Email: ${c.email}
         </div>
 
       </div>
+
+      {/* Stamp Preview & Customization Modal */}
+      {stampModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-zinc-900 border border-[var(--border-color)] rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-[var(--text-main)]">
+                  <Stamp className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-[var(--text-main)]">Official Firm Stamp</h4>
+                  <p className="text-[10px] text-[var(--text-muted)]">Applied on document preview and exported PDFs</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStampModalOpen(false)}
+                className="p-1 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Stamp Image Preview */}
+            <div className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-dashed border-slate-300 dark:border-zinc-700">
+              <div className="relative w-32 h-32 flex items-center justify-center bg-white dark:bg-zinc-900 rounded-lg p-2 shadow-xs">
+                <img
+                  src={stampImageUrl}
+                  alt="Official Firm Stamp"
+                  className="max-w-full max-h-full object-contain select-none"
+                />
+              </div>
+              <span className="text-[10px] text-[var(--text-muted)] mt-2 font-mono">
+                {stampImageUrl.startsWith('data:') ? 'Custom stamp loaded' : 'Default firm stamp (/stamp.png)'}
+              </span>
+            </div>
+
+            {/* Stamp Toggle */}
+            <label className="flex items-center justify-between p-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-subtle)] cursor-pointer select-none">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={stampOfficial}
+                  onChange={e => setStampOfficial(e.target.checked)}
+                  className="w-4 h-4 rounded text-slate-900 focus:ring-0 cursor-pointer"
+                />
+                <span className="text-xs font-semibold text-[var(--text-main)]">Stamp Official on Document</span>
+              </div>
+              <span className={`text-[10px] font-bold ${stampOfficial ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                {stampOfficial ? 'Enabled' : 'Disabled'}
+              </span>
+            </label>
+
+            {/* Hidden File Input and Buttons */}
+            <input
+              type="file"
+              ref={stampFileInputRef}
+              onChange={handleStampFileChange}
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              className="hidden"
+            />
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => stampFileInputRef.current?.click()}
+                className="flex-1 py-2 px-3 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 hover:bg-black dark:hover:bg-slate-100 text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Change Stamp</span>
+              </button>
+              {stampImageUrl !== '/stamp.png' && (
+                <button
+                  type="button"
+                  onClick={handleResetStamp}
+                  className="py-2 px-3 rounded-xl border border-[var(--border-color)] hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors cursor-pointer flex items-center gap-1"
+                  title="Reset to default firm stamp"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset</span>
+                </button>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setStampModalOpen(false)}
+              className="w-full py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors cursor-pointer"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
