@@ -1553,7 +1553,7 @@ export const AdminDashboard: React.FC = () => {
         position: newUserRole,
         lskNo: newUserLskNo.trim() || `P105/${Math.floor(10000 + Math.random() * 90000)}/26`,
         passwordHash: newUserPassword.trim() || 'Nyagah@2026',
-        advocateTitle: `Adv. ${newUserFullName.trim()}`
+        advocateTitle: newUserFullName.trim()
       });
 
       setRealUsers(prev => [created, ...prev]);
@@ -3840,7 +3840,7 @@ export const AdminDashboard: React.FC = () => {
             <form onSubmit={handleCreateRealUser} className="space-y-3 text-xs">
               <input 
                 type="text" 
-                placeholder="Full Name (e.g. Adv. Jane Wambui)"
+                placeholder="Full Name (e.g. Jane Wambui)"
                 value={newUserFullName}
                 onChange={e => setNewUserFullName(e.target.value)}
                 className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-white"

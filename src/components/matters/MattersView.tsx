@@ -320,7 +320,7 @@ export const MattersView: React.FC<MattersViewProps> = ({ onNavigateTab, onNavig
       respondentRole: 'Respondent',
       amount: newClaimAmount,
       status: 'Active',
-      filedBy: currentUser?.fullName || 'Guyoh Alake',
+      filedBy: currentUser?.fullName || 'Guyo Halake',
       feeNoteLink: feeNoteBillNo
     };
 
@@ -343,7 +343,7 @@ export const MattersView: React.FC<MattersViewProps> = ({ onNavigateTab, onNavig
         grandTotal: Math.round(baseInstruction + gettingUp + 17000),
         status: 'draft',
         createdAt: new Date().toISOString(),
-        generatedByUser: currentUser?.fullName || 'Guyoh Alake',
+        generatedByUser: currentUser?.fullName || 'Guyo Halake',
         generatedByUserId: currentUser?.id || 'usr-001',
         pdfUrl: '',
         excelUrl: ''
@@ -819,7 +819,7 @@ ${currentUser?.fullName || 'Karani Law Advocates'}`
                 <div className="flex items-center gap-3 text-xs text-[var(--text-muted)] font-mono">
                   <span className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5" /> {selectedMatter.forum}</span>
                   <span>&bull;</span>
-                  <span>Advocate on Record: {selectedMatter.filedBy || 'Guyoh Alake'}</span>
+                  <span>Advocate on Record: {selectedMatter.filedBy || 'Guyo Halake'}</span>
                 </div>
               </div>
 
@@ -890,7 +890,7 @@ ${currentUser?.fullName || 'Karani Law Advocates'}`
                     </div>
                     <div className="flex justify-between py-1 border-b border-[var(--border-color)]">
                       <span className="text-[var(--text-muted)]">Filing Advocate:</span>
-                      <strong className="text-[var(--text-main)]">{selectedMatter.filedBy || 'Guyoh Alake'}</strong>
+                      <strong className="text-[var(--text-main)]">{selectedMatter.filedBy || 'Guyo Halake'}</strong>
                     </div>
                     <div className="flex justify-between py-1">
                       <span className="text-[var(--text-muted)]">Case State:</span>

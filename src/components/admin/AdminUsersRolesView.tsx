@@ -57,7 +57,7 @@ export const AdminUsersRolesView: React.FC = () => {
     const newUser: SystemUser = {
       id: 'usr-' + (userList.length + 1) + '-' + Date.now().toString().slice(-4),
       fullName,
-      advocateTitle: `Adv. ${fullName}`,
+      advocateTitle: fullName,
       lskNo: lskNo || 'P.105/' + Math.floor(1000 + Math.random() * 9000),
       role,
       position: position || (role === 'Admin' ? 'Managing Partner' : 'Associate Advocate'),
@@ -88,7 +88,7 @@ export const AdminUsersRolesView: React.FC = () => {
 
     setUserList(prev => prev.map(u => u.id === editingUser.id ? {
       ...editingUser,
-      advocateTitle: `Adv. ${editingUser.fullName}`
+      advocateTitle: editingUser.fullName
     } : u));
     setEditingUser(null);
     showToast('success', 'Profile Updated', `Updated profile for "${editingUser.fullName}" in database.`);
@@ -141,7 +141,7 @@ export const AdminUsersRolesView: React.FC = () => {
         body: JSON.stringify({
           email: adminEmail,
           action: `Change password for ${passwordModalUser?.fullName}`,
-          admin_name: 'Adv. Karani Victor'
+          admin_name: 'Karani Victor'
         })
       });
 

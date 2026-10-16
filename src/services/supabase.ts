@@ -85,7 +85,7 @@ export const SEEDED_USERS: SystemUser[] = [
   {
     id: "usr-guyoh-admin",
     fullName: "Guyo Halake",
-    advocateTitle: "Adv. Guyo Halake",
+    advocateTitle: "Guyo Halake",
     lskNo: "ADMIN/2026/001",
     role: "Admin",
     position: "Senior Managing Partner & System Administrator",
@@ -99,7 +99,7 @@ export const SEEDED_USERS: SystemUser[] = [
   {
     id: "usr-karani-admin",
     fullName: "Karani Victor",
-    advocateTitle: "Adv. Karani Victor",
+    advocateTitle: "Karani Victor",
     lskNo: "P.105/9920",
     role: "Developer",
     position: "Senior Partner & Remuneration Lead",
@@ -113,7 +113,7 @@ export const SEEDED_USERS: SystemUser[] = [
   {
     id: "usr-advocate-002",
     fullName: "Nyagah Kithinji",
-    advocateTitle: "Adv. Nyagah Kithinji",
+    advocateTitle: "Nyagah Kithinji",
     lskNo: "P.105/1992",
     role: "Advocate",
     position: "Managing Partner & Senior Counsel",
@@ -127,7 +127,7 @@ export const SEEDED_USERS: SystemUser[] = [
   {
     id: "usr-p3l-admin",
     fullName: "Razak Wako",
-    advocateTitle: "Razak Wako (P3L Developer)",
+    advocateTitle: "Razak Wako",
     lskNo: "P3L/DEV/2026/001",
     role: "Developer",
     position: "Lead Developer & System Administrator",
@@ -141,7 +141,7 @@ export const SEEDED_USERS: SystemUser[] = [
   {
     id: "usr-faith-chebet",
     fullName: "Faith Chebet",
-    advocateTitle: "Adv. Faith Chebet",
+    advocateTitle: "Faith Chebet",
     lskNo: "P.105/14820",
     role: "Advocate",
     position: "Senior Associate — Commercial Litigation",
@@ -155,7 +155,7 @@ export const SEEDED_USERS: SystemUser[] = [
   {
     id: "usr-brian-omondi",
     fullName: "Brian Omondi",
-    advocateTitle: "Adv. Brian Omondi",
+    advocateTitle: "Brian Omondi",
     lskNo: "P.105/16301",
     role: "Advocate",
     position: "Associate Advocate — Conveyancing & Banking",
@@ -217,7 +217,7 @@ export const EXACT_FIRM_INFO = {
   website: "www.kithinjilegal.co.ke",
   logoUrl: "/logo.png",
   user: {
-    name: "Adv. Guyoh Alake",
+    name: "Guyo Halake",
     role: "Admin",
     lskNo: "ADMIN/2026/001",
     email: "guyohalakeofficial@gmail.com"
@@ -377,7 +377,7 @@ export const EXACT_MATTERS: ExactMatterRecord[] = [
     documentLink: "26.02.2026 - BILL OF COSTS - Seyani v Green Hills (1).xlsx",
     nextHearingDate: "Today @ 09:30 AM",
     matterNumber: "HCCC E104/2025",
-    leadAdvocate: "Adv. Karani Victor"
+    leadAdvocate: "Karani Victor"
   },
   {
     id: "dhanya",
@@ -397,7 +397,7 @@ export const EXACT_MATTERS: ExactMatterRecord[] = [
     documentLink: "14.01.2026 - Bill of Costs - Dhanya v Sunil.xlsx",
     nextHearingDate: "Tomorrow @ 11:00 AM",
     matterNumber: "Arb. Cause 12/2025",
-    leadAdvocate: "Adv. Guyoh Alake"
+    leadAdvocate: "Guyo Halake"
   },
   {
     id: "hccomm",
@@ -417,7 +417,7 @@ export const EXACT_MATTERS: ExactMatterRecord[] = [
     documentLink: "HCCOMM E547 of 2024 - Main Suit - 88's Party and Party Bill of Costs.xlsx",
     nextHearingDate: "06 Oct 2026 @ 02:15 PM",
     matterNumber: "HCCOMM E547/2024",
-    leadAdvocate: "Adv. Nyagah Kithinji"
+    leadAdvocate: "Nyagah Kithinji"
   }
 ];
 
@@ -999,7 +999,7 @@ export const INITIAL_SUPPORT_TICKETS: ITSupportTicket[] = [
     category: "database",
     priority: "p3_medium",
     status: "in_progress",
-    creatorName: "Guyoh Alake",
+    creatorName: "Guyo Halake",
     creatorEmail: "guyohalakeofficial@gmail.com",
     firmId: "firm-001",
     createdAt: "2026-03-19 08:30",
@@ -1009,7 +1009,7 @@ export const INITIAL_SUPPORT_TICKETS: ITSupportTicket[] = [
     messages: [
       {
         id: "tm-3",
-        senderName: "Guyoh Alake",
+        senderName: "Guyo Halake",
         senderRole: "advocate",
         text: "Checking if matter updates made on the office workstation automatically reflect on mobile/remote devices.",
         timestamp: "2026-03-19 08:30"

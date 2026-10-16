@@ -1197,7 +1197,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       setNewUsername(newCompanyEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '_'));
     }
     if (!newAdvocateTitle.trim()) {
-      setNewAdvocateTitle(`Adv. ${newFullName.trim()}`);
+      setNewAdvocateTitle(newFullName.trim());
     }
     if (newFirstPassword.trim() && newConfirmPassword.trim() && newFirstPassword.trim() !== newConfirmPassword.trim()) {
       showToast('error', 'Password Mismatch', 'Login password and confirmation do not match.');
@@ -1269,7 +1269,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       const created = await createFirmUser(firmId, {
         fullName: newFullName.trim(),
         username: finalUsername,
-        advocateTitle: newAdvocateTitle.trim() || `Adv. ${newFullName.trim()}`,
+        advocateTitle: (newAdvocateTitle.trim() || newFullName.trim()).replace(/^Adv\.?\s*/i, ''),
         lskNo: newLskNo.trim(),
         workEmail: newCompanyEmail.trim(),
         personalEmail: (newPersonalEmail.trim() || newCompanyEmail.trim()),
@@ -2681,7 +2681,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       type="text"
                       value={managingUser.advocateTitle || ''}
                       onChange={e => setManagingUser({ ...managingUser, advocateTitle: e.target.value })}
-                      placeholder="e.g. Adv. Guyo Halake"
+                      placeholder="e.g. Guyo Halake"
                       className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
@@ -3026,7 +3026,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <div className="pt-6 sm:pt-8 mb-8 sm:mb-10 flex flex-col md:flex-row md:items-center justify-between gap-5 pb-8 border-b border-[var(--border-color)]/60">
         <div className="shrink-0">
           <h1 className="font-brand font-extrabold text-2xl sm:text-3xl text-slate-900 dark:text-white tracking-tight">
-            Good afternoon, {(currentUser?.fullName || userName || 'Guyoh Alake').replace(/^Adv\.?\s+/i, '')}
+            Good afternoon, {(currentUser?.fullName || userName || 'Guyo Halake').replace(/^Adv\.?\s+/i, '')}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-1 font-sans">
             Welcome to Nyagah B. Kithinji & Co. Advocates

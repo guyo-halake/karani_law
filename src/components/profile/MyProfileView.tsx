@@ -88,7 +88,7 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({ currentUser }) => 
     const updatedUser: SystemUser = {
       ...user,
       fullName: fullName.trim() || user.fullName,
-      advocateTitle: advocateTitle.trim() || `Adv. ${fullName.trim()}`,
+      advocateTitle: (advocateTitle.trim() || fullName.trim()).replace(/^Adv\.?\s*/i, ''),
       lskNo: lskNo.trim() || user.lskNo,
       position: position.trim() || user.position,
       workEmail: workEmail.trim() || user.workEmail,
@@ -286,7 +286,7 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({ currentUser }) => 
                   type="text"
                   value={advocateTitle}
                   onChange={(e) => setAdvocateTitle(e.target.value)}
-                  placeholder="e.g. Adv. Nyagah Kithinji"
+                  placeholder="e.g. Nyagah Kithinji"
                   className="w-full bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                 />
               </div>

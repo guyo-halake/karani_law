@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, Key, Lock, ArrowRight, Loader2, AlertCircle, Eye, EyeOff, UserCheck } from 'lucide-react';
+import { CheckCircle2, Key, Lock, ArrowRight, ArrowLeft, Loader2, AlertCircle, Eye, EyeOff, UserCheck } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 
-export const PasswordResetView: React.FC = () => {
+interface PasswordResetViewProps {
+  onBackToLogin?: () => void;
+}
+
+export const PasswordResetView: React.FC<PasswordResetViewProps> = ({ onBackToLogin }) => {
   const [email, setEmail] = useState('');
   const [token, setToken] = useState('');
   const [password, setPassword] = useState('');
@@ -15,17 +19,60 @@ export const PasswordResetView: React.FC = () => {
   const [isPreFilledEmail, setIsPreFilledEmail] = useState(false);
 
   useEffect(() => {
-    // Parse query params from URL
+    // 1. Check if Supabase session is established from recovery link
+    supabase.auth.getSession().then(({ data }) => {
+      if (data?.session?.user?.email) {
+        setEmail(data.session.user.email);
+        setIsPreFilledEmail(true);
+      }
+    });
+
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user?.email) {
+        setEmail(data.user.email);
+        setIsPreFilledEmail(true);
+      }
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || session?.user) {
+        if (session?.user?.email) {
+          setEmail(session.user.email);
+          setIsPreFilledEmail(true);
+        }
+      }
+    });
+
+    // 2. Parse query params or hash from URL
     try {
       const urlParams = new URLSearchParams(window.location.search);
       const urlEmail = urlParams.get('email');
       const urlToken = urlParams.get('token');
+      const code = urlParams.get('code');
       if (urlEmail) {
         setEmail(urlEmail);
         setIsPreFilledEmail(true);
       }
       if (urlToken) setToken(urlToken);
+      if (code) {
+        supabase.auth.exchangeCodeForSession(code).then(({ data }) => {
+          if (data?.session?.user?.email) {
+            setEmail(data.session.user.email);
+            setIsPreFilledEmail(true);
+          }
+        }).catch(() => {});
+      }
+
+      if (window.location.hash) {
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        const hashToken = hashParams.get('access_token');
+        if (hashToken) setToken(hashToken);
+      }
     } catch (e) {}
+
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
   }, []);
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -51,19 +98,13 @@ export const PasswordResetView: React.FC = () => {
     setIsSaving(true);
 
     try {
-      // 1. Dispatch confirmation & update via backend engine
-      await fetch('/api/v1/email/confirm-password-reset', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: targetEmail,
-          new_password: password,
-          token: token || undefined,
-          portal_url: window.location.origin,
-        }),
-      });
+      // 1. Supabase Auth update (The official Supabase way)
+      const { error: authErr } = await supabase.auth.updateUser({ password });
+      if (authErr) {
+        throw new Error(authErr.message);
+      }
 
-      // 2. Direct Supabase updates as backup
+      // 2. Direct Supabase public.users table update
       try {
         await supabase
           .from('users')
@@ -71,11 +112,21 @@ export const PasswordResetView: React.FC = () => {
           .ilike('email', targetEmail);
       } catch (dbErr) {}
 
+      // 3. Dispatch confirmation & update via backend engine
       try {
-        await supabase.auth.updateUser({ password });
-      } catch (authErr) {}
+        await fetch('/api/v1/email/confirm-password-reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: targetEmail,
+            new_password: password,
+            token: token || undefined,
+            portal_url: window.location.origin,
+          }),
+        });
+      } catch (_) {}
 
-      // 3. Update localStorage cache if matching user exists
+      // 4. Update local roster cache if present
       try {
         const stored = localStorage.getItem('EXACT_USERS');
         if (stored) {
@@ -88,16 +139,20 @@ export const PasswordResetView: React.FC = () => {
         }
       } catch (lsErr) {}
 
-      setMessage('Your password has been reset successfully. A confirmation email has been dispatched to your inbox. You can now sign in.');
+      setMessage('Your password has been successfully updated in Supabase. You can now log into your account.');
     } catch (err: any) {
-      setError(err?.message || 'Failed to update password. Please check your connection or contact P3L Support.');
+      setError(err?.message || 'Failed to update password. Please check your connection or contact Support.');
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleReturnToLogin = () => {
-    window.location.href = window.location.origin;
+    if (onBackToLogin) {
+      onBackToLogin();
+    } else {
+      window.location.href = window.location.origin;
+    }
   };
 
   return (
@@ -240,6 +295,16 @@ export const PasswordResetView: React.FC = () => {
                 ) : (
                   'Save Password'
                 )}
+              </button>
+            </div>
+
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={handleReturnToLogin}
+                className="text-xs text-amber-500 hover:text-amber-400 font-semibold hover:underline inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> Back to Sign In
               </button>
             </div>
           </form>

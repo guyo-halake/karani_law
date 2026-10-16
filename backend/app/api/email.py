@@ -389,6 +389,27 @@ async def confirm_password_reset(
                     },
                     json={"password_hash": new_password}
                 )
+                try:
+                    admin_headers = {
+                        "apikey": supabase_key,
+                        "Authorization": f"Bearer {supabase_key}",
+                    }
+                    users_res = await client.get(
+                        f"{supabase_url}/auth/v1/admin/users",
+                        headers=admin_headers
+                    )
+                    if users_res.status_code == 200:
+                        all_users = users_res.json().get("users", [])
+                        match_u = next((u for u in all_users if (u.get("email") or "").lower() == advocate_email), None)
+                        if match_u and match_u.get("id"):
+                            await client.put(
+                                f"{supabase_url}/auth/v1/admin/users/{match_u['id']}",
+                                headers=admin_headers,
+                                json={"password": new_password}
+                            )
+                            print(f"[SUPABASE AUTH ADMIN UPDATE SUCCESS] Updated auth user password for {advocate_email}")
+                except Exception as auth_admin_err:
+                    print(f"[SUPABASE AUTH ADMIN UPDATE WARNING]: {auth_admin_err}")
         except Exception as db_err:
             print(f"[SUPABASE DB UPDATE WARNING]: {db_err}")
 

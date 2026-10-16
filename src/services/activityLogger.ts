@@ -14,7 +14,7 @@ export interface ActivityLogItem {
 const INITIAL_LOGS: ActivityLogItem[] = [
   {
     id: 'log-1',
-    advocateName: 'Adv. Guyoh Alake',
+    advocateName: 'Guyo Halake',
     advocateRole: 'Managing Partner',
     action: 'authenticated & accessed Executive Oversight Docket',
     timeAgo: 'Just now',
@@ -24,7 +24,7 @@ const INITIAL_LOGS: ActivityLogItem[] = [
   },
   {
     id: 'log-2',
-    advocateName: 'Adv. Karani Victor',
+    advocateName: 'Karani Victor',
     advocateRole: 'Senior Partner',
     action: 'calculated & approved BOC-2026-SEYANI-001 (KES 30,820,193.28)',
     timeAgo: '15 mins ago',
@@ -34,7 +34,7 @@ const INITIAL_LOGS: ActivityLogItem[] = [
   },
   {
     id: 'log-3',
-    advocateName: 'Adv. Nyagah Kithinji',
+    advocateName: 'Nyagah Kithinji',
     advocateRole: 'Senior Associate',
     action: 'filed Party & Party Bill of Costs for HCCOMM E547/2024 (KES 405,594.00)',
     timeAgo: '45 mins ago',
@@ -54,7 +54,7 @@ const INITIAL_LOGS: ActivityLogItem[] = [
   },
   {
     id: 'log-5',
-    advocateName: 'Adv. Karani Victor',
+    advocateName: 'Karani Victor',
     advocateRole: 'Senior Partner',
     action: 'verified Schedule 6 ad valorem instruction fee calculation for Seyani v Greenhills',
     timeAgo: '3 hours ago',
@@ -116,7 +116,7 @@ export const logSystemActivity = (
   const currentLogs = getActivityLogs();
   const newItem: ActivityLogItem = {
     id: 'log-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-    advocateName,
+    advocateName: (advocateName || 'User').replace(/^Adv\.?\s*/i, ''),
     advocateRole: role,
     action,
     timeAgo: 'Just now',
