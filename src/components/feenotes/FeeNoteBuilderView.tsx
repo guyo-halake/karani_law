@@ -105,7 +105,7 @@ export const FeeNoteBuilderView: React.FC<FeeNoteBuilderViewProps> = ({
     'Payment is due upon presentation within 30 days.\nDirect EFT / RTGS or Cheque payable to Nyagah B. Kithinji & Co. Advocates.'
   );
   const [signatoryName, setSignatoryName] = useState(
-    currentUser?.fullName || EXACT_FIRM_INFO.user.name || 'Adv. Guyoh Alake'
+    currentUser?.fullName || EXACT_FIRM_INFO.user.name || 'Guyo Halake'
   );
   const [isLinkedCourtMatter, setIsLinkedCourtMatter] = useState(false);
 

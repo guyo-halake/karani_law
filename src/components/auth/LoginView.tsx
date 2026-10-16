@@ -5,9 +5,10 @@ import { Mail, Key, CheckCircle2, AlertCircle, Loader2, Eye, EyeOff, ArrowLeft, 
 
 interface LoginViewProps {
   onLoginSuccess: (user: SystemUser) => void;
+  onForgotPassword?: () => void;
 }
 
-export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
+export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onForgotPassword }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -61,7 +62,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const handleForgotPassword = async () => {
     const targetInput = email.trim();
     if (!targetInput) {
-      setErrorMessage('Please enter your Email or Phone in the field above first, then click Forgot Password.');
+      setErrorMessage('Please enter your registered email address in the field above, then click Forgot Password.');
       setSuccessNotice('');
       return;
     }
@@ -96,34 +97,34 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     } catch (e) {}
 
     try {
-      const response = await fetch('/api/v1/email/password-reset-request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: resolvedEmail,
-          full_name: advocateName || undefined,
-          username: resolvedEmail.split('@')[0],
-          firm_name: EXACT_FIRM_INFO.name,
-          portal_url: window.location.origin,
-        }),
+      const publicAppUrl = (import.meta as ImportMeta & { env?: { VITE_PUBLIC_APP_URL?: string } }).env?.VITE_PUBLIC_APP_URL || window.location.origin;
+      const { error: sbError } = await supabase.auth.resetPasswordForEmail(resolvedEmail, {
+        redirectTo: `${publicAppUrl}/reset-password`,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Failed to dispatch request to P3L Developers');
+      if (sbError) {
+        throw sbError;
       }
 
-      setSuccessNotice('Your password reset request has been sent to P3L Developer Support for Nyagah B. Kithinji & Co. Our team will assist you shortly.');
+      // Also dispatch background email confirmation/ticket asynchronously
+      try {
+        fetch('/api/v1/email/password-reset-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: resolvedEmail,
+            full_name: advocateName || undefined,
+            username: resolvedEmail.split('@')[0],
+            firm_name: EXACT_FIRM_INFO.name,
+            portal_url: window.location.origin,
+          }),
+        }).catch(() => {});
+      } catch (_) {}
+
+      setSuccessNotice(`A secure Supabase password reset link has been dispatched to ${resolvedEmail}. Please check your inbox to set your new password.`);
       setErrorMessage('');
     } catch (err: any) {
-      // Fallback Supabase dispatch
-      try {
-        const publicAppUrl = (import.meta as ImportMeta & { env?: { VITE_PUBLIC_APP_URL?: string } }).env?.VITE_PUBLIC_APP_URL || window.location.origin;
-        await supabase.auth.resetPasswordForEmail(resolvedEmail, { redirectTo: `${publicAppUrl}/reset-password` });
-      } catch (sbErr) {}
-
-      setSuccessNotice('Your password reset request has been sent to P3L Developer Support for Nyagah B. Kithinji & Co. Our team will assist you shortly.');
-      setErrorMessage('');
+      setErrorMessage(err?.message || 'Failed to dispatch reset link. Please check your email address.');
     } finally {
       setIsSubmittingReset(false);
     }
@@ -339,7 +340,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 {isSubmittingReset ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
-                    <span>Sending to P3L...</span>
+                    <span>Sending reset link...</span>
                   </>
                 ) : (
                   'Forgot Password?'

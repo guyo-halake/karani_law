@@ -123,7 +123,7 @@ export const DEFAULT_ADVOCATE_TICKETS: ITTicketRecord[] = [
     id: 'TKT-2026-0093',
     firmId: 'P.105/1992',
     creatorId: 'u-guyoh',
-    creatorName: 'Adv. Guyoh Alake',
+    creatorName: 'Guyo Halake',
     creatorEmail: 'guyohalakeofficial@gmail.com',
     creatorRole: 'Senior Associate',
     title: 'Fee Note Generator SMTP Dispatch Failure: PDF Attachment Not Delivering',
@@ -138,7 +138,7 @@ export const DEFAULT_ADVOCATE_TICKETS: ITTicketRecord[] = [
       {
         id: 'msg-301',
         sender: 'user',
-        senderName: 'Adv. Guyoh Alake',
+        senderName: 'Guyo Halake',
         message: 'The recipient counsel in HCCC E124/2024 requires the stamped PDF before the 11:30 AM mention. Please check why the attachment dropped.',
         timestamp: '10:15 AM'
       },
@@ -157,7 +157,7 @@ export const DEFAULT_ADVOCATE_TICKETS: ITTicketRecord[] = [
     id: 'TKT-2026-0091',
     firmId: 'P.105/1992',
     creatorId: 'u-guyoh',
-    creatorName: 'Adv. Guyoh Alake',
+    creatorName: 'Guyo Halake',
     creatorEmail: 'guyohalakeofficial@gmail.com',
     creatorRole: 'Senior Associate',
     title: 'Advocate Portal Password Change & 2FA Device Re-Authentication Request',
@@ -170,7 +170,7 @@ export const DEFAULT_ADVOCATE_TICKETS: ITTicketRecord[] = [
       {
         id: 'msg-101',
         sender: 'user',
-        senderName: 'Adv. Guyoh Alake',
+        senderName: 'Guyo Halake',
         message: 'Urgent password reset required to access afternoon court cause lists and verify draft bills.',
         timestamp: '08:45 AM'
       },
@@ -189,7 +189,7 @@ export const DEFAULT_ADVOCATE_TICKETS: ITTicketRecord[] = [
     id: 'TKT-2026-0092',
     firmId: 'P.105/1992',
     creatorId: 'u-guyoh',
-    creatorName: 'Adv. Guyoh Alake',
+    creatorName: 'Guyo Halake',
     creatorEmail: 'guyohalakeofficial@gmail.com',
     creatorRole: 'Senior Associate',
     title: 'Firm Fee Notes System Availability & Multi-Workstation Cloud Sync Audit',
@@ -204,7 +204,7 @@ export const DEFAULT_ADVOCATE_TICKETS: ITTicketRecord[] = [
       {
         id: 'msg-201',
         sender: 'user',
-        senderName: 'Adv. Guyoh Alake',
+        senderName: 'Guyo Halake',
         message: 'Please confirm total active fee notes in PostgreSQL and verify that the Realtime WebSocket channel is pushing updates to all advocate workstations.',
         timestamp: 'Yesterday 04:30 PM'
       },
@@ -894,7 +894,7 @@ export const TechSupportView: React.FC<TechSupportViewProps> = ({ currentUser })
     }
 
     setIsSendingRemoteReq(true);
-    const mailSubject = `[URGENT REMOTE DESK REQUEST] Adv. ${userName}`;
+    const mailSubject = `[URGENT REMOTE DESK REQUEST] ${userName}`;
     const mailBody = `REMOTE DESK SUPPORT INVITATION — P3L DEVELOPERS\n` +
       `===============================================\n\n` +
       `Advocate: ${userName}\n` +

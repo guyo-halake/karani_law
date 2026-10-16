@@ -33,7 +33,7 @@ import { DeveloperPage } from './components/admin/DeveloperPage';
 import { MailingTemplatesView } from './components/admin/MailingTemplatesView';
 import { DatabaseStudioView } from './components/admin/DatabaseStudioView';
 
-import { SystemUser, fetchFeeNotesFromDatabase } from './services/supabase';
+import { supabase, SystemUser, fetchFeeNotesFromDatabase } from './services/supabase';
 import { getCurrentUserProfile, signOut, subscribeToAuthState } from './services/auth';
 import { subscribeToFirmTable } from './services/realtime';
 import { hasPermission } from './services/rbac';
@@ -230,16 +230,41 @@ export const App: React.FC = () => {
   };
 
   // If user is accessing password reset recovery URL (supports pathname, query param, or hash)
-  const isResetPasswordView =
-    window.location.pathname.includes('reset-password') ||
-    window.location.search.includes('reset-password') ||
-    window.location.search.includes('view=reset-password') ||
-    (window.location.search.includes('token=') && window.location.search.includes('email=')) ||
-    window.location.hash.includes('recovery') ||
-    window.location.hash.includes('reset-password');
+  const [showPasswordReset, setShowPasswordReset] = useState<boolean>(() => {
+    return (
+      window.location.pathname.includes('reset-password') ||
+      window.location.search.includes('reset-password') ||
+      window.location.search.includes('view=reset-password') ||
+      (window.location.search.includes('token=') && window.location.search.includes('email=')) ||
+      window.location.hash.includes('recovery') ||
+      window.location.hash.includes('reset-password') ||
+      window.location.search.includes('type=recovery') ||
+      (window.location.search.includes('code=') && window.location.pathname.includes('reset-password'))
+    );
+  });
 
-  if (isResetPasswordView) {
-    return <PasswordResetView />;
+  useEffect(() => {
+    const { data: authSub } = supabase.auth.onAuthStateChange((event: string) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setShowPasswordReset(true);
+      }
+    });
+    return () => {
+      authSub?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  if (showPasswordReset) {
+    return (
+      <PasswordResetView
+        onBackToLogin={() => {
+          setShowPasswordReset(false);
+          try {
+            window.history.pushState(null, '', '/');
+          } catch (_) {}
+        }}
+      />
+    );
   }
 
   if (!currentUser) {

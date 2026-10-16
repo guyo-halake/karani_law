@@ -1,6 +1,7 @@
 import os
 import json
 from typing import Optional, List
+import httpx
 from fastapi import APIRouter, HTTPException, Request, Depends, status
 from pydantic import BaseModel, EmailStr, Field
 
@@ -35,8 +36,8 @@ DEFAULT_USERS = [
     {
         "id": "usr-guyoh-admin",
         "fullName": "Guyo Halake",
-        "username": "guyoh_alake",
-        "advocateTitle": "Adv. Guyo Halake",
+        "username": "guyoh_halake",
+        "advocateTitle": "Guyo Halake",
         "lskNo": "ADMIN/2026/001",
         "role": "Admin",
         "position": "Senior Managing Partner & System Administrator",
@@ -52,7 +53,7 @@ DEFAULT_USERS = [
         "id": "usr-karani-admin",
         "fullName": "Karani Victor",
         "username": "karani_victor",
-        "advocateTitle": "Adv. Karani Victor",
+        "advocateTitle": "Karani Victor",
         "lskNo": "P.105/9920",
         "role": "Developer",
         "position": "Senior Partner & Remuneration Lead",
@@ -68,7 +69,7 @@ DEFAULT_USERS = [
         "id": "usr-advocate-002",
         "fullName": "Nyagah Kithinji",
         "username": "nyagah_kithinji",
-        "advocateTitle": "Adv. Nyagah Kithinji",
+        "advocateTitle": "Nyagah Kithinji",
         "lskNo": "P.105/1992",
         "role": "Advocate",
         "position": "Managing Partner & Senior Counsel",
@@ -84,7 +85,7 @@ DEFAULT_USERS = [
         "id": "usr-p3l-admin",
         "fullName": "Razak Wako",
         "username": "razak_wako",
-        "advocateTitle": "Razak Wako ",
+        "advocateTitle": "Razak Wako",
         "lskNo": "P3L/DEV/2026/001",
         "role": "Developer",
         "position": "Lead Developer & System Administrator",
@@ -96,7 +97,6 @@ DEFAULT_USERS = [
         "passwordHash": hash_password("razak123"),
         "firmId": "firm-001"
     },
-   
 ]
 
 DELETED_USERS_FILE = os.path.join(DATA_DIR, "deleted_users.json")
@@ -224,15 +224,129 @@ class LoginRequest(BaseModel):
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
+def get_supabase_headers():
+    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_ANON_KEY")
+    return {
+        "apikey": key or "",
+        "Authorization": f"Bearer {key or ''}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
+    }
+
+async def fetch_users_from_supabase() -> list[dict]:
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_ANON_KEY")
+    if not url or not key:
+        return []
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            res = await client.get(
+                f"{url}/rest/v1/users?select=*&order=full_name",
+                headers=get_supabase_headers()
+            )
+            if res.status_code == 200:
+                rows = res.json()
+                mapped = []
+                for row in rows:
+                    role_raw = (row.get("role") or "").lower()
+                    mapped_role = (
+                        "Admin" if role_raw in ["admin", "senior_partner"]
+                        else "Developer" if role_raw == "developer"
+                        else "Advocate"
+                    )
+                    full_name = row.get("full_name") or "Advocate"
+                    email = row.get("email") or ""
+                    mapped.append({
+                        "id": str(row.get("id")),
+                        "fullName": full_name,
+                        "username": (row.get("username") or email.split("@")[0]),
+                        "advocateTitle": full_name.replace("Adv. ", "").strip(),
+                        "lskNo": row.get("lsk_no") or "",
+                        "role": mapped_role,
+                        "position": row.get("position") or (
+                            "Senior Partner & Remuneration Lead" if role_raw == "senior_partner"
+                            else "Senior Managing Partner & System Administrator" if role_raw == "admin"
+                            else "Lead Developer & System Administrator" if role_raw == "developer"
+                            else "Advocate & Counsel"
+                        ),
+                        "department": row.get("department") or "",
+                        "workEmail": email,
+                        "personalEmail": email,
+                        "phonePrimary": row.get("phone_primary") or "",
+                        "phoneSecondary": row.get("phone_secondary") or "",
+                        "avatarUrl": row.get("avatar_url"),
+                        "hasAllPermissions": mapped_role in ["Admin", "Developer"],
+                        "passwordHash": hash_password("Nyagah@2026"),
+                        "firmId": str(row.get("firm_id") or "a0000000-0000-0000-0000-000000000001"),
+                    })
+                return mapped
+    except Exception as e:
+        print(f"[SUPABASE USERS FETCH ERROR]: {e}")
+    return []
+
+async def upsert_user_in_supabase(user_data: dict):
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_ANON_KEY")
+    if not url or not key:
+        return
+    try:
+        role_map = "admin" if user_data.get("role") == "Admin" else "developer" if user_data.get("role") == "Developer" else "advocate"
+        payload = {
+            "full_name": user_data.get("fullName"),
+            "email": (user_data.get("workEmail") or "").lower(),
+            "lsk_no": user_data.get("lskNo") or "",
+            "role": role_map,
+            "position": user_data.get("position"),
+            "phone_primary": user_data.get("phonePrimary") or "",
+            "phone_secondary": user_data.get("phoneSecondary") or "",
+            "is_active": True,
+        }
+        uid = str(user_data.get("id") or "")
+        if len(uid) == 36 and "-" in uid:
+            payload["id"] = uid
+
+        headers = {
+            "apikey": key,
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates"
+        }
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            await client.post(f"{url}/rest/v1/users", headers=headers, json=payload)
+    except Exception as e:
+        print(f"[SUPABASE USER UPSERT ERROR]: {e}")
+
+async def delete_user_from_supabase(identifier: str):
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_ANON_KEY")
+    if not url or not key:
+        return
+    try:
+        headers = {
+            "apikey": key,
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json"
+        }
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            if "@" in identifier:
+                await client.delete(f"{url}/rest/v1/users?email=ilike.{identifier.strip().lower()}", headers=headers)
+            else:
+                await client.delete(f"{url}/rest/v1/users?id=eq.{identifier.strip()}", headers=headers)
+    except Exception as e:
+        print(f"[SUPABASE USER DELETE ERROR]: {e}")
+
 @router.get("")
 async def get_all_users():
-    """Returns all active firm users (sanitizes sensitive hashes)."""
+    """Returns all active firm users directly from Supabase, with local cache fallback."""
+    sb_users = await fetch_users_from_supabase()
+    if sb_users:
+        save_persisted_users(sb_users)
+        sanitized = [{k: v for k, v in u.items() if k != "passwordHash"} for u in sb_users]
+        return {"users": sanitized, "count": len(sanitized), "source": "supabase"}
+
     users = load_persisted_users()
-    sanitized = []
-    for u in users:
-        safe_u = {k: v for k, v in u.items() if k != "passwordHash"}
-        sanitized.append(safe_u)
-    return {"users": sanitized, "count": len(sanitized)}
+    sanitized = [{k: v for k, v in u.items() if k != "passwordHash"} for u in users]
+    return {"users": sanitized, "count": len(sanitized), "source": "local"}
 
 @router.get("/me")
 async def get_current_user_profile(claims: dict = Depends(get_current_user_claims)):
@@ -311,6 +425,10 @@ async def create_or_update_user(payload: UserInputModel):
 
     save_persisted_users(users)
     unrecord_deleted_key(keys_to_unblock)
+    try:
+        await upsert_user_in_supabase(new_record)
+    except Exception as e:
+        print(f"[SUPABASE UPSERT EXCEPTION]: {e}")
     safe_profile = {k: v for k, v in new_record.items() if k != "passwordHash"}
     return {"success": True, "user": safe_profile}
 
@@ -391,6 +509,10 @@ async def delete_user(user_id: str):
     ]
 
     save_persisted_users(updated)
+    try:
+        await delete_user_from_supabase(user_id)
+    except Exception as e:
+        print(f"[SUPABASE DELETE EXCEPTION]: {e}")
     return {"success": True, "deleted_id": user_id, "purged_keys": deleted_keys, "remaining": len(updated)}
 
 @router.post("/login")

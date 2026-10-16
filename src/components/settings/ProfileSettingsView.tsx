@@ -1358,7 +1358,7 @@ export const ProfileSettingsView: React.FC<SettingsProps> = ({
                   </p>
 
                   <p className="text-[11px] font-mono text-slate-400">
-                    LSK Reg: {firmSettings.lskRegNo || 'P.105/1992'} &middot; Managing Partner: {firmSettings.managingPartner || 'Adv. Nyagah B. Kithinji'}
+                    LSK Reg: {firmSettings.lskRegNo || 'P.105/1992'} &middot; Managing Partner: {firmSettings.managingPartner || 'Nyagah B. Kithinji'}
                   </p>
                 </div>
               </div>

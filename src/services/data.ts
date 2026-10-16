@@ -376,7 +376,7 @@ export async function syncMatterAndClientFromFeeNote(
       itemsCount: 1,
       feeNoteLink: input.billNumber,
       documentLink: `${input.billNumber}.pdf`,
-      leadAdvocate: currentUser?.fullName || 'Adv. Guyoh Alake',
+      leadAdvocate: currentUser?.fullName || 'Guyo Halake',
     };
     currentMatters.unshift(matter);
     persistMatters(currentMatters);
@@ -577,12 +577,13 @@ export async function fetchFirmUsers(firmId: string = 'firm-001'): Promise<Syste
           if (u.workEmail) deletedKeys.delete(u.workEmail.toLowerCase());
           if (u.personalEmail) deletedKeys.delete(u.personalEmail.toLowerCase());
           if (u.username) deletedKeys.delete(u.username.toLowerCase());
+          if (u.fullName) deletedKeys.delete(u.fullName.toLowerCase());
 
           const mapped: SystemUser = {
             id: u.id,
             fullName: u.fullName,
             username: u.username || u.workEmail?.split('@')[0],
-            advocateTitle: u.advocateTitle || `Adv. ${u.fullName}`,
+            advocateTitle: (u.advocateTitle || u.fullName || '').replace(/^Adv\.?\s*/i, ''),
             lskNo: u.lskNo || '',
             role: u.role || 'Advocate',
             position: u.position || 'Advocate',
@@ -610,6 +611,7 @@ export async function fetchFirmUsers(firmId: string = 'firm-001'): Promise<Syste
         if (row.id) deletedKeys.delete(row.id.toLowerCase());
         if (row.email) deletedKeys.delete(row.email.toLowerCase());
         if (row.username) deletedKeys.delete(row.username.toLowerCase());
+        if (row.full_name) deletedKeys.delete(row.full_name.toLowerCase());
 
         const existing = mergedMap.get(row.id) || Array.from(mergedMap.values()).find(u => u.workEmail?.toLowerCase() === (row.email || '').toLowerCase());
         const dbUser: SystemUser = {
@@ -618,7 +620,7 @@ export async function fetchFirmUsers(firmId: string = 'firm-001'): Promise<Syste
           firmId: row.firm_id || firmId,
           fullName: row.full_name,
           username: row.username || (row.email || '').split('@')[0],
-          advocateTitle: row.full_name.startsWith('Adv.') ? row.full_name : `Adv. ${row.full_name}`,
+          advocateTitle: (row.full_name || '').replace(/^Adv\.?\s*/i, ''),
           lskNo: row.lsk_no || '',
           role: row.role === 'admin' ? 'Admin' : row.role === 'developer' ? 'Developer' : 'Advocate',
           position: row.position || row.role,
@@ -660,7 +662,7 @@ export async function createFirmUser(firmId: string, user: Partial<SystemUser>):
     firmId,
     fullName: user.fullName || 'Advocate Staff',
     username: assignedUsername,
-    advocateTitle: user.advocateTitle || `Adv. ${user.fullName || 'Staff'}`,
+    advocateTitle: (user.advocateTitle || user.fullName || 'Staff').replace(/^Adv\.?\s*/i, ''),
     lskNo: user.lskNo || '',
     role: user.role || 'Advocate',
     position: user.position || 'Advocate',
