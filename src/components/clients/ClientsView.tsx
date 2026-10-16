@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { ExactClientRecord } from '../../services/supabase';
+import { ExactClientRecord, ExactFeeNoteRecord, getFeeNotes, fetchFeeNotesFromDatabase } from '../../services/supabase';
 import { createClient, deleteClient, fetchClients } from '../../services/data';
 import { SystemUser } from '../../services/supabase';
 import { sendEmail } from '../../services/email';
+import { getSavedEmailTemplates, renderTemplateText } from '../../services/emailTemplates';
 import { hasPermission } from '../../services/rbac';
 import {
   UserPlus,
@@ -36,13 +37,15 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   currentUser
 }) => {
   const [clientsList, setClientsList] = useState<ExactClientRecord[]>([]);
+  const [feeNotesList, setFeeNotesList] = useState<ExactFeeNoteRecord[]>(() => getFeeNotes());
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [, setPermissionTick] = useState(0);
 
-  // Client 360° Financial Dossier Drawer State
+  // Client Details Drawer State (Simple & Clean)
   const [selectedDossierClient, setSelectedDossierClient] = useState<ExactClientRecord | null>(null);
 
   // Registration Modal State
@@ -83,10 +86,23 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
       fetchClients(currentUser.firmId!)
         .then(setClientsList)
         .catch(error => setErrorMessage(error.message || 'Unable to load clients.'));
+
+    const loadFeeNotes = () => {
+      fetchFeeNotesFromDatabase(currentUser.firmId!)
+        .then((notes: ExactFeeNoteRecord[]) => {
+          if (notes && notes.length > 0) setFeeNotesList(notes);
+          else setFeeNotesList(getFeeNotes());
+        })
+        .catch(() => setFeeNotesList(getFeeNotes()));
+    };
+
     void loadClients();
+    void loadFeeNotes();
+
     const handleRealtime = (event: Event) => {
       const detail = (event as CustomEvent<{ table?: string }>).detail;
       if (detail?.table === 'clients') void loadClients();
+      if (detail?.table === 'fee_notes') void loadFeeNotes();
     };
     const handleClientsUpdated = (event: any) => {
       if (event?.detail && Array.isArray(event.detail)) {
@@ -97,13 +113,36 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
     };
     window.addEventListener('databaseRealtimeUpdate', handleRealtime);
     window.addEventListener('clientsUpdated', handleClientsUpdated);
-    window.addEventListener('storage', loadClients);
+    window.addEventListener('feeNotesUpdated', loadFeeNotes);
+    window.addEventListener('storage', () => {
+      void loadClients();
+      void loadFeeNotes();
+    });
     return () => {
       window.removeEventListener('databaseRealtimeUpdate', handleRealtime);
       window.removeEventListener('clientsUpdated', handleClientsUpdated);
-      window.removeEventListener('storage', loadClients);
+      window.removeEventListener('feeNotesUpdated', loadFeeNotes);
+      window.removeEventListener('storage', () => {});
     };
   }, [currentUser?.firmId]);
+
+  // Find fee notes for a given client
+  const getClientFeeNotes = (client: ExactClientRecord) => {
+    const clientName = client.name.toLowerCase();
+    const clientCompany = (client.company || '').toLowerCase();
+    const clientCode = (client.code || '').toLowerCase();
+
+    return feeNotesList.filter(fn => {
+      const noteClient = (fn.clientName || '').toLowerCase();
+      const noteMatter = (fn.matterTitle || '').toLowerCase();
+      const noteNumber = (fn.billNumber || '').toLowerCase();
+
+      if (noteClient && (noteClient.includes(clientName) || clientName.includes(noteClient))) return true;
+      if (clientCompany && noteClient && (noteClient.includes(clientCompany) || clientCompany.includes(noteClient))) return true;
+      if (clientCode && (noteNumber.includes(clientCode) || noteMatter.includes(clientCode))) return true;
+      return false;
+    });
+  };
 
   // Debounced search & category filtering
   const filtered = clientsList.filter(c => {
@@ -185,8 +224,28 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   const handleOpenEmail = (client: ExactClientRecord) => {
     setActiveMenuId(null);
     setEmailClient(client);
-    setEmailSubject(`Nyagah B. Kithinji & Co. Advocates - Legal Statement of Account`);
-    setEmailBody(`Dear ${client.name},\n\nPlease find attached the official legal correspondence, statement of account, and fee note records from Nyagah B. Kithinji & Co. Advocates.\n\nKindly acknowledge receipt at your earliest convenience.\n\nYours faithfully,\nNyagah B. Kithinji & Co. Advocates\nHigh Court of Kenya`);
+
+    const templates = getSavedEmailTemplates();
+    const tpl = templates.find(t => t.id === 'fee_note_dispatch');
+    const clientFeeNotes = getClientFeeNotes(client);
+    const primaryFn = clientFeeNotes[0];
+    const totalBilledVal = client.totalBilledAmount ?? 0;
+
+    if (tpl) {
+      const vars = {
+        clientName: client.name,
+        billNumber: primaryFn?.billNumber || 'BOC-2026-FEE',
+        matterTitle: primaryFn?.matterTitle || 'General Legal Representation',
+        grandTotal: `KES ${totalBilledVal.toLocaleString('en-KE', { minimumFractionDigits: 2 })}`,
+        bankDetails: `Bank: Stanbic Bank Kenya\nAccount Name: Nyagah B. Kithinji & Co. Advocates Clients A/C\nAccount Number: 0100088992211\nBranch: Upper Hill Nairobi\nSwift: SBICKENA`,
+        firmName: 'Nyagah B. Kithinji & Co. Advocates'
+      };
+      setEmailSubject(renderTemplateText(tpl.subject, vars));
+      setEmailBody(renderTemplateText(tpl.plainText, vars));
+    } else {
+      setEmailSubject(`Legal Correspondence — Nyagah B. Kithinji & Co. Advocates`);
+      setEmailBody(`Dear ${client.name},\n\nPlease find attached the official legal correspondence, fee note records, and updates from Nyagah B. Kithinji & Co. Advocates.\n\nPlease feel free to reach out if you have any questions.\n\nYours faithfully,\nNyagah B. Kithinji & Co. Advocates\nHigh Court of Kenya`);
+    }
     setShowEmailModal(true);
   };
 
@@ -194,6 +253,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
     e.preventDefault();
     if (!emailClient?.email) return;
     setIsSending(true);
+    setErrorMessage('');
     try {
       await sendEmail({
         to: [emailClient.email],
@@ -203,6 +263,9 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
       });
       setIsSending(false);
       setShowEmailModal(false);
+      setSuccessMessage(`Email successfully sent to ${emailClient.email}`);
+      window.dispatchEvent(new Event('activityLogsUpdated'));
+      setTimeout(() => setSuccessMessage(''), 5000);
     } catch (error: any) {
       setErrorMessage(error.message || 'Unable to send email.');
       setIsSending(false);
@@ -301,6 +364,13 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         </div>
       )}
 
+      {successMessage && (
+        <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-xs flex items-center justify-between">
+          <span>{successMessage}</span>
+          <button onClick={() => setSuccessMessage('')} className="cursor-pointer font-bold">&times;</button>
+        </div>
+      )}
+
       {/* EXECUTIVE FULL-WIDTH LINE / TABLE VIEW (Clean line format with consistent h-[42px] geometry) */}
       <div className="modulix-card p-0 overflow-hidden border border-[var(--border-color)] bg-white dark:bg-zinc-900 shadow-xs w-full">
         <div className="overflow-x-auto w-full">
@@ -309,11 +379,10 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
               <tr className="border-b border-[var(--border-color)] text-[11px] font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider bg-[var(--bg-subtle)] h-[42px]">
                 <th className="py-3.5 px-4 min-w-[220px]">Client / Organization</th>
                 <th className="py-3.5 px-4 min-w-[140px] font-mono">KRA PIN / Tax</th>
-                <th className="py-3.5 px-4 min-w-[150px]">Category</th>
                 <th className="py-3.5 px-4 min-w-[200px]">Direct Contact</th>
-                <th className="py-3.5 px-4 font-mono text-center min-w-[100px]">Active Causes</th>
+                <th className="py-3.5 px-4 font-mono text-center min-w-[170px]">Active Causes &amp; Fee Notes</th>
                 <th className="py-3.5 px-4 font-mono text-right min-w-[140px]">Total Billed</th>
-                <th className="py-3.5 px-4 text-right min-w-[200px]">Actions</th>
+                <th className="py-3.5 px-4 text-right min-w-[180px]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border-color)]/60 font-sans">
@@ -329,6 +398,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                 const isMenuOpen = activeMenuId === client.id;
                 const activeCauses = client.activeMattersCount ?? client.matters ?? 0;
                 const totalBilled = client.totalBilledAmount ?? 0;
+                const clientFeeNotes = getClientFeeNotes(client);
 
                 return (
                   <tr
@@ -364,20 +434,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                       )}
                     </td>
 
-                    {/* 3. Category */}
-                    <td className="py-3.5 px-4">
-                      <span className={`inline-block px-2.5 py-0.5 rounded-lg text-xs font-semibold ${
-                        client.category.includes('Corporate') || client.category.includes('Institutional')
-                          ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200/80 dark:border-blue-800'
-                          : client.category.includes('Individual')
-                          ? 'bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300 border border-[var(--border-color)]'
-                          : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800'
-                      }`}>
-                        {client.category}
-                      </span>
-                    </td>
-
-                    {/* 4. Direct Contact */}
+                    {/* 3. Direct Contact */}
                     <td className="py-3.5 px-4 text-xs font-mono">
                       <div className="text-slate-800 dark:text-zinc-200 truncate flex items-center gap-1.5 leading-snug">
                         <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -389,28 +446,52 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                       </div>
                     </td>
 
-                    {/* 5. Active Causes */}
-                    <td className="py-3.5 px-4 font-mono font-bold text-center text-slate-900 dark:text-white">
-                      {activeCauses}
+                    {/* 4. Active Causes & Clickable Fee Notes */}
+                    <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                      {clientFeeNotes.length > 0 ? (
+                        <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-[220px] mx-auto">
+                          {clientFeeNotes.map(n => (
+                            <button
+                              key={n.id}
+                              type="button"
+                              onClick={() => {
+                                if (onNavigateToBuilder) {
+                                  onNavigateToBuilder(n, true);
+                                } else if (onNavigateTab) {
+                                  onNavigateTab('feenotes');
+                                }
+                              }}
+                              className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[11px] font-mono font-bold hover:bg-blue-100 dark:hover:bg-blue-900/60 hover:scale-105 transition-all cursor-pointer shadow-2xs"
+                              title={`Open Fee Note: ${n.billNumber} (KES ${(n.grandTotal || 0).toLocaleString('en-KE', { minimumFractionDigits: 2 })})`}
+                            >
+                              {n.billNumber}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="font-mono text-slate-400 text-xs">
+                          {activeCauses > 0 ? `${activeCauses} Causes` : '—'}
+                        </span>
+                      )}
                     </td>
 
-                    {/* 6. Total Billed */}
+                    {/* 5. Total Billed */}
                     <td className="py-3.5 px-4 font-mono font-bold text-right text-emerald-600 dark:text-emerald-400">
                       KES {totalBilled.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
                     </td>
 
-                    {/* 7. Unified Actions */}
+                    {/* 6. Unified Actions */}
                     <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-2">
-                        {/* Dossier button */}
+                        {/* Details button (No "Dossier") */}
                         <button
                           type="button"
                           onClick={() => setSelectedDossierClient(client)}
                           className="px-3 py-1.5 text-xs font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
-                          title="View 360° Client Financial Dossier"
+                          title="View Client Details"
                         >
                           <Eye className="w-3.5 h-3.5" />
-                          <span>Dossier</span>
+                          <span>Details</span>
                         </button>
 
                         {/* New Bill CTA */}
@@ -446,7 +527,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                                   className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2 cursor-pointer"
                                 >
                                   <Mail className="w-3.5 h-3.5 text-blue-500" />
-                                  <span>Email Statement</span>
+                                  <span>Send Email</span>
                                 </button>
                               )}
                               {can('clients.whatsapp') && client.phonePrimary && (
@@ -488,7 +569,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         )}
       </div>
 
-      {/* CLIENT FINANCIAL DOSSIER (360° Slide-over Drawer / Modal) */}
+      {/* CLIENT DETAILS (Slide-over Drawer / Modal) */}
       {selectedDossierClient && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-[var(--bg-main)] border border-[var(--border-color)] rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden text-xs">
@@ -529,14 +610,40 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   </p>
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
-                  <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-zinc-400 block font-mono">
-                    Active Causes
-                  </span>
-                  <p className="text-base font-extrabold text-slate-900 dark:text-white font-mono mt-1">
-                    {selectedDossierClient.activeMattersCount ?? selectedDossierClient.matters ?? 0} Matters
-                  </p>
-                </div>
+                {/* Active Causes & Clickable Fee Notes */}
+                {(() => {
+                  const clientFeeNotes = getClientFeeNotes(selectedDossierClient);
+                  return (
+                    <div className="p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-zinc-400 block font-mono">
+                        Active Causes &amp; Fee Notes
+                      </span>
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {clientFeeNotes.length > 0 ? (
+                          clientFeeNotes.map(n => (
+                            <button
+                              key={n.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedDossierClient(null);
+                                if (onNavigateToBuilder) onNavigateToBuilder(n, true);
+                                else if (onNavigateTab) onNavigateTab('feenotes');
+                              }}
+                              className="px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 border border-blue-300 dark:border-blue-700 font-mono text-[11px] font-bold hover:bg-blue-200 transition-colors cursor-pointer"
+                              title={`Click to open fee note ${n.billNumber}`}
+                            >
+                              {n.billNumber} &rarr;
+                            </button>
+                          ))
+                        ) : (
+                          <p className="text-base font-extrabold text-slate-900 dark:text-white font-mono mt-0.5">
+                            {selectedDossierClient.activeMattersCount ?? selectedDossierClient.matters ?? 0} Matters
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)]">
                   <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-zinc-400 block font-mono">
@@ -552,7 +659,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
               <div className="p-4 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-color)] space-y-2">
                 <div className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5 mb-2">
                   <Building2 className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Contact & Registration Profile</span>
+                  <span>Contact &amp; Registration Profile</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div>
@@ -574,16 +681,16 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                 </div>
               </div>
 
-              {/* Action Toolbar inside Dossier */}
+              {/* Action Toolbar */}
               <div className="pt-2 flex items-center justify-between border-t border-[var(--border-color)]">
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => handleOpenEmail(selectedDossierClient)}
-                    className="px-3 py-1.5 rounded-xl border border-[var(--border-color)] hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                    className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
                   >
-                    <Mail className="w-3.5 h-3.5 text-blue-500" />
-                    <span>Send Statement</span>
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>Send Email</span>
                   </button>
                   {selectedDossierClient.phonePrimary && (
                     <button
@@ -774,7 +881,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           <div className="bg-[var(--bg-main)] border border-[var(--border-color)] rounded-2xl p-6 max-w-lg w-full space-y-4 shadow-2xl text-xs">
             <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
               <h3 className="font-brand font-bold text-sm text-[var(--text-main)]">
-                Compose Legal Statement to {emailClient.name}
+                Send Email to {emailClient.name}
               </h3>
               <button
                 type="button"
@@ -813,7 +920,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
 
               <div>
                 <label className="block text-[var(--text-main)] font-semibold mb-1">
-                  Correspondence Body
+                  Email Message
                 </label>
                 <textarea
                   required
@@ -835,9 +942,9 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                 <button
                   type="submit"
                   disabled={isSending}
-                  className="px-4 py-2 bg-slate-900 hover:bg-black dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                 >
-                  {isSending ? 'Transmitting...' : 'Send Statement'}
+                  {isSending ? 'Sending Email...' : 'Send Email'}
                 </button>
               </div>
             </form>

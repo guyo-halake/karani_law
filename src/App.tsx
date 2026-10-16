@@ -30,6 +30,8 @@ import { AccessDeniedView } from './components/common/AccessDeniedView';
 import { DocumentVerifyView } from './components/verify/DocumentVerifyView';
 import { PaymentsBillingView } from './components/payments/PaymentsBillingView';
 import { DeveloperPage } from './components/admin/DeveloperPage';
+import { MailingTemplatesView } from './components/admin/MailingTemplatesView';
+import { DatabaseStudioView } from './components/admin/DatabaseStudioView';
 
 import { SystemUser, fetchFeeNotesFromDatabase } from './services/supabase';
 import { getCurrentUserProfile, signOut, subscribeToAuthState } from './services/auth';
@@ -541,6 +543,32 @@ export const App: React.FC = () => {
           {(currentTab === 'developer_page' || currentTab === 'developer-page') && (
             <DeveloperPage />
           )}
+
+          {/* MAILINGS & COMMUNICATIONS (ADMIN/DEV ONLY) */}
+          {currentTab === 'mailings' && (
+            (currentUser?.role === 'Admin' || currentUser?.role === 'Developer' || currentUser?.hasAllPermissions) ? (
+              <MailingTemplatesView />
+            ) : (
+              <AccessDeniedView
+                resourceName="Mailings & Dispatch"
+                permissionCode="permissions.manage_roles"
+                onNavigateHome={() => handleNavigateTab('home')}
+              />
+            )
+          )}
+
+          {/* DATABASE STUDIO (COMMENTED OUT) */}
+          {/* currentTab === 'database_studio' && (
+            (currentUser?.role === 'Admin' || currentUser?.role === 'Developer' || currentUser?.hasAllPermissions) ? (
+              <DatabaseStudioView currentUser={currentUser} />
+            ) : (
+              <AccessDeniedView
+                resourceName="Database Studio"
+                permissionCode="permissions.manage_roles"
+                onNavigateHome={() => handleNavigateTab('home')}
+              />
+            )
+          ) */}
         </main>
       </div>
 

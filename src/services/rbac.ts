@@ -982,8 +982,14 @@ export function saveLocalUserRoleAssignments(map: Record<string, string>): void 
   } catch (e) {}
 }
 
+// Flag to cache if remote RBAC tables exist on Supabase
+let remoteRbacTablesAvailable = true;
+
 // Service functions to interact with Supabase database & local cache
 export async function fetchPermissionCatalog(): Promise<PermissionCatalogItem[]> {
+  if (!remoteRbacTablesAvailable) {
+    return getLocalPermissionCatalog();
+  }
   try {
     const { data, error } = await supabase
       .from('permission_catalog')
@@ -991,7 +997,14 @@ export async function fetchPermissionCatalog(): Promise<PermissionCatalogItem[]>
       .order('resource', { ascending: true })
       .order('code', { ascending: true });
 
-    if (!error && data && data.length > 0) {
+    if (error) {
+      if (error.code === 'PGRST205' || error.code === '42P01' || error.message?.includes('does not exist')) {
+        remoteRbacTablesAvailable = false;
+      }
+      return getLocalPermissionCatalog();
+    }
+
+    if (data && data.length > 0) {
       return data.map(item => ({
         code: item.code,
         resource: item.resource as SystemResource,
@@ -1003,8 +1016,8 @@ export async function fetchPermissionCatalog(): Promise<PermissionCatalogItem[]>
         targetComponent: item.target_component || ''
       }));
     }
-  } catch (err) {
-    console.warn('Using local fallback permission catalog:', err);
+  } catch (err: any) {
+    remoteRbacTablesAvailable = false;
   }
   return getLocalPermissionCatalog();
 }
@@ -1020,17 +1033,19 @@ export async function savePermissionCatalogItem(item: PermissionCatalogItem): Pr
   }
   saveLocalPermissionCatalog(updatedList);
 
-  try {
-    await supabase.from('permission_catalog').upsert({
-      code: item.code,
-      resource: item.resource,
-      action: item.action,
-      name: item.name,
-      description: item.description,
-      allowed_scopes: item.allowedScopes
-    });
-  } catch (e) {
-    console.warn('DB permission_catalog upsert non-fatal:', e);
+  if (remoteRbacTablesAvailable) {
+    try {
+      await supabase.from('permission_catalog').upsert({
+        code: item.code,
+        resource: item.resource,
+        action: item.action,
+        name: item.name,
+        description: item.description,
+        allowed_scopes: item.allowedScopes
+      });
+    } catch (e) {
+      console.warn('DB permission_catalog upsert non-fatal:', e);
+    }
   }
 
   return item;
@@ -1041,22 +1056,34 @@ export async function deletePermissionCatalogItem(code: string): Promise<boolean
   const updatedList = current.filter(p => p.code !== code);
   saveLocalPermissionCatalog(updatedList);
 
-  try {
-    await supabase.from('permission_catalog').delete().eq('code', code);
-  } catch (e) {
-    console.warn('DB permission_catalog delete non-fatal:', e);
+  if (remoteRbacTablesAvailable) {
+    try {
+      await supabase.from('permission_catalog').delete().eq('code', code);
+    } catch (e) {
+      console.warn('DB permission_catalog delete non-fatal:', e);
+    }
   }
 
   return true;
 }
 
 export async function fetchRoleTemplates(): Promise<RoleTemplate[]> {
+  if (!remoteRbacTablesAvailable) {
+    return getLocalTemplates();
+  }
   try {
     const { data, error } = await supabase
       .from('role_templates')
       .select('*, role_template_permissions(permission_code, scope)');
 
-    if (!error && data && data.length > 0) {
+    if (error) {
+      if (error.code === 'PGRST205' || error.code === '42P01' || error.message?.includes('does not exist')) {
+        remoteRbacTablesAvailable = false;
+      }
+      return getLocalTemplates();
+    }
+
+    if (data && data.length > 0) {
       return data.map(row => ({
         id: row.id,
         code: row.code as RoleTemplateCode,
@@ -1070,8 +1097,8 @@ export async function fetchRoleTemplates(): Promise<RoleTemplate[]> {
         })) || []
       }));
     }
-  } catch (err) {
-    console.warn('Using local fallback role templates:', err);
+  } catch (err: any) {
+    remoteRbacTablesAvailable = false;
   }
   return getLocalTemplates();
 }

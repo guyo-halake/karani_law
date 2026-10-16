@@ -1,4 +1,4 @@
-﻿# ?? Microsoft Azure Deployment Guide — Nyagah B. Fee Notes
+# ?? Microsoft Azure Deployment Guide — Nyagah B. Fee Notes
 
 This guide outlines how to deploy the **Nyagah B. Fee Notes / Nyagah B. Kithinji & Co. Advocates** platform to Microsoft Azure.
 
@@ -12,7 +12,7 @@ This guide outlines how to deploy the **Nyagah B. Fee Notes / Nyagah B. Kithinji
                 |                                                 |
                 |   +-----------------------------------------+   |
 HTTPS (Port 443)|   |       Azure Web App for Containers      |   |
-  ------------->|   |     (nyagahkithinji.advocates.azurewebsites.net) |
+  ------------->|   |     (nyagahkithinji-advocates.azurewebsites.net) |
                 |   |                                         |   |
                 |   |   +----------------+  Reverse Proxy     |   |
                 |   |   | Frontend Nginx | --------------+    |   |
@@ -77,7 +77,7 @@ az appservice plan create --name plan-nyagahfee --resource-group rg-nyagahfee --
 az webapp create \
   --resource-group rg-nyagahfee \
   --plan plan-nyagahfee \
-  --name nyagahkithinji.advocates \
+  --name nyagahkithinji-advocates \
   --multicontainer-config-type COMPOSE \
   --multicontainer-config-file azure/docker-compose.azure.yml
 ```

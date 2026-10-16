@@ -55,10 +55,19 @@ const mapMatter = (row: any): ExactMatterRecord => ({
   leadAdvocate: row.assigned_advocate_id || '',
 });
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export const isValidUuid = (val?: string | null): boolean => {
+  return typeof val === 'string' && UUID_REGEX.test(val);
+};
+
 export async function fetchClients(firmId: string): Promise<ExactClientRecord[]> {
   const local = getClients();
   try {
-    const { data, error } = await supabase.from('clients').select('*').eq('firm_id', firmId).order('created_at', { ascending: false });
+    let query = supabase.from('clients').select('*');
+    if (isValidUuid(firmId)) {
+      query = query.eq('firm_id', firmId);
+    }
+    const { data, error } = await query.order('created_at', { ascending: false });
     if (!error && data && data.length > 0) {
       const cloudMapped = data.map(mapClient);
       const merged = [...cloudMapped];
@@ -67,7 +76,7 @@ export async function fetchClients(firmId: string): Promise<ExactClientRecord[]>
           merged.push(lc);
         }
       });
-      persistClients(merged);
+      persistClients(merged, true);
       return merged;
     }
   } catch (e) {}
@@ -77,8 +86,7 @@ export async function fetchClients(firmId: string): Promise<ExactClientRecord[]>
 export async function createClient(firmId: string, input: Pick<ExactClientRecord, 'name' | 'company' | 'email' | 'phonePrimary' | 'phoneSecondary' | 'category'> & { kraPin?: string; address?: string }): Promise<ExactClientRecord> {
   let created: ExactClientRecord | null = null;
   try {
-    const { data, error } = await supabase.from('clients').insert({
-      firm_id: firmId,
+    const insertPayload: Record<string, any> = {
       name: input.name,
       company: input.company || null,
       client_type: input.category === 'Individual Client' ? 'individual' : 'corporate',
@@ -87,7 +95,11 @@ export async function createClient(firmId: string, input: Pick<ExactClientRecord
       phone_secondary: input.phoneSecondary || null,
       kra_pin: input.kraPin || null,
       address: input.address || null,
-    }).select('*').single();
+    };
+    if (isValidUuid(firmId)) {
+      insertPayload.firm_id = firmId;
+    }
+    const { data, error } = await supabase.from('clients').insert(insertPayload).select('*').single();
     if (!error && data) created = mapClient(data);
   } catch (e) {}
 
@@ -115,7 +127,11 @@ export async function createClient(firmId: string, input: Pick<ExactClientRecord
 
 export async function deleteClient(firmId: string, clientId: string): Promise<void> {
   try {
-    await supabase.from('clients').delete().eq('firm_id', firmId).eq('id', clientId);
+    let del = supabase.from('clients').delete();
+    if (isValidUuid(firmId)) {
+      del = del.eq('firm_id', firmId);
+    }
+    await del.eq('id', clientId);
   } catch (e) {}
   const list = getClients();
   const filtered = list.filter(c => c.id !== clientId);
@@ -125,7 +141,11 @@ export async function deleteClient(firmId: string, clientId: string): Promise<vo
 export async function fetchMatters(firmId: string): Promise<ExactMatterRecord[]> {
   const local = getMatters();
   try {
-    const { data, error } = await supabase.from('matters').select('*').eq('firm_id', firmId).order('created_at', { ascending: false });
+    let query = supabase.from('matters').select('*');
+    if (isValidUuid(firmId)) {
+      query = query.eq('firm_id', firmId);
+    }
+    const { data, error } = await query.order('created_at', { ascending: false });
     if (!error && data && data.length > 0) {
       const cloudMapped = data.map(mapMatter);
       const merged = [...cloudMapped];
@@ -134,7 +154,7 @@ export async function fetchMatters(firmId: string): Promise<ExactMatterRecord[]>
           merged.push(lm);
         }
       });
-      persistMatters(merged);
+      persistMatters(merged, true);
       return merged;
     }
   } catch (e) {}
@@ -481,13 +501,63 @@ export interface FirmMessage {
   createdAt: string;
 }
 
-export async function fetchFirmUsers(firmId: string = 'firm-001'): Promise<SystemUser[]> {
-  const stored = typeof window !== 'undefined' ? localStorage.getItem('EXACT_USERS') : null;
-  let localUsers: SystemUser[] = stored ? JSON.parse(stored) : [...SEEDED_USERS];
+export function getDeletedUserKeys(): Set<string> {
+  const deletedKeys = new Set<string>();
+  const rawDeleted = typeof window !== 'undefined' ? localStorage.getItem('DELETED_USER_KEYS') : null;
+  if (rawDeleted) {
+    try {
+      JSON.parse(rawDeleted).forEach((k: string) => {
+        if (typeof k === 'string' && k.trim()) deletedKeys.add(k.trim().toLowerCase());
+      });
+    } catch (e) {}
+  }
+  return deletedKeys;
+}
 
-  // Guarantee all base SEEDED_USERS are included
+export function isUserRecordDeleted(u: any, deletedKeys: Set<string>): boolean {
+  if (!u) return false;
+  const id = (u.id || '').trim().toLowerCase();
+  const workEmail = (u.workEmail || u.email || '').trim().toLowerCase();
+  const personalEmail = (u.personalEmail || '').trim().toLowerCase();
+  const username = (u.username || '').trim().toLowerCase();
+
+  return Boolean(
+    (id && deletedKeys.has(id)) ||
+    (workEmail && deletedKeys.has(workEmail)) ||
+    (personalEmail && deletedKeys.has(personalEmail)) ||
+    (username && deletedKeys.has(username))
+  );
+}
+
+export async function fetchFirmUsers(firmId: string = 'firm-001'): Promise<SystemUser[]> {
+  const deletedKeys = getDeletedUserKeys();
+
+  // Also sync deleted keys from backend persistent store if accessible
+  try {
+    const delRes = await fetch('/api/v1/users/deleted-keys');
+    if (delRes.ok) {
+      const delData = await delRes.json();
+      if (Array.isArray(delData?.deleted_keys)) {
+        delData.deleted_keys.forEach((k: string) => {
+          if (k) deletedKeys.add(k.trim().toLowerCase());
+        });
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('DELETED_USER_KEYS', JSON.stringify(Array.from(deletedKeys)));
+        }
+      }
+    }
+  } catch (e) {}
+
+  const stored = typeof window !== 'undefined' ? localStorage.getItem('EXACT_USERS') : null;
+  let localUsers: SystemUser[] = stored ? JSON.parse(stored) : [];
+
+  // Filter out any locally deleted users from local storage
+  localUsers = localUsers.filter(u => !isUserRecordDeleted(u, deletedKeys));
+
+  // Guarantee base SEEDED_USERS are included only if not explicitly deleted
   SEEDED_USERS.forEach(su => {
-    if (!localUsers.some(u => u.id === su.id || u.workEmail.toLowerCase() === su.workEmail.toLowerCase())) {
+    if (isUserRecordDeleted(su, deletedKeys)) return;
+    if (!localUsers.some(u => u.id.toLowerCase() === su.id.toLowerCase() || u.workEmail.toLowerCase() === su.workEmail.toLowerCase())) {
       localUsers.push(su);
     }
   });
@@ -495,13 +565,19 @@ export async function fetchFirmUsers(firmId: string = 'firm-001'): Promise<Syste
   const mergedMap = new Map<string, SystemUser>();
   localUsers.forEach(u => mergedMap.set(u.id, u));
 
-  // 1. Fetch from backend persistent engine
+  // 1. Fetch from authoritative backend persistent engine
   try {
     const res = await fetch('/api/v1/users');
     if (res.ok) {
       const data = await res.json();
       if (data && Array.isArray(data.users)) {
         data.users.forEach((u: any) => {
+          // If the database returns this user, clean up any stale deleted keys for them
+          if (u.id) deletedKeys.delete(u.id.toLowerCase());
+          if (u.workEmail) deletedKeys.delete(u.workEmail.toLowerCase());
+          if (u.personalEmail) deletedKeys.delete(u.personalEmail.toLowerCase());
+          if (u.username) deletedKeys.delete(u.username.toLowerCase());
+
           const mapped: SystemUser = {
             id: u.id,
             fullName: u.fullName,
@@ -510,10 +586,12 @@ export async function fetchFirmUsers(firmId: string = 'firm-001'): Promise<Syste
             lskNo: u.lskNo || '',
             role: u.role || 'Advocate',
             position: u.position || 'Advocate',
+            department: u.department || '',
             workEmail: u.workEmail,
             personalEmail: u.personalEmail || u.workEmail,
             phonePrimary: u.phonePrimary || '',
             phoneSecondary: u.phoneSecondary || '',
+            avatarUrl: u.avatarUrl || undefined,
             hasAllPermissions: u.hasAllPermissions || u.role === 'Admin' || u.role === 'Developer',
             passwordHash: u.passwordHash || 'Nyagah@2026',
             firmId: u.firmId || firmId
@@ -529,6 +607,10 @@ export async function fetchFirmUsers(firmId: string = 'firm-001'): Promise<Syste
     const { data, error } = await supabase.from('users').select('*').order('full_name');
     if (!error && data && data.length > 0) {
       data.forEach((row: any) => {
+        if (row.id) deletedKeys.delete(row.id.toLowerCase());
+        if (row.email) deletedKeys.delete(row.email.toLowerCase());
+        if (row.username) deletedKeys.delete(row.username.toLowerCase());
+
         const existing = mergedMap.get(row.id) || Array.from(mergedMap.values()).find(u => u.workEmail?.toLowerCase() === (row.email || '').toLowerCase());
         const dbUser: SystemUser = {
           id: row.id,
@@ -553,6 +635,14 @@ export async function fetchFirmUsers(firmId: string = 'firm-001'): Promise<Syste
     }
   } catch (e) {}
 
+  // Synchronize cleaned-up deletedKeys back to storage
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('DELETED_USER_KEYS', JSON.stringify(Array.from(deletedKeys)));
+    } catch (e) {}
+  }
+
+  // Return all active persistent users
   const result = Array.from(mergedMap.values());
   try {
     localStorage.setItem('EXACT_USERS', JSON.stringify(result));
@@ -582,7 +672,15 @@ export async function createFirmUser(firmId: string, user: Partial<SystemUser>):
     passwordHash: assignedPassword,
   };
 
-  // Immediate local cache update
+  // Immediate local cache update and deletion unblock
+  try {
+    const deletedKeys = getDeletedUserKeys();
+    [newUser.id, newUser.workEmail, newUser.personalEmail, newUser.username].forEach(k => {
+      if (k) deletedKeys.delete(k.trim().toLowerCase());
+    });
+    localStorage.setItem('DELETED_USER_KEYS', JSON.stringify(Array.from(deletedKeys)));
+  } catch (e) {}
+
   saveUserProfile(newUser);
 
   // 1. Persist to backend API
@@ -620,8 +718,8 @@ export async function createFirmUser(firmId: string, user: Partial<SystemUser>):
 
   // 2. Also attempt Supabase insert
   try {
-    const record = {
-      firm_id: firmId,
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(firmId);
+    const record: Record<string, any> = {
       full_name: newUser.fullName,
       email: newUser.workEmail,
       phone_primary: newUser.phonePrimary,
@@ -631,6 +729,9 @@ export async function createFirmUser(firmId: string, user: Partial<SystemUser>):
       lsk_no: newUser.lskNo,
       is_active: true,
     };
+    if (isUuid) {
+      record.firm_id = firmId;
+    }
     await supabase.from('users').insert([record]);
   } catch (e) {}
 
@@ -643,48 +744,114 @@ export async function createFirmUser(firmId: string, user: Partial<SystemUser>):
 }
 
 export async function updateFirmUser(firmId: string, user: SystemUser): Promise<SystemUser> {
+  // 1. Persist directly to backend database
   try {
-    await fetch('/api/v1/users', {
+    const res = await fetch('/api/v1/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(user)
     });
+    if (!res.ok) {
+      console.warn('Backend returned non-200 on user update:', res.status);
+    }
+  } catch (e) {
+    console.warn('Backend update failed:', e);
+  }
+
+  // 2. Persist to Supabase if the table row exists or matches UUID
+  try {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.id);
+    if (isUuid) {
+      await supabase.from('users').upsert({
+        id: user.id,
+        full_name: user.fullName,
+        email: user.workEmail,
+        position: user.position,
+        role: user.role.toLowerCase(),
+        lsk_no: user.lskNo,
+      }, { onConflict: 'id' });
+    }
   } catch (e) {}
 
-  try {
-    await supabase.from('users').update({
-      full_name: user.fullName,
-      email: user.workEmail,
-      phone_primary: user.phonePrimary,
-      phone_secondary: user.phoneSecondary,
-      position: user.position,
-      role: user.role.toLowerCase(),
-      lsk_no: user.lskNo,
-    }).eq('id', user.id);
-  } catch (e) {}
+  // 3. Save to local storage and broadcast updates across all components
   saveUserProfile(user);
+  window.dispatchEvent(new CustomEvent('databaseRealtimeUpdate', { detail: { table: 'users', user } }));
+  window.dispatchEvent(new CustomEvent('userProfileUpdated', { detail: user }));
   return user;
 }
 
-export async function deleteFirmUser(firmId: string, userId: string): Promise<void> {
-  // 1. Delete from backend persistent store
+export async function deleteFirmUser(
+  firmId: string,
+  userIdOrUser: string | SystemUser,
+  userEmail?: string,
+  userObj?: SystemUser
+): Promise<void> {
+  const keysToPurge = new Set<string>();
+
+  const processObject = (u?: Partial<SystemUser>) => {
+    if (!u) return;
+    if (u.id) keysToPurge.add(u.id.trim().toLowerCase());
+    if (u.workEmail) keysToPurge.add(u.workEmail.trim().toLowerCase());
+    if (u.personalEmail) keysToPurge.add(u.personalEmail.trim().toLowerCase());
+    if (u.username) keysToPurge.add(u.username.trim().toLowerCase());
+    if (u.fullName) keysToPurge.add(u.fullName.trim().toLowerCase());
+  };
+
+  if (typeof userIdOrUser === 'string') {
+    if (userIdOrUser.trim()) keysToPurge.add(userIdOrUser.trim().toLowerCase());
+  } else if (userIdOrUser) {
+    processObject(userIdOrUser);
+  }
+  if (userEmail && userEmail.trim()) keysToPurge.add(userEmail.trim().toLowerCase());
+  if (userObj) processObject(userObj);
+
+  // 1. Record deleted keys in localStorage
   try {
-    await fetch(`/api/v1/users/${encodeURIComponent(userId)}`, {
-      method: 'DELETE'
+    const deletedKeys = getDeletedUserKeys();
+    keysToPurge.forEach(k => deletedKeys.add(k));
+    localStorage.setItem('DELETED_USER_KEYS', JSON.stringify(Array.from(deletedKeys)));
+  } catch (e) {}
+
+  // 2. Dispatch purge to backend persistent API
+  try {
+    await fetch('/api/v1/users/purge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: typeof userIdOrUser === 'string' ? userIdOrUser : userIdOrUser?.id,
+        email: userEmail || (typeof userIdOrUser !== 'string' ? userIdOrUser?.workEmail : undefined),
+        personalEmail: userObj?.personalEmail || (typeof userIdOrUser !== 'string' ? userIdOrUser?.personalEmail : undefined),
+        username: userObj?.username || (typeof userIdOrUser !== 'string' ? userIdOrUser?.username : undefined),
+        fullName: userObj?.fullName || (typeof userIdOrUser !== 'string' ? userIdOrUser?.fullName : undefined),
+        keys: Array.from(keysToPurge)
+      })
     });
   } catch (e) {}
 
-  // 2. Delete from Supabase
+  // 3. Direct DELETE on backend
+  for (const k of Array.from(keysToPurge)) {
+    try {
+      await fetch(`/api/v1/users/${encodeURIComponent(k)}`, { method: 'DELETE' });
+    } catch (e) {}
+  }
+
+  // 4. Delete from Supabase
   try {
-    await supabase.from('users').delete().eq('id', userId);
+    for (const k of Array.from(keysToPurge)) {
+      await supabase.from('users').delete().eq('id', k);
+      if (k.includes('@')) {
+        await supabase.from('users').delete().ilike('email', k);
+      }
+    }
   } catch (e) {}
 
-  // 3. Delete from localStorage
+  // 5. Update localStorage EXACT_USERS immediately
   try {
+    const deletedKeys = getDeletedUserKeys();
     const stored = localStorage.getItem('EXACT_USERS');
     if (stored) {
       const list: SystemUser[] = JSON.parse(stored);
-      const updated = list.filter(u => u.id !== userId);
+      const updated = list.filter(u => !isUserRecordDeleted(u, deletedKeys));
       localStorage.setItem('EXACT_USERS', JSON.stringify(updated));
     }
   } catch (e) {}
@@ -692,6 +859,27 @@ export async function deleteFirmUser(firmId: string, userId: string): Promise<vo
   try {
     window.dispatchEvent(new CustomEvent('databaseRealtimeUpdate', { detail: { table: 'users' } }));
   } catch (e) {}
+}
+
+export async function purgeStaleTestUsers(firmId: string = 'firm-001'): Promise<number> {
+  const stalePatterns = ['guyoh@gmailcom', 'razakwako45', '@gmailcom', 'guyoh gmailcom', 'razakwako45 gmail om'];
+  let count = 0;
+  try {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('EXACT_USERS') : null;
+    if (stored) {
+      const list: SystemUser[] = JSON.parse(stored);
+      for (const u of list) {
+        const mail = (u.workEmail || '').toLowerCase();
+        const pmail = (u.personalEmail || '').toLowerCase();
+        const name = (u.fullName || '').toLowerCase();
+        if (stalePatterns.some(p => mail.includes(p) || pmail.includes(p) || name.includes(p))) {
+          await deleteFirmUser(firmId, u.id, u.workEmail, u);
+          count++;
+        }
+      }
+    }
+  } catch (e) {}
+  return count;
 }
 
 export async function fetchMessages(firmId: string, userId: string, recipientId: string): Promise<FirmMessage[]> {

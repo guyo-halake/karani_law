@@ -52,6 +52,7 @@ import {
 } from '../../services/supabase';
 import { fetchClients } from '../../services/data';
 import { sendEmail } from '../../services/email';
+import { getSavedEmailTemplates, renderTemplateText } from '../../services/emailTemplates';
 import { SystemUser } from '../../services/supabase';
 import { hasPermission } from '../../services/rbac';
 
@@ -237,11 +238,26 @@ Yours faithfully,
 ${EXACT_FIRM_INFO.name}
 P.105/1992 | Advocates of the High Court of Kenya`;
 
+    const templates = getSavedEmailTemplates();
+    const feeTpl = templates.find(t => t.id === 'fee_note_dispatch');
+    const vars: Record<string, string> = {
+      clientName: dispatchNote.clientName,
+      billNumber: dispatchNote.billNumber,
+      matterTitle: dispatchNote.matterTitle,
+      grandTotal: `KES ${dispatchNote.grandTotal.toLocaleString('en-KE', { minimumFractionDigits: 2 })}`,
+      bankDetails: EXACT_FIRM_INFO.bankDetails,
+      firmName: EXACT_FIRM_INFO.name,
+    };
+    const finalSubject = feeTpl ? renderTemplateText(feeTpl.subject, vars) : emailSubject;
+    const finalBody = feeTpl ? renderTemplateText(feeTpl.plainText, vars) : emailBody;
+    const finalHtml = feeTpl ? renderTemplateText(feeTpl.htmlContent, vars) : undefined;
+
     try {
       await sendEmail({
         to: [dispatchEmail.trim()],
-        subject: emailSubject,
-        body: emailBody,
+        subject: finalSubject,
+        body: finalBody,
+        htmlBody: finalHtml,
         category: 'firm_to_client'
       });
       setIsSendingEmail(false);

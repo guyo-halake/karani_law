@@ -22,7 +22,9 @@ import {
   Calculator,
   Pin,
   Trash2,
-  Check
+  Check,
+  Mail,
+  Database
 } from 'lucide-react';
 
 import { SystemUser, getFeeNotes, getMatters, getClients } from '../../services/supabase';
@@ -318,6 +320,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   ];
 
+  // Dedicated Admin & Developer Suite Navigation (Visible strictly to Admin and Developer)
+  const adminDevNavItems = [
+    {
+      id: 'mailings',
+      label: 'Mailings & Dispatch',
+      icon: Mail,
+      iconColor: 'text-amber-500'
+    },
+    {
+      id: 'database_studio',
+      label: 'Database Studio',
+      icon: Database,
+      iconColor: 'text-blue-500'
+    }
+  ];
+
   // Available candidate items for the Pin Picker Modal
   const availableMatters = getMatters();
   const availableFeeNotes = getFeeNotes();
@@ -588,6 +606,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
               );
             })}
           </div>
+
+          {/* Admin & Developer Suite (COMMENTED OUT) */}
+          {/* (currentUser?.role === 'Admin' || currentUser?.role === 'Developer' || currentUser?.hasAllPermissions) && (
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 space-y-1">
+              <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Admin & Dev Suite
+              </div>
+              ...
+            </div>
+          ) */}
         </div>
 
         {/* Minimalist Professional Footer */}

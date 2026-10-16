@@ -9,7 +9,7 @@ import {
 import { 
   ExactFeeNoteRecord, fetchFeeNotesFromDatabase, updateFeeNoteStatus, SystemUser, saveUserProfile
 } from '../../services/supabase';
-import { fetchClients, fetchFirmUsers, fetchMatters, PermissionItem, fetchPermissionItems, createFirmUser, updateFirmUser, deleteFirmUser } from '../../services/data';
+import { fetchClients, fetchFirmUsers, fetchMatters, PermissionItem, fetchPermissionItems, createFirmUser, updateFirmUser, deleteFirmUser, getDeletedUserKeys, isUserRecordDeleted } from '../../services/data';
 import { getActivityLogs, logSystemActivity } from '../../services/activityLogger';
 import { showToast } from './ToastNotification';
 import { sendEmail } from '../../services/email';
@@ -56,6 +56,7 @@ export const ManagingPartnerHubView: React.FC<ManagingPartnerHubViewProps> = ({
 
   // Modals for Actions
   const [managingUser, setManagingUser] = useState<SystemUser | null>(null);
+  const [isSavingUser, setIsSavingUser] = useState(false);
   const [messagingUser, setMessagingUser] = useState<SystemUser | null>(null);
   const [messageText, setMessageText] = useState('');
   const [roleDropdownUser, setRoleDropdownUser] = useState<string | null>(null);
@@ -121,7 +122,7 @@ export const ManagingPartnerHubView: React.FC<ManagingPartnerHubViewProps> = ({
   // Personalized Greeting
   const currentHour = new Date().getHours();
   const greetingTime = currentHour < 12 ? 'Good morning' : currentHour < 17 ? 'Good afternoon' : 'Good evening';
-  const advocateName = currentUser?.advocateTitle || currentUser?.fullName || 'Adv. Guyoh Alake';
+  const advocateName = currentUser?.advocateTitle || currentUser?.fullName || 'Adv. Guyo Halake';
 
   // 1. Realtime Revenue & Billings Calculations
   const totalBilled = feeNotes.reduce((sum, fn) => sum + (fn.grandTotal || 0), 0);
@@ -213,20 +214,43 @@ export const ManagingPartnerHubView: React.FC<ManagingPartnerHubViewProps> = ({
   // Action: Save Managed User Profile
   const handleSaveManagedUser = async () => {
     if (!managingUser) return;
+    setIsSavingUser(true);
     const firmId = currentUser?.firmId || 'firm-001';
     try {
-      await updateFirmUser(firmId, managingUser);
-      setUsers(prev => prev.map(u => u.id === managingUser.id ? managingUser : u));
+      const mappedRoleCode = userRoleMap[managingUser.id];
+      let effectiveRole = managingUser.role;
+      if (mappedRoleCode === 'managing_partner_exec') effectiveRole = 'Admin';
+      else if (mappedRoleCode === 'developer_sys_admin') effectiveRole = 'Developer';
+      else if (mappedRoleCode) effectiveRole = 'Advocate';
+
+      const userToSave: SystemUser = {
+        ...managingUser,
+        role: effectiveRole,
+        fullName: managingUser.fullName.trim(),
+        workEmail: managingUser.workEmail.trim(),
+        personalEmail: (managingUser.personalEmail || managingUser.workEmail).trim(),
+        advocateTitle: (managingUser.advocateTitle || managingUser.fullName).trim(),
+        lskNo: (managingUser.lskNo || '').trim(),
+        position: (managingUser.position || '').trim(),
+        department: (managingUser.department || '').trim(),
+        phonePrimary: (managingUser.phonePrimary || '').trim(),
+        phoneSecondary: (managingUser.phoneSecondary || '').trim(),
+      };
+
+      await updateFirmUser(firmId, userToSave);
+      setUsers(prev => prev.map(u => u.id === userToSave.id ? userToSave : u));
       setManagingUser(null);
-      showToast('success', 'User Profile Saved', `Updated details for ${managingUser.fullName}.`);
+      showToast('success', 'User Profile Saved', `Updated details for ${userToSave.fullName}.`);
       logSystemActivity(
         currentUser?.fullName || 'Managing Partner',
-        `updated full profile and credentials for ${managingUser.fullName}`,
+        `updated profile details for ${userToSave.fullName}`,
         'permission',
         'bg-blue-500'
       );
     } catch (e: any) {
       showToast('error', 'Save Failed', e.message || 'Unable to update user details.');
+    } finally {
+      setIsSavingUser(false);
     }
   };
 
@@ -398,13 +422,15 @@ export const ManagingPartnerHubView: React.FC<ManagingPartnerHubViewProps> = ({
 
   // Delete User from Firm Database in Real Time
   const handleDeleteUser = async (user: SystemUser) => {
-    if (!window.confirm(`Are you sure you want to permanently delete user "${user.fullName}" from the firm database? This action cannot be undone.`)) {
+    if (user.id === currentUser?.id) {
+      showToast('error', 'Action Restricted', 'You cannot delete your own account.');
       return;
     }
     const firmId = currentUser?.firmId || 'firm-001';
     try {
-      await deleteFirmUser(firmId, user.id);
-      setUsers(prev => prev.filter(u => u.id !== user.id));
+      await deleteFirmUser(firmId, user, user.workEmail, user);
+      const deletedKeys = getDeletedUserKeys();
+      setUsers(prev => prev.filter(u => !isUserRecordDeleted(u, deletedKeys)));
       showToast('success', 'User Deleted', `${user.fullName} has been removed from firm database.`);
       logSystemActivity(
         currentUser?.fullName || 'Managing Partner',
@@ -1253,37 +1279,45 @@ export const ManagingPartnerHubView: React.FC<ManagingPartnerHubViewProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL 2: FULL-PAGE ADVOCATE PROFILE & PERSONNEL DOSSIER COMMAND CENTER */}
+      {/* USER PROFILE MODAL */}
       {/* ========================================================================= */}
       {managingUser && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 z-50 animate-fadeIn">
-          <div className="modulix-card w-full max-w-4xl bg-white dark:bg-zinc-900 rounded-3xl border border-[var(--border-color)] shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+          <div className="modulix-card w-full max-w-3xl bg-white dark:bg-zinc-900 rounded-3xl border border-[var(--border-color)] shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
             
-            {/* Dossier Header Bar */}
+            {/* Profile Header */}
             <div className="p-6 border-b border-[var(--border-color)] bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-zinc-900 dark:via-zinc-900/90 dark:to-zinc-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               
-              {/* Hero Identity */}
+              {/* User Identity */}
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-700 dark:from-zinc-800 dark:to-zinc-900 text-white border-2 border-white/20 dark:border-zinc-700 flex items-center justify-center font-brand font-bold text-xl shadow-md shrink-0">
-                  {managingUser.fullName.split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-                </div>
+                {managingUser.avatarUrl ? (
+                  <img
+                    src={managingUser.avatarUrl}
+                    alt={managingUser.fullName}
+                    className="w-14 h-14 rounded-2xl object-cover border-2 border-white/20 dark:border-zinc-700 shadow-md shrink-0"
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-700 dark:from-zinc-800 dark:to-zinc-900 text-white border-2 border-white/20 dark:border-zinc-700 flex items-center justify-center font-brand font-bold text-xl shadow-md shrink-0">
+                    {managingUser.fullName.split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                  </div>
+                )}
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2.5 flex-wrap">
                     <h2 className="font-brand font-bold text-lg text-slate-900 dark:text-white">
                       {managingUser.advocateTitle || managingUser.fullName}
                     </h2>
                     <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 font-bold">
-                      Active Account
+                      Active
                     </span>
                   </div>
-                  <div className="text-xs text-slate-500 font-mono flex items-center gap-2 flex-wrap">
-                    <span>ID: {managingUser.id}</span>
+                  <div className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-slate-400">ID: {managingUser.id}</span>
                     <span className="text-slate-300">•</span>
                     <span>{managingUser.position || managingUser.role}</span>
                     {managingUser.lskNo && (
                       <>
                         <span className="text-slate-300">•</span>
-                        <span className="text-purple-600 dark:text-purple-400 font-bold">LSK: {managingUser.lskNo}</span>
+                        <span className="text-purple-600 dark:text-purple-400 font-semibold font-mono">LSK: {managingUser.lskNo}</span>
                       </>
                     )}
                   </div>
@@ -1298,10 +1332,10 @@ export const ManagingPartnerHubView: React.FC<ManagingPartnerHubViewProps> = ({
                     setManagingUser(null);
                     onNavigateTab('managing_permissions', targetId);
                   }}
-                  className="px-3.5 py-2 text-xs font-bold rounded-xl bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Permissions Studio</span>
+                  <span>Permissions</span>
                 </button>
 
                 <button
@@ -1320,260 +1354,266 @@ export const ManagingPartnerHubView: React.FC<ManagingPartnerHubViewProps> = ({
                 <button
                   onClick={() => setManagingUser(null)}
                   className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                  title="Close"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            {/* Dossier Body (Scrollable Multi-Section CV) */}
+            {/* Profile Form Body */}
             <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1">
               
-              {/* Section 1: Professional & Legal Identity */}
+              {/* Section 1: Professional Details */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2 pb-2 border-b border-[var(--border-color)]">
                   <Briefcase className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   <h4 className="font-brand font-bold text-sm text-slate-900 dark:text-white">
-                    1. Professional & Legal Identity
+                    1. Professional Details
                   </h4>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                   <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Full Legal Name:
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                      Full Name
                     </label>
                     <input
                       type="text"
                       value={managingUser.fullName}
                       onChange={e => setManagingUser({ ...managingUser, fullName: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-bold text-xs text-slate-900 dark:text-white focus:outline-none"
+                      placeholder="e.g. Guyo Halake"
+                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-semibold text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Advocate Honorific Title:
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                      Title
                     </label>
                     <input
                       type="text"
                       value={managingUser.advocateTitle || ''}
                       onChange={e => setManagingUser({ ...managingUser, advocateTitle: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none"
+                      placeholder="e.g. Adv. Guyo Halake"
+                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      LSK Roll / Admission No:
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                      LSK Admission No.
                     </label>
                     <input
                       type="text"
                       value={managingUser.lskNo || ''}
                       onChange={e => setManagingUser({ ...managingUser, lskNo: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-mono text-xs text-slate-900 dark:text-white focus:outline-none"
+                      placeholder="e.g. ADMIN/2026/001"
+                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                   <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Firm Position / Practice Title:
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                      Position / Job Title
                     </label>
                     <input
                       type="text"
                       value={managingUser.position || ''}
                       onChange={e => setManagingUser({ ...managingUser, position: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none"
+                      placeholder="e.g. Senior Managing Partner"
+                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Department / Practice Group:
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                      Department
                     </label>
                     <input
                       type="text"
-                      value={managingUser.department || 'Commercial & Civil Litigation'}
+                      value={managingUser.department || ''}
                       onChange={e => setManagingUser({ ...managingUser, department: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none"
+                      placeholder="e.g. Commercial & Civil Litigation"
+                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Section 2: Contact Coordinates */}
+              {/* Section 2: Contact Information */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2 pb-2 border-b border-[var(--border-color)]">
                   <Mail className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <h4 className="font-brand font-bold text-sm text-slate-900 dark:text-white">
-                    2. Contact Coordinates & Work Profile
+                    2. Contact Information
                   </h4>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                   <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Work Company Email:
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                      Work Email
                     </label>
                     <input
                       type="email"
                       value={managingUser.workEmail}
                       onChange={e => setManagingUser({ ...managingUser, workEmail: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-mono text-xs text-slate-900 dark:text-white focus:outline-none"
+                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Personal Direct Email:
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                      Personal Email
                     </label>
                     <input
                       type="email"
                       value={managingUser.personalEmail || ''}
                       onChange={e => setManagingUser({ ...managingUser, personalEmail: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-mono text-xs text-slate-900 dark:text-white focus:outline-none"
+                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                   <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Primary Phone Number:
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                      Primary Phone
                     </label>
                     <input
                       type="text"
                       value={managingUser.phonePrimary || ''}
                       onChange={e => setManagingUser({ ...managingUser, phonePrimary: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-mono text-xs text-slate-900 dark:text-white focus:outline-none"
+                      placeholder="e.g. +254 700 888 999"
+                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Secondary Contact / Mobile:
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                      Mobile Phone
                     </label>
                     <input
                       type="text"
                       value={managingUser.phoneSecondary || ''}
                       onChange={e => setManagingUser({ ...managingUser, phoneSecondary: e.target.value })}
-                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-mono text-xs text-slate-900 dark:text-white focus:outline-none"
+                      placeholder="e.g. +254 722 000 888"
+                      className="w-full p-2.5 rounded-xl border border-[var(--border-color)] bg-slate-50 dark:bg-zinc-800 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Section 3: Role Template & Authorization Matrix */}
+              {/* Section 3: Role & Permissions */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-[var(--border-color)]">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                     <h4 className="font-brand font-bold text-sm text-slate-900 dark:text-white">
-                      3. Role Template & Access Authorization
+                      3. Role & Permissions
                     </h4>
                   </div>
-                  <span className="text-[10px] font-mono text-slate-400">
-                    Active RBAC Engine
-                  </span>
+                  <button
+                    onClick={() => {
+                      const targetId = managingUser.id;
+                      setManagingUser(null);
+                      onNavigateTab('managing_permissions', targetId);
+                    }}
+                    className="text-xs text-purple-600 dark:text-purple-400 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Manage Permissions</span>
+                  </button>
                 </div>
 
                 <div className="p-4 bg-[var(--bg-subtle)] border border-[var(--border-color)] rounded-2xl space-y-3">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <label className="block text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1">
-                        Assigned Role Template:
+                    <div className="flex-1">
+                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                        Assigned Role
                       </label>
                       <select
                         value={userRoleMap[managingUser.id] || (managingUser.role === 'Admin' ? 'managing_partner_exec' : managingUser.role === 'Developer' ? 'developer_sys_admin' : 'senior_advocates_lawyers')}
-                        onChange={e => handleChangeUserRole(managingUser.id, e.target.value)}
-                        className="px-3 py-1.5 rounded-xl border border-[var(--border-color)] bg-white dark:bg-zinc-900 font-bold text-xs text-slate-900 dark:text-white focus:outline-none cursor-pointer"
+                        onChange={e => {
+                          handleChangeUserRole(managingUser.id, e.target.value);
+                          const newRole = e.target.value === 'managing_partner_exec' ? 'Admin' : e.target.value === 'developer_sys_admin' ? 'Developer' : 'Advocate';
+                          setManagingUser({ ...managingUser, role: newRole });
+                        }}
+                        className="w-full sm:w-auto min-w-[260px] px-3.5 py-2 rounded-xl border border-[var(--border-color)] bg-white dark:bg-zinc-900 font-semibold text-xs text-slate-900 dark:text-white focus:outline-none cursor-pointer"
                       >
                         {roleTemplates.map(t => (
                           <option key={t.code} value={t.code}>
-                            {t.name} ({t.permissions.length} perms)
+                            {t.name} ({t.permissions.length} permissions)
                           </option>
                         ))}
                       </select>
                     </div>
 
-                    <div className="text-right">
-                      <div className="text-xs font-bold text-slate-900 dark:text-white">
-                        {roleTemplates.find(t => t.code === (userRoleMap[managingUser.id] || 'senior_advocates_lawyers'))?.permissions.length || 26} Statutory Capabilities
-                      </div>
-                      <div className="text-[11px] text-slate-500 font-mono">
-                        Enterprise Role Policy Applied
+                    <div className="text-left sm:text-right">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/40 text-purple-700 dark:text-purple-300 font-semibold text-xs">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                        <span>{roleTemplates.find(t => t.code === (userRoleMap[managingUser.id] || 'senior_advocates_lawyers'))?.permissions.length || 26} Permissions Active</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Capabilities Tags - All Permissions */}
-                  <div className="space-y-1.5 pt-2">
-                    <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider block font-bold">
-                      All Granted Permissions ({roleTemplates.find(t => t.code === (userRoleMap[managingUser.id] || 'senior_advocates_lawyers'))?.permissions.length || 0}):
-                    </span>
-                    <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1">
-                      {roleTemplates.find(t => t.code === (userRoleMap[managingUser.id] || 'senior_advocates_lawyers'))?.permissions.map(p => (
-                        <span key={p.code} className="px-2 py-0.5 rounded-lg bg-white dark:bg-zinc-900 border border-[var(--border-color)] text-[10px] font-mono text-slate-800 dark:text-zinc-200 flex items-center gap-1 shadow-2xs">
-                          <span className="text-emerald-500 font-bold">✓</span>
-                          <span>{p.code}</span>
-                          <span className="text-[8.5px] px-1 rounded bg-slate-100 dark:bg-zinc-800 text-slate-500 font-sans">{p.scope}</span>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed pt-1">
+                    {roleTemplates.find(t => t.code === (userRoleMap[managingUser.id] || 'senior_advocates_lawyers'))?.description || 'Standard legal practice permissions.'}
+                  </p>
                 </div>
               </div>
 
-              {/* Section 4: Recent Activities & Audit Trail */}
+              {/* Section 4: Account Details */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2 pb-2 border-b border-[var(--border-color)]">
-                  <Activity className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <Activity className="w-4 h-4 text-slate-600 dark:text-zinc-400" />
                   <h4 className="font-brand font-bold text-sm text-slate-900 dark:text-white">
-                    4. Operational Activities & Audit Trail
+                    4. Account Details
                   </h4>
                 </div>
 
-                <div className="space-y-2">
-                  {activityList.slice(0, 3).map(act => (
-                    <div key={act.id} className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-[var(--border-color)] flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2.5">
-                        <div className={`w-2 h-2 rounded-full ${act.badgeColor}`} />
-                        <div>
-                          <span className="font-semibold text-slate-900 dark:text-white">{managingUser.fullName}</span>
-                          <span className="text-slate-500 mx-1.5">&middot;</span>
-                          <span className="text-slate-600 dark:text-zinc-300">{act.action}</span>
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-mono text-slate-400 shrink-0">{act.time}</span>
-                    </div>
-                  ))}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]">
+                    <span className="text-[10px] text-slate-400 uppercase font-mono block">Account ID</span>
+                    <span className="font-mono font-semibold text-slate-800 dark:text-zinc-200 truncate block mt-0.5">{managingUser.id}</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]">
+                    <span className="text-[10px] text-slate-400 uppercase font-mono block">Status</span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> Active
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]">
+                    <span className="text-[10px] text-slate-400 uppercase font-mono block">Access Tier</span>
+                    <span className="font-semibold text-slate-800 dark:text-zinc-200 block mt-0.5">{managingUser.role}</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-[var(--border-color)]">
+                    <span className="text-[10px] text-slate-400 uppercase font-mono block">Firm Organization</span>
+                    <span className="font-mono font-semibold text-slate-800 dark:text-zinc-200 block mt-0.5">{managingUser.firmId || 'firm-001'}</span>
+                  </div>
                 </div>
               </div>
 
             </div>
 
-            {/* Dossier Footer Bar */}
+            {/* Profile Footer Bar */}
             <div className="p-5 border-t border-[var(--border-color)] bg-[var(--bg-subtle)] flex items-center justify-between gap-4">
-              <div className="text-[11px] text-slate-500 font-mono hidden sm:block">
-                All changes synchronize to the database in real-time.
-              </div>
-              <div className="flex items-center gap-2.5 ml-auto">
-                <button
-                  onClick={() => setManagingUser(null)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-                >
-                  Close Dossier
-                </button>
-                <button
-                  onClick={handleSaveManagedUser}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer shadow-xs transition-colors"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>Save Profile Changes</span>
-                </button>
-              </div>
+              <button
+                onClick={() => setManagingUser(null)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={isSavingUser}
+                onClick={handleSaveManagedUser}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer shadow-xs transition-colors"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>{isSavingUser ? 'Saving...' : 'Save Changes'}</span>
+              </button>
             </div>
 
           </div>

@@ -8,8 +8,9 @@ import {
   Clock, Shield, Eye, AlertTriangle, ChevronDown, RefreshCw, Briefcase, FileText, Database,
   Layers, Check, Sparkles, Folder, HelpCircle, ArrowRight, Plus, Trash2, Edit3, Copy, X,
   Sliders, Calendar, UserCheck, ShieldAlert, CheckSquare, Square, Info, AlertOctagon, Terminal,
-  User, MessageSquare, Home, BookOpen
+  User, MessageSquare, Home, BookOpen, Mail
 } from 'lucide-react';
+import { MailingTemplatesView } from './MailingTemplatesView';
 import {
   RoleTemplate,
   fetchRoleTemplates,
@@ -88,8 +89,8 @@ interface AdvocatePermissionsViewProps {
 }
 
 export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = ({ currentUser, initialUserId }) => {
-  // Navigation Tabs: 'templates' | 'staff' | 'catalog'
-  const [activeTab, setActiveTab] = useState<'templates' | 'staff' | 'catalog'>(initialUserId ? 'staff' : 'templates');
+  // Navigation Tabs: 'staff' | 'templates' | 'mailings' | 'catalog'
+  const [activeTab, setActiveTab] = useState<'staff' | 'templates' | 'mailings' | 'catalog'>(initialUserId ? 'staff' : 'staff');
 
   // Core Data State
   const [permissionCatalog, setPermissionCatalog] = useState<PermissionCatalogItem[]>([]);
@@ -392,11 +393,12 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
       {/* Minimalist Modern Navigation Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[var(--border-color)]/60">
 
-        {/* Switchable Tabs */}
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-zinc-800/70 rounded-xl w-fit">
+        {/* Switchable Tabs: Permissions, Role Templates, Mailing Templates */}
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-zinc-800/70 rounded-xl w-fit flex-wrap">
           {[
-            { id: 'templates' as const, label: 'Role Templates Studio', icon: Layers, count: roleTemplates.length },
-            { id: 'staff' as const, label: 'Staff Permissions & Overrides', icon: Users, count: firmUsers.length },
+            { id: 'staff' as const, label: 'Permissions', icon: ShieldCheck, count: firmUsers.length },
+            { id: 'templates' as const, label: 'Role Templates', icon: Layers, count: roleTemplates.length },
+            { id: 'mailings' as const, label: 'Mailing Templates', icon: Mail, count: 6 },
             { id: 'catalog' as const, label: 'System Catalog', icon: Key, count: permissionCatalog.length },
           ].map(tab => {
             const Icon = tab.icon;
@@ -481,17 +483,19 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
             </div>
           )}
 
-          {/* Search Bar */}
-          <div className="relative shrink-0">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search permissions, codes..."
-              className="pl-8 pr-3 py-1.5 text-xs font-mono w-48 sm:w-56 bg-white dark:bg-zinc-900 border border-[var(--border-color)] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 shadow-xs"
-            />
-          </div>
+          {/* Search Bar (Hidden when editing Mailing Templates) */}
+          {activeTab !== 'mailings' && (
+            <div className="relative shrink-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search permissions, codes..."
+                className="pl-8 pr-3 py-1.5 text-xs font-mono w-48 sm:w-56 bg-white dark:bg-zinc-900 border border-[var(--border-color)] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 shadow-xs"
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -1091,6 +1095,13 @@ export const AdvocatePermissionsView: React.FC<AdvocatePermissionsViewProps> = (
             </div>
           </div>
         </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 4: MAILING TEMPLATES STUDIO */}
+      {/* ========================================================================= */}
+      {activeTab === 'mailings' && (
+        <MailingTemplatesView showSmtpBanner={false} />
       )}
 
       {/* MODAL: EDIT PERMISSION */}

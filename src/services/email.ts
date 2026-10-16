@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getSavedEmailTemplates, renderTemplateText } from './emailTemplates';
 
 export type EmailCategory = 'firm_to_client' | 'lawyer_to_client' | 'internal' | 'developer_admin';
 
@@ -12,6 +13,7 @@ export async function sendEmail(input: {
   to: string[];
   subject: string;
   body: string;
+  htmlBody?: string;
   category: EmailCategory;
   replyTo?: string;
   attachments?: EmailAttachmentInput[];
@@ -35,6 +37,7 @@ export async function sendEmail(input: {
       headers,
       body: JSON.stringify({
         ...input,
+        html_body: input.htmlBody,
         reply_to: input.replyTo,
         attachments: input.attachments?.map(a => ({
           filename: a.filename,
@@ -45,42 +48,30 @@ export async function sendEmail(input: {
     });
 
 
-    if (response.ok) {
-      const result = await response.json().catch(() => ({}));
-      return result;
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      const detail = err.detail || err.message || `SMTP Error (${response.status}): Email delivery failed`;
+      throw new Error(detail);
     }
-  } catch (fetchError) {
-    console.warn('Backend email route notice:', fetchError);
+
+    const result = await response.json().catch(() => ({ sent: true }));
+    return result;
+  } catch (fetchError: any) {
+    console.warn('Backend email route error:', fetchError);
+    throw fetchError;
   }
-
-  // Fallback / Outbox Logger
-  try {
-    const stored = localStorage.getItem('OUTGOING_EMAILS');
-    const list = stored ? JSON.parse(stored) : [];
-    list.unshift({
-      id: `mail-${Date.now()}`,
-      to: input.to,
-      subject: input.subject,
-      body: input.body,
-      category: input.category,
-      replyTo: input.replyTo,
-      timestamp: new Date().toISOString(),
-      status: 'delivered',
-    });
-    localStorage.setItem('OUTGOING_EMAILS', JSON.stringify(list.slice(0, 50)));
-  } catch (e) { }
-
-  return { sent: true, recipients: input.to.length, category: input.category, mode: 'local' };
 }
 
 export async function sendWelcomeUserEmail(payload: {
   email: string;
+  personalEmail?: string;
   username: string;
   fullName?: string;
   roleName?: string;
   allowSelfPassword: boolean;
   temporaryPassword?: string;
   portalUrl?: string;
+  broadcastDevs?: boolean;
 }) {
   let accessToken: string | null = null;
   try {
@@ -95,17 +86,47 @@ export async function sendWelcomeUserEmail(payload: {
     headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
+  // Load custom template if user edited it
+  const allTemplates = getSavedEmailTemplates();
+  const welcomeTpl = allTemplates.find(t => t.id === 'welcome_user');
+  let customSubject: string | undefined;
+  let customHtml: string | undefined;
+  let customText: string | undefined;
+
+  if (welcomeTpl) {
+    const vars: Record<string, string> = {
+      fullName: payload.fullName || payload.username,
+      username: payload.username.replace(/^@/, ''),
+      email: payload.email,
+      toEmail: payload.email,
+      workEmail: payload.email,
+      roleName: payload.roleName || 'Advocate',
+      roleTitle: payload.roleName || 'Advocate',
+      portalUrl: payload.portalUrl || window.location.origin,
+      temporaryPassword: payload.temporaryPassword || 'Nyagah@2026',
+      password: payload.temporaryPassword || 'Nyagah@2026'
+    };
+    customSubject = renderTemplateText(welcomeTpl.subject, vars);
+    customHtml = renderTemplateText(welcomeTpl.htmlContent, vars);
+    customText = renderTemplateText(welcomeTpl.plainText, vars);
+  }
+
   const response = await fetch('/api/v1/email/welcome-user', {
     method: 'POST',
     headers,
     body: JSON.stringify({
       email: payload.email,
+      personal_email: payload.personalEmail,
       username: payload.username,
       full_name: payload.fullName,
       role_name: payload.roleName,
       allow_self_password: payload.allowSelfPassword,
       temporary_password: payload.temporaryPassword,
       portal_url: payload.portalUrl || window.location.origin,
+      broadcast_devs: payload.broadcastDevs ?? true,
+      custom_subject: customSubject,
+      custom_html: customHtml,
+      custom_text: customText,
     }),
   });
 
